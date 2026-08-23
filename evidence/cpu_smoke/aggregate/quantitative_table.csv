@@ -1,0 +1,11 @@
+policy,candidate_budget,success_at_n,any_success_at_n,candidate_success_rate,mode_discovery_rate,successful_modes_per_sample,both_modes_discovered,localization_mae,localization_median,localization_within_one
+B0_best_of_n,32,0.0,0.0,0.0,0.0,0.0,0.0,,,
+B1_uniform_split,32,0.625,0.625,0.0859375,0.5,0.03125,0.375,,,
+B2_random_split,32,0.375,0.375,0.03125,0.25,0.015625,0.125,,,
+proposed_bottleneck_local,32,1.0,1.0,0.39453125,1.0,0.0625,1.0,0.0,0.0,1.0
+A_no_detection,32,0.375,0.375,0.15625,0.375,0.0234375,0.375,0.625,1.0,1.0
+A_wrong_early,32,0.0,0.0,0.0,0.0,0.0,0.0,2.0,2.0,0.0
+A_wrong_late,32,0.0,0.0,0.0,0.0,0.0,0.0,2.0,2.0,0.0
+A_correct_random_operator,32,1.0,1.0,0.46875,1.0,0.0625,1.0,0.0,0.0,1.0
+A_full_resampling,32,1.0,1.0,0.484375,1.0,0.0625,1.0,0.0,0.0,1.0
+A_more_samples,64,0.0,0.0,0.0,0.0,0.0,0.0,,,

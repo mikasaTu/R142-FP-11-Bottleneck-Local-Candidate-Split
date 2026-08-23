@@ -1,0 +1,30 @@
+{
+  "benchmark": {
+    "name": "ForkPush2D-v1",
+    "horizon": 12,
+    "candidate_budget": 32,
+    "more_samples_budget": 64,
+    "scout_count": 8,
+    "bottleneck_steps": [4, 5, 6],
+    "mode_threshold": 0.62,
+    "split_strength": 1.0,
+    "uniform_split_steps": [2, 5, 8],
+    "diversity_credits": 3
+  },
+  "experiment": {
+    "calibration_seeds": 40,
+    "evaluation_seeds": 400,
+    "bootstrap_replicates": 10000,
+    "block_size": 40,
+    "base_seed": 14211
+  },
+  "gate": {
+    "minimum_success_gain": 0.05,
+    "minimum_winning_blocks": 7,
+    "total_blocks": 10,
+    "maximum_mode_discovery_drop": 0.02,
+    "maximum_localization_median_error": 1.0,
+    "minimum_localization_within_one": 0.80,
+    "minimum_valid_collapse_fraction": 0.80
+  }
+}

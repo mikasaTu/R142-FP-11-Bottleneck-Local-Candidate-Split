@@ -1,0 +1,41 @@
+{
+  "accepted": false,
+  "benchmark_valid": true,
+  "collapse_valid_fraction": 1.0,
+  "comparison_passes": {
+    "B1_uniform_split": false,
+    "B2_random_split": false
+  },
+  "comparisons": {
+    "B1_uniform_split": {
+      "ci95_high": 0.75,
+      "ci95_low": 0.125,
+      "mean_difference": 0.375,
+      "total_blocks": 1,
+      "winning_blocks": 1
+    },
+    "B2_random_split": {
+      "ci95_high": 0.875,
+      "ci95_low": 0.25,
+      "mean_difference": 0.625,
+      "total_blocks": 1,
+      "winning_blocks": 1
+    }
+  },
+  "decision": "IDEA_FAILED_DO_NOT_ENTER_VLA",
+  "evidence_boundary": "synthetic 2D mechanism validation only; no VLA or learned-policy claim",
+  "localization_pass": true,
+  "stable_gain": false,
+  "thresholds": {
+    "base_seed": 14211,
+    "block_size": 40,
+    "bootstrap_replicates": 10000,
+    "evaluation_seeds": 8,
+    "maximum_localization_median_error": 1.0,
+    "maximum_mode_discovery_drop": 0.02,
+    "minimum_localization_within_one": 0.8,
+    "minimum_success_gain": 0.05,
+    "minimum_valid_collapse_fraction": 0.8,
+    "minimum_winning_blocks": 7
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "files": {
+    "configs/stage1.json": "46823022ea33820f0dc35f260b48015a8461f40e7beb8e6703de889c6a966335",
+    "scripts/pai_entry.py": "601588f2e3915a0342130653920a5b1ae2b5605429eee9f077ad907fb9dbb8c4",
+    "scripts/render_artifacts.py": "187666c63b478633976e2d1640517063059ba6c0fdbd4e83122b6a74973cb0ec",
+    "scripts/run_experiment.py": "8c38f9d7cdee8c0eedc52b976f5d461a874337c963d927399f377b3d880f2f24",
+    "scripts/verify_runtime_manifest.py": "4f14ff9318205ccc510490b6af8dc2b36c36a0ed0a3b76df359ca41e2109a022",
+    "src/r142_bottleneck/__init__.py": "4093d7c7fdf2182e344bd65d66cb6269794855961425617147bd15010d252ca1",
+    "src/r142_bottleneck/benchmark.py": "f8c1eed4f5391b6aea9176e3492a0990d2c4cf93d62a63e37ebbb73b2c058185",
+    "src/r142_bottleneck/detector.py": "58afd7afbfedaffb0a830286474b92de48ce688a2c7d573bcc06be14ff408956",
+    "src/r142_bottleneck/experiment.py": "8bf95b461b1bdb67e37de50a11f4e1cd00231fc219f4d55068aa41c052307561",
+    "src/r142_bottleneck/genealogy.py": "8783e60485a5731d97ecc09839581945f56955aadb8d1f3ed8505f6c1f859c5d",
+    "src/r142_bottleneck/methods.py": "7fb049af84b3c608137dfb96377559ac5c0b88bfcb082d75b0df0d575bc9f86d",
+    "src/r142_bottleneck/metrics.py": "f222e5af045a3c89ff6d5967243e5ce5b8ae23ba05eb867e9fb6e84ac10587af",
+    "src/r142_bottleneck/visualize.py": "85fbb8c1009138d2f8e869baf38acc0f7311cbd71eb113a6393ec2ccb9b5deeb"
+  },
+  "schema_version": 1
+}
