@@ -1,0 +1,94 @@
+{
+  "schema_version": 2,
+  "kind": "pytorchjob",
+  "name_prefix": "r142-fp11-stage2a-continuation",
+  "description": "Representative eventual-success continuation subset for the frozen Stage-2A natural PushT descendant genealogy",
+  "resource_alias": "exp-efficiency-a800-2gpu",
+  "workspace_id": "179169",
+  "provenance": {
+    "contract_source_job_id": "dlcfp1szuc2cgqfp",
+    "resource_source_job_id": "dlc1j2p8ui63ulps",
+    "submission_method": "cli_create",
+    "pai_clone_performed": false,
+    "source_role": "readback_reference"
+  },
+  "network": {},
+  "storage": {
+    "data_sources": [
+      {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+      {"id": "d-lg9t2b6xajpukeqqeb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon", "options": ""},
+      {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+      {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+      {"id": "d-7fi8hehav247qi6x5o", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/", "options": ""}
+    ],
+    "output_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage2a"
+  },
+  "worker": {
+    "count": 1,
+    "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+    "gpu": 2,
+    "cpu": 12,
+    "memory": "200Gi",
+    "shared_memory": "200Gi"
+  },
+  "runtime": {
+    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split/pai/run_stage2a_eventual_continuation_efficiency_2gpu.sh",
+    "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
+    "uid": 2254,
+    "gid": 2254,
+    "pod_env": {},
+    "secret_env_names": [],
+    "write_paths": ["{{ARTIFACT_DIR}}"],
+    "output_mode": "new",
+    "create_artifact_dir": false,
+    "recursive_repair": false,
+    "payload_transport": "base64"
+  },
+  "fault_tolerance": {
+    "aimaster_args": "",
+    "maximum_platform_restarts": 0,
+    "expected_platform_restarts": 0,
+    "launcher_attempts": 1,
+    "retry_sleep_seconds": 30,
+    "pai_automatic_fault_tolerance": false
+  },
+  "evidence": {
+    "kind": "r142_fp11_stage2a_eventual_continuation_formal_evaluation",
+    "efficiency_2gpu_contract": "generic_formal_efficiency_2gpu_v1",
+    "resource_contract": "dedicated_2gpu_v1",
+    "workload_type": "evaluation",
+    "task_id": "r142-fp11-stage2a-eventual-continuation-20260823",
+    "model_id": "lerobot-diffusion-pusht-84a7c231",
+    "success_gate": "persisted_completed_evaluation_result",
+    "validation_method": "static+dev14_smoke",
+    "validation_status": "passed",
+    "validated_payload_sha256": "fbcadf08dd6d5df604bf0e85103e41b81f046d5da1475f0b67331cf99ef086a3",
+    "pai_probe_created": false,
+    "first_work_evidence_path": "{{ARTIFACT_DIR}}/FIRST_WORK.json",
+    "completed_evidence_path": "{{ARTIFACT_DIR}}/COMPLETED_EVALUATION_RESULT.json",
+    "contract_ready": true,
+    "require_dedicated_efficiency": true,
+    "input_job_id": "dlcm4saves6zi30f",
+    "subset_rule": "two_lexicographically_first_selected_ids_per_stratum_fixed_roots_0_7_checkpoints_0_53_99_suffix_0_heldout",
+    "expected_case_count": 36,
+    "expected_first_work_uid": 2254,
+    "expected_first_work_gid": 2254
+  },
+  "submission": {
+    "priority": 9,
+    "disable_ecs_stock_check": false,
+    "job_reserved_policy": "",
+    "job_reserved_minutes": 0,
+    "job_max_running_time_minutes": 0,
+    "tags": {
+      "managed_by": "pai-job-registry",
+      "purpose": "formal-evaluation",
+      "task": "r142-fp11-stage2a-eventual-continuation-20260823",
+      "model": "lerobot-diffusion-pusht-84a7c231",
+      "dataset": "standard-pusht-stage2a-natural-descendants",
+      "hardware": "2xa800-dedicated",
+      "resource_pool": "exp-efficiency",
+      "experiment_role": "stage2a-representative-eventual-continuation"
+    }
+  }
+}
