@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-CONTROL_PROTOCOL_ID = "r142-stage-r-controls-v6"
+CONTROL_PROTOCOL_ID = "r142-stage-r-controls-v7"
 
 
 @dataclass(frozen=True)

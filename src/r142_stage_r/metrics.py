@@ -81,7 +81,9 @@ def hierarchical_modes(features: np.ndarray, threshold: float, max_modes: int = 
     best = (float("-inf"), 0, np.zeros(len(features), dtype=np.int64))
     for modes in range(2, min(int(max_modes), len(features) - 1) + 1):
         labels = fcluster(tree, modes, criterion="maxclust")
-        if len(set(labels.tolist())) != modes or min(np.bincount(labels)[1:]) < 2:
+        unique_labels = np.unique(labels)
+        cluster_sizes = [int(np.sum(labels == label)) for label in unique_labels]
+        if len(unique_labels) != modes or min(cluster_sizes) < 2:
             continue
         score = silhouette(standardized, labels)
         if score > best[0]:
