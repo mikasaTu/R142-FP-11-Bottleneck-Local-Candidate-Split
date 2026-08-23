@@ -76,7 +76,7 @@
     "success_gate": "persisted_completed_evaluation_result",
     "validation_method": "static+dev14_smoke",
     "validation_status": "passed",
-    "validated_payload_sha256": "13aa98ab9aa2802f596e69968506ace446ba6622166df448b09e7107fd37c068",
+    "validated_payload_sha256": "3aaa45a315bab31c438a679d2eac6b099a04770644fcd9e55017be2c2a2f9918",
     "pai_probe_created": false,
     "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11/{{RUN_ID}}/results/FIRST_WORK.json",
     "completed_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11/{{RUN_ID}}/results/COMPLETED_EVALUATION.json",

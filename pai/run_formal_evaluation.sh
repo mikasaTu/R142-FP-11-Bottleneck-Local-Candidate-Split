@@ -5,10 +5,10 @@ NEW_ROOT=/mnt/cpfs/zbl-cpfs-new
 USER_ROOT=$NEW_ROOT/USERS/leon
 PROJECT_DIR=$USER_ROOT/code/R142-FP-11-Bottleneck-Local-Candidate-Split
 PYTHON_BIN=$USER_ROOT/envs/openpi_py311/bin/python
-RUN_ID=${RUN_ID:?RUN_ID is required}
+RUN_ID=${PAI_CANARY_RUN_ID:?PAI_CANARY_RUN_ID is required}
 OUTPUT_ROOT=$USER_ROOT/logs/r142_fp11/$RUN_ID
 CACHE_DIR=$USER_ROOT/cache/r142_fp11/$RUN_ID
-ARTIFACT_DIR=${ARTIFACT_DIR:?ARTIFACT_DIR is required}
+ARTIFACT_DIR=${PAI_CANARY_RUN_DIR:?PAI_CANARY_RUN_DIR is required}
 
 [[ "$(id -u):$(id -g)" == "2254:2254" ]] || {
   echo "[r142] expected 2254:2254, got $(id -u):$(id -g)" >&2
