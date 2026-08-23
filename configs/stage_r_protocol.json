@@ -1,0 +1,38 @@
+{
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "policy": {
+    "name": "pi05_libero",
+    "openpi_git": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+    "integration_git": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
+    "checkpoint_tree_sha256": "42d571bd87f05f1182810f5a8bfa6d084c0d0dd277aff739bcf8f69868e6fb99",
+    "action_horizon": 10,
+    "replan_steps": 5,
+    "denoise_steps": 10
+  },
+  "simulator": {
+    "libero_git": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
+    "mujoco": "3.6.0",
+    "robosuite": "1.4.1",
+    "task_metadata_sha256": "36ec2bb54444491059e749e6f1234b03aaf5e020aba0269dad06d3afe9b17772"
+  },
+  "suites": {
+    "libero_spatial": {"task_ids": [0,1,2,3,4,5,6,7,8,9], "max_steps": 220},
+    "libero_object": {"task_ids": [0,1,2,3,4,5,6,7,8,9], "max_steps": 280},
+    "libero_goal": {"task_ids": [0,1,2,3,4,5,6,7,8,9], "max_steps": 300},
+    "libero_10": {"task_ids": [0,1,2,3,4,5,6,7,8,9], "max_steps": 520}
+  },
+  "initial_states_per_task": 16,
+  "rollouts_per_initial_state": 32,
+  "stabilization_steps": 10,
+  "permutation_shuffles": 1000,
+  "bootstrap_replicates": 10000,
+  "retention": {
+    "rho_min": 3.0,
+    "low_p_fraction_min": 0.25,
+    "median_t_div_episode_fraction_min": 0.10,
+    "stable_modes_min": 2,
+    "success_rate_min": 0.25,
+    "success_rate_max": 0.75,
+    "max_retained_tasks": 3
+  }
+}
