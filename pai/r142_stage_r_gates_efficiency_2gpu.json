@@ -3,11 +3,11 @@
   "kind": "pytorchjob",
   "name_prefix": "r142-fp11-stage-r-gates",
   "description": "Stage-R E1-E6 real pi0.5-LIBERO trajectory-axis engineering gates",
-  "resource_alias": "exp-efficiency-a800-2gpu",
+  "resource_alias": "exp-efficiency-fastwam-8gpu",
   "workspace_id": "179169",
   "provenance": {
-    "contract_source_job_id": "dlcfp1szuc2cgqfp",
-    "resource_source_job_id": "dlc1j2p8ui63ulps",
+    "contract_source_job_id": "dlc2a4d1m0ha2onk",
+    "resource_source_job_id": "dlc2a4d1m0ha2onk",
     "submission_method": "cli_create",
     "pai_clone_performed": false,
     "source_role": "readback_reference"
@@ -26,10 +26,10 @@
   "worker": {
     "count": 1,
     "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
-    "gpu": 2,
-    "cpu": 12,
-    "memory": "200Gi",
-    "shared_memory": "200Gi"
+    "gpu": 8,
+    "cpu": 92,
+    "memory": "1600Gi",
+    "shared_memory": "1600Gi"
   },
   "runtime": {
     "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split/pai/run_stage_r_gates_efficiency_2gpu.sh",
@@ -54,7 +54,7 @@
   },
   "evidence": {
     "kind": "r142_fp11_stage_r_engineering_gates",
-    "resource_contract": "dedicated_2gpu_v1",
+    "resource_contract": "dedicated_8gpu_v1",
     "workload_type": "evaluation",
     "task_id": "r142-fp11-stage-r-gates-20260824",
     "model_id": "openpi-pi05-libero",
@@ -84,7 +84,7 @@
       "task": "r142-fp11-stage-r-gates-20260824",
       "model": "openpi-pi05-libero",
       "dataset": "libero90-task64-frozen-64-rollouts",
-      "hardware": "2xa800-dedicated",
+      "hardware": "8xa800-dedicated",
       "resource_pool": "exp-efficiency",
       "experiment_role": "stage-r-engineering-gates"
     }

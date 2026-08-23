@@ -19,7 +19,7 @@ RUN_ID=${PAI_CANARY_RUN_ID:?PAI_CANARY_RUN_ID is required}
 trap 'code=$?; printf "STAGE_R_GATES_COMMAND_FAILED line=%s exit_code=%s command=%q\n" "${BASH_LINENO[0]:-unknown}" "$code" "$BASH_COMMAND" >&2; exit "$code"' ERR
 
 test "$(id -u):$(id -g)" = 2254:2254
-test "${PAI_CANARY_EXPECTED_GPUS:-}" = 2
+test "${PAI_CANARY_EXPECTED_GPUS:-}" = 8
 test -x "$PYTHON"
 test "$(git -C "$REPO" rev-parse "$SOURCE_COMMIT^{commit}")" = "$SOURCE_COMMIT"
 test "$(git -C "$QPILOTS" rev-parse HEAD)" = "$QPILOTS_COMMIT"
