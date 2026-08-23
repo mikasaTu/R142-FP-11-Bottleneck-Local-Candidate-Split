@@ -1,0 +1,107 @@
+{
+  "schema_version": 2,
+  "kind": "pytorchjob",
+  "name_prefix": "r142-fp11-stage2a-dp-pusht-eval",
+  "description": "Formal Stage-2A falsification of generation-local branchability in the official learned LeRobot DiffusionPolicy on unmodified PushT",
+  "resource_alias": "exp-efficiency-a800-2gpu",
+  "workspace_id": "179169",
+  "provenance": {
+    "contract_source_job_id": "dlcfp1szuc2cgqfp",
+    "resource_source_job_id": "dlc1j2p8ui63ulps",
+    "submission_method": "cli_create",
+    "pai_clone_performed": false,
+    "source_role": "readback_reference"
+  },
+  "network": {},
+  "storage": {
+    "data_sources": [
+      {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+      {"id": "d-lg9t2b6xajpukeqqeb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon", "options": ""},
+      {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+      {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+      {"id": "d-7fi8hehav247qi6x5o", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/", "options": ""}
+    ],
+    "output_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage2a"
+  },
+  "worker": {
+    "count": 1,
+    "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+    "gpu": 2,
+    "cpu": 12,
+    "memory": "200Gi",
+    "shared_memory": "200Gi"
+  },
+  "runtime": {
+    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split/pai/run_stage2a_efficiency_2gpu.sh",
+    "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
+    "uid": 2254,
+    "gid": 2254,
+    "pod_env": {},
+    "secret_env_names": [],
+    "write_paths": ["{{ARTIFACT_DIR}}"],
+    "output_mode": "new",
+    "create_artifact_dir": false,
+    "recursive_repair": false,
+    "payload_transport": "base64"
+  },
+  "fault_tolerance": {
+    "aimaster_args": "",
+    "maximum_platform_restarts": 0,
+    "expected_platform_restarts": 0,
+    "launcher_attempts": 1,
+    "retry_sleep_seconds": 30,
+    "pai_automatic_fault_tolerance": false
+  },
+  "evidence": {
+    "kind": "r142_fp11_stage2a_learned_diffusion_branchability_formal_evaluation",
+    "efficiency_2gpu_contract": "generic_formal_efficiency_2gpu_v1",
+    "resource_contract": "dedicated_2gpu_v1",
+    "workload_type": "evaluation",
+    "task_id": "r142-fp11-stage2a-pusht-branchability-20260823",
+    "model_id": "lerobot-diffusion-pusht-84a7c231",
+    "success_gate": "persisted_completed_evaluation_result",
+    "validation_method": "static+dev14_smoke",
+    "validation_status": "passed",
+    "validated_payload_sha256": "597b139a70445e453953be10b9d71daafc29c6ae41009b19a2efea3168924f54",
+    "pai_probe_created": false,
+    "first_work_evidence_path": "{{ARTIFACT_DIR}}/FIRST_WORK.json",
+    "completed_evidence_path": "{{ARTIFACT_DIR}}/COMPLETED_EVALUATION_RESULT.json",
+    "contract_ready": true,
+    "require_dedicated_efficiency": true,
+    "mount_contract": "exact_five_new_root_sources_from_live_readback",
+    "lerobot_commit": "3c0a209f9fac4d2a57617e686a7f2a2309144ba2",
+    "checkpoint_revision": "84a7c23178445c6bbf7e1a884ff497017910f653",
+    "checkpoint_sha256": "995d14d35db57d95c35ad9704c3d79c8612b7bc45f3877e5c46c2cdc516856a8",
+    "python": "3.10.20",
+    "torch": "2.6.0+cu124",
+    "torchvision": "0.21.0+cu124",
+    "diffusers": "0.32.2",
+    "gym_pusht": "0.1.5",
+    "pymunk": "6.11.0",
+    "baseline_episode_count": 50,
+    "snapshot_count_range": [15, 30],
+    "root_generations": 8,
+    "suffix_generations": 8,
+    "checkpoint_count": 16,
+    "fixed_sample_nfe_budget": 7200,
+    "expected_first_work_uid": 2254,
+    "expected_first_work_gid": 2254
+  },
+  "submission": {
+    "priority": 9,
+    "disable_ecs_stock_check": false,
+    "job_reserved_policy": "",
+    "job_reserved_minutes": 0,
+    "job_max_running_time_minutes": 0,
+    "tags": {
+      "managed_by": "pai-job-registry",
+      "purpose": "formal-evaluation",
+      "task": "r142-fp11-stage2a-pusht-branchability-20260823",
+      "model": "lerobot-diffusion-pusht-84a7c231",
+      "dataset": "standard-pusht-natural-rollouts-seeds-0-49",
+      "hardware": "2xa800-dedicated",
+      "resource_pool": "exp-efficiency",
+      "experiment_role": "stage2a-independent-falsification"
+    }
+  }
+}
