@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-CONTROL_PROTOCOL_ID = "r142-stage-r-controls-v2"
+CONTROL_PROTOCOL_ID = "r142-stage-r-controls-v3"
 
 
 @dataclass(frozen=True)
@@ -52,7 +52,7 @@ class GeometricControl2D:
                 bias = 0.055 * (int(initial_state) - 7.5)
                 if lane_choice == 0 and x >= -0.30:
                     lane_choice = 1 if bias + rng.normal(0.0, 0.28) >= 0.0 else -1
-                lateral = fork_gain * (1.05 * lane_choice - 0.30 * y) if lane_choice else 0.0
+                lateral = fork_gain * 2.0 * (0.48 * lane_choice - y) if lane_choice else 0.0
                 action = np.asarray([0.68, lateral], dtype=np.float64)
             else:
                 action = np.asarray([0.68, -0.55 * y + rng.normal(0.0, 0.035)], dtype=np.float64)
