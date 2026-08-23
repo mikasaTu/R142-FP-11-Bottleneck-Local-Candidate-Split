@@ -1,0 +1,2375 @@
+{
+  "schema_version": 1,
+  "target_fault_tolerance_policy": {
+    "source_contract_semantics": "readback_provenance_only_never_inherited",
+    "dedicated_exp_efficiency_and_exp_robot": {
+      "resource_ids": [
+        "quotakzri8a5wqcp",
+        "quota1ssrabud0bh"
+      ],
+      "aimaster_enabled": false,
+      "maximum_platform_restarts": 0,
+      "launcher_attempts": 1,
+      "pai_automatic_fault_tolerance": false
+    },
+    "formal_idle_a800": {
+      "resource_id": "quotaewyznuc7b9l",
+      "aimaster_enabled": true,
+      "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure",
+      "maximum_platform_restarts": 50,
+      "launcher_attempts": 1,
+      "pai_automatic_fault_tolerance": true
+    },
+    "qualification_canary_exception": {
+      "evidence_kind": "autofault_owner_canary",
+      "maximum_platform_restarts": 1
+    }
+  },
+  "resources": {
+    "exp-efficiency": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota",
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "same_day_ui_task_readback",
+      "verified_at": "2026-07-29T16:55:48+08:00",
+      "evidence": "PAI task-list readback in workspace 179169; submit must still be followed by GetJob."
+    },
+    "exp-efficiency-fastwam-8gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota",
+      "contract_source_job_id": "dlc2a4d1m0ha2onk",
+      "source_job_id": "dlc2a4d1m0ha2onk",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "live_cli_getjob_succeeded_exact_fastwam_contract",
+      "verified_at": "2026-08-10T21:08:00+08:00",
+      "evidence": "Pinned live GetJob on successful FastWAM TrashCan job dlc2a4d1m0ha2onk: workspace 179169, quotakzri8a5wqcp/ForbiddenQuotaOverSold, disabled AIMaster, 1 worker, 8 GPU, 92 CPU, 1600Gi memory/shared-memory, pinned image, empty network/driver, and exactly five Leon new-root data sources. Submit must repeat live GetJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-a800-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "combined_canonical_new_root_contract_and_live_succeeded_two_card_resource_carrier",
+      "verified_at": "2026-08-05T06:24:00+08:00",
+      "evidence": "Live GetJob on canonical contract source dlcfp1szuc2cgqfp supplies the pinned image, five Leon new-root mounts, empty network/driver, and 1x8 contract carrier. Live GetJob on succeeded exp-efficiency job dlc1j2p8ui63ulps supplies the exact dedicated 1x2 worker preset (2 GPU, 12 CPU, 200Gi memory/shared-memory), ForbiddenQuotaOverSold resource, and disabled AIMaster. The target must use the exact 1x2 preset and repeat both live readbacks before CreateJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-r22p21-selector-v2-2x1gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier_reshaped_as_two_single_gpu_workers",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "target_worker_contract": {
+        "count": 2,
+        "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+        "gpu": 1,
+        "cpu": 6,
+        "memory": "100Gi",
+        "shared_memory": "100Gi"
+      },
+      "required_pod_env": {
+        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r22p21_selector_v2_two_single_gpu_workers_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-15T00:00:00Z",
+      "evidence": "The exact 2xA800 quota, image, mounts, placement and fault policy are live readback facts from dlcfp1szuc2cgqfp and dlc1j2p8ui63ulps. The target preserves the same total GPU, CPU, memory and shared-memory budget while reshaping one 2-GPU worker into two isolated 1-GPU workers so each LIBERO renderer has a local EGL0. This alias is restricted to the hash-locked R22-P21 ACT evaluation.",
+      "authorized_data_sources": [
+        {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+        {"id": "d-lg9t2b6xajpukeqqeb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon", "options": ""},
+        {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+        {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+        {"id": "d-7fi8hehav247qi6x5o", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/", "options": ""}
+      ]
+    },
+    "exp-efficiency-r22p21-selector-v2-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "required_pod_env": {
+        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r22p21_selector_v2_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-14T00:00:00Z",
+      "evidence": "Exact dedicated 2xA800 worker and placement are live readback facts from dlcfp1szuc2cgqfp and dlc1j2p8ui63ulps. This alias is restricted to the hash-locked R22-P21 selector-v2 full Tiny validation, disables AIMaster/platform restart, and sets graphics capability before the pod for EGL LIBERO replay.",
+      "authorized_data_sources": [
+        {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+        {"id": "d-lg9t2b6xajpukeqqeb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon", "options": ""},
+        {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+        {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+        {"id": "d-7fi8hehav247qi6x5o", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/", "options": ""}
+      ]
+    },
+    "exp-robot-r22p21-v3-2gpu": {
+      "display_name": "exp-robot",
+      "resource_id": "quota1ssrabud0bh",
+      "resource_source": "resource_quota_split_live_carriers",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1k4y4965q71yw",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92,
+          "gpu": 8,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92,
+          "gpu": 8,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        }
+      },
+      "target_worker_contract": {
+        "count": 1,
+        "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+        "cpu": 12,
+        "gpu": 2,
+        "memory": "200Gi",
+        "shared_memory": "200Gi"
+      },
+      "required_pod_env": {
+        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r22p21_v3_over_live_split_contract_and_exp_robot_carriers",
+      "verified_at": "2026-08-17T19:34:00Z",
+      "evidence": "Live GetJob on dlcfp1szuc2cgqfp supplies the exact five-mount contract and pinned image; live GetJob on succeeded dlc1k4y4965q71yw independently supplies quota1ssrabud0bh, ForbiddenQuotaOverSold, disabled AIMaster, and the exp-robot carrier. A live read-only ListJobs audit at 2026-08-17T19:31Z found zero queued exp-robot jobs while exp-efficiency had three queued jobs, including the R22-P21 v3 run after two hours without a start time. The original exact JobId dlcbylhqisik7ejj was stopped while still queued with no persisted work. This alias is restricted to the hash-locked R22-P21 v3 sequence and requests exactly 2 A800 GPUs while each scientific process exposes one GPU.",
+      "authorized_data_sources": [
+        {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+        {"id": "d-lg9t2b6xajpukeqqeb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon", "options": ""},
+        {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+        {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+        {"id": "d-7fi8hehav247qi6x5o", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/", "options": ""}
+      ]
+    },
+    "exp-efficiency-r13p05-stage3a-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r13p05_stage3a_kinetix_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-16T00:00:00+00:00",
+      "evidence": "Exact dedicated 2xA800 worker and resource placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card source dlc1j2p8ui63ulps. This alias is restricted by the controller to the frozen R13-P05 Stage 3A CACOR official Kinetix evaluation and repeats both live GetJob readbacks before CreateJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-robot-r13p05-stage3b-2gpu": {
+      "display_name": "exp-robot",
+      "resource_id": "quota1ssrabud0bh",
+      "resource_source": "resource_quota_split_live_carriers",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1k4y4965q71yw",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92,
+          "gpu": 8,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92,
+          "gpu": 8,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        }
+      },
+      "target_worker_contract": {
+        "count": 1,
+        "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+        "cpu": 12,
+        "gpu": 2,
+        "memory": "200Gi",
+        "shared_memory": "200Gi"
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r13p05_stage3b_over_live_split_contract_and_exp_robot_carriers",
+      "verified_at": "2026-08-17T18:44:00Z",
+      "evidence": "Live GetJob on dlcfp1szuc2cgqfp supplies the exact five-mount contract and pinned image; live GetJob on succeeded dlc1k4y4965q71yw independently supplies quota1ssrabud0bh, ForbiddenQuotaOverSold, disabled AIMaster, and the exp-robot carrier. A live read-only ListJobs audit at 2026-08-17T18:44Z found zero queued exp-robot jobs while the original exp-efficiency run remained behind an occupied queue. The Stage 3B target requests exactly 2 A800 GPUs and submit repeats both exact live readbacks.",
+      "authorized_data_sources": [
+        {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+        {"id": "d-lg9t2b6xajpukeqqeb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon", "options": ""},
+        {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+        {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+        {"id": "d-7fi8hehav247qi6x5o", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/", "options": ""}
+      ]
+    },
+    "exp-efficiency-r13p05-stage25-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r13p05_stage25_kinetix_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-14T00:00:00+00:00",
+      "evidence": "Exact dedicated 2xA800 worker and resource placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card source dlc1j2p8ui63ulps. This alias is restricted by the controller to the hash-locked R13-P05 Stage 2.5 official Kinetix evaluation and repeats both live GetJob readbacks before CreateJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-r16p19-phase3-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "required_pod_env": {
+        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics",
+        "R16P19_PHASE3_EXPERIMENT_ROOT": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r16p19_libero_phase3/application",
+        "R16P19_PHASE3_EXPECTED_COMMIT": "6089341084c9e39bb76b065a3c51fa3aa53ced25",
+        "R16P19_PHASE3_INCLUDE_VIDEOS": "1",
+        "R16P19_PHASE3_STAGE": "formal"
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r16p19_phase3_non_neural_eval_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-14T05:30:00Z",
+      "evidence": "Exact dedicated 2xA800 worker and resource placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card source dlc1j2p8ui63ulps. The controller restricts this alias to the frozen R16-P19 Phase-3 deterministic non-neural LIBERO evaluation, disables W&B and platform retries, and exposes only GPU0 to the scientific EGL process.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-r16p15-stage1c-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r16p15_stage1c_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-14T00:00:00+00:00",
+      "evidence": "Exact dedicated 2xA800 worker and resource placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded two-card resource source dlc1j2p8ui63ulps. The controller restricts this alias to the pinned R16-P15 Stage 1C-2B Task64 action-sufficiency and Authority profile and repeats both live readbacks before CreateJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-r22p10-libero-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r22p10_libero_phase1_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-12T22:30:00+00:00",
+      "evidence": "Exact dedicated 2xA800 worker and resource placement are inherited only as readback facts from the live canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card source dlc1j2p8ui63ulps. The controller restricts this alias to the pinned R22-P10 LIBERO Phase-1 small-BC training and evaluation profiles and repeats both live readbacks before CreateJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-robot-r22p10-phase4a-step6-2gpu": {
+      "display_name": "exp-robot",
+      "resource_id": "quota1ssrabud0bh",
+      "resource_source": "resource_quota_split_live_carriers",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1k4y4965q71yw",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92,
+          "gpu": 8,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92,
+          "gpu": 8,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        }
+      },
+      "target_worker_contract": {
+        "count": 1,
+        "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+        "cpu": 12,
+        "gpu": 2,
+        "memory": "200Gi",
+        "shared_memory": "200Gi"
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r22p10_phase4a_over_live_split_contract_and_exp_robot_carriers",
+      "verified_at": "2026-08-17T18:44:00Z",
+      "evidence": "Live GetJob on dlcfp1szuc2cgqfp supplies the exact five-mount contract and pinned image; live GetJob on succeeded dlc1k4y4965q71yw independently supplies quota1ssrabud0bh, ForbiddenQuotaOverSold, disabled AIMaster, and the exp-robot carrier. The Phase-4A target requests exactly 2 A800 GPUs and submit repeats both exact live readbacks.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-r10p07-libero-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r10p07_libero_obligation_step1_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-13T01:10:58+08:00",
+      "evidence": "Exact dedicated 2xA800 worker and resource placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card source dlc1j2p8ui63ulps. The controller restricts this alias to the pinned R10-P07 LIBERO obligation-retrieval Step-1 formal evaluation and repeats both live readbacks before CreateJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-r10p07-mikasa-step1b-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r10p07_mikasa_step1b_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-13T08:24:06Z",
+      "evidence": "Exact dedicated 2xA800 worker and resource placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card source dlc1j2p8ui63ulps. The controller restricts this alias to the pinned R10-P07 MIKASA matched-counterfactual Step-1B formal evaluation, whose user-approved two-card allocation exposes only GPU0 to the scientific workload, and repeats both live readbacks before CreateJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-r10p07-mikasa-stage2-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r10p07_mikasa_stage2_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-14T00:00:00Z",
+      "evidence": "Exact dedicated 2xA800 worker and resource placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card source dlc1j2p8ui63ulps. The controller restricts this alias to the pinned R10-P07 MIKASA Stage-2 graph-keyed episodic continuation smoke, requires the exact W&B lineage contract and application-level autoresume, and repeats both live readbacks before CreateJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-r10p07-stage2-r3a-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r10p07_stage2_r3a_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-16T00:00:00Z",
+      "evidence": "Exact dedicated 2xA800 worker and placement are live readback facts from canonical source dlcfp1szuc2cgqfp and succeeded exp-efficiency carrier dlc1j2p8ui63ulps. This alias is restricted to the hash-pinned R10-P07 Stage-2-R3A evaluator, behavioral-oracle and conditional memory adapter matrix; AIMaster and platform restarts are disabled.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-r10p07-stage2-r2a-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r10p07_stage2_r2a_workflow_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-14T00:00:00Z",
+      "evidence": "Exact dedicated 2xA800 worker and resource placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card source dlc1j2p8ui63ulps. The controller restricts this alias to exact pinned R10-P07 Stage-2-R2A workflow profiles, applies profile-specific W&B contracts, forbids platform retries, and repeats both live readbacks before CreateJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-r16p14-libero-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r16p14_libero_stage1_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-12T16:00:00+00:00",
+      "evidence": "Exact dedicated 2xA800 worker and resource placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card source dlc1j2p8ui63ulps. The controller restricts this alias to the pinned R16-P14 LIBERO Stage-1 oracle-prefix pilot and repeats both live readbacks before CreateJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-r16p18-maniskill-act-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+    "required_pod_env": {
+      "R16P18_EXPECTED_PROJECT_COMMIT": "4c0a1d382c68af6cf68f467a9da5fd6b8bfc51f4"
+      },
+      "verification_state": "specialized_r16p18_maniskill_act_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-13T00:00:00+00:00",
+      "evidence": "Exact dedicated 2xA800 worker and resource placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card source dlc1j2p8ui63ulps. The controller restricts this alias to the pinned R16-P18 ManiSkill3 official RGB ACT replay-and-training profile and repeats both live readbacks before CreateJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-r23p02-stage3-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r23p02_stage3_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-14T14:10:00+00:00",
+      "evidence": "Exact dedicated 2xA800 worker and placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card carrier dlc1j2p8ui63ulps. This alias is scoped to R23-P02 Stage-3 Phase-A training and frozen Phase-B reserve evaluation; CreateJob repeats both live readbacks, uses AIMaster off, and permits zero platform restarts.",
+      "authorized_data_sources": [
+        {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+        {"id": "d-lg9t2b6xajpukeqqeb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon", "options": ""},
+        {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+        {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+        {"id": "d-7fi8hehav247qi6x5o", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/", "options": ""}
+      ]
+    },
+    "exp-efficiency-r23p02-libero-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r23p02_libero_oracle_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-12T23:30:00+00:00",
+      "evidence": "Exact dedicated 2xA800 worker and resource placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card source dlc1j2p8ui63ulps. The controller restricts this alias to the pinned R23-P02 LIBERO Stage-1 oracle profile and repeats both live readbacks before CreateJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-r23p02-stage1b-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r23p02_stage1b_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-13T00:00:00+00:00",
+      "evidence": "Exact dedicated 2xA800 worker and resource placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card source dlc1j2p8ui63ulps. The controller restricts this alias to the pinned exploratory R23-P02 LIBERO Stage-1B profile, leaves frozen Stage-1 evidence untouched, and repeats both live readbacks before CreateJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-wallx-e2e-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_wallx_e2e_profile_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-11T01:15:00+08:00",
+      "evidence": "Exact dedicated 2xA800 worker and resource placement are inherited only as readback facts from the same live successful sources as exp-efficiency-a800-2gpu. The controller restricts this alias to the pinned Wall-X real-NPZ full-forward regression profile, repeats both live GetJob readbacks, and does not permit arbitrary workloads.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-stablevla-8gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota",
+      "contract_source_job_id": "dlcn4n096jt6c7wj",
+      "source_job_id": "dlcn4n096jt6c7wj",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": true,
+        "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=10 --fault-tolerant-policy=OnFailure"
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "live_cli_getjob_succeeded_exact_stablevla_contract",
+      "verified_at": "2026-07-30T21:54:00+08:00",
+      "evidence": "Pinned CLI GetJob on successful StableVLA v1 Base job dlcn4n096jt6c7wj: workspace 179169, quotakzri8a5wqcp/ForbiddenQuotaOverSold, exact Sync restart=true max=10 OnFailure AIMaster, 1 worker, 8 GPU, 96 CPU, 1600Gi memory/shared-memory, pinned image, empty network/driver, and exactly ten StableVLA data sources including x2robot_data. Submit must repeat live GetJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-4wtl4ihdmplrea1kxb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/Models/",
+          "options": ""
+        },
+        {
+          "id": "d-u06av4om42e7pwrl49",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/share/",
+          "options": ""
+        },
+        {
+          "id": "d-bass3dq57qv4sjxh24",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/open_data/",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-wf28n33a829hb5kvne",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/x2robot_data/",
+          "options": ""
+        },
+        {
+          "id": "d-n0h4g9qcnu9i4acnya",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/share/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-stablevla-native5-8gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota",
+      "contract_source_job_id": "dlcn4n096jt6c7wj",
+      "source_job_id": "dlcn4n096jt6c7wj",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": true,
+        "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=10 --fault-tolerant-policy=OnFailure"
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "contract_data_sources_mode": "requested_subset_of_source",
+      "verification_state": "live_successful_source_with_minimal_required_mount_contraction",
+      "verified_at": "2026-08-04T03:27:00+08:00",
+      "evidence": "Pinned GetJob on successful StableVLA v1 Base job dlcn4n096jt6c7wj supplies the exact exp-efficiency 1x8 A800 shape, image, empty network/driver, and a ten-source mount superset. The native-norm orientation workload requires only USERS/leon, CKPT/leon, dataset/leon, x2robot_data, and new-root share; source validation permits only this exact five-source subset and cannot introduce an unobserved source.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-wf28n33a829hb5kvne",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/x2robot_data/",
+          "options": ""
+        },
+        {
+          "id": "d-n0h4g9qcnu9i4acnya",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/share/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-robot": {
+      "display_name": "exp-robot",
+      "resource_id": "quota1ssrabud0bh",
+      "resource_source": "resource_quota",
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "live_browser_readback",
+      "verified_at": "2026-07-29",
+      "evidence": "PAI quota detail page, workspace 179169; 16 GPUs free at inspection time."
+    },
+    "exp-robot-r21p019-native5-2gpu": {
+      "display_name": "exp-robot",
+      "resource_id": "quota1ssrabud0bh",
+      "resource_source": "resource_quota_split_live_carriers",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1k4y4965q71yw",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92,
+          "gpu": 8,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92,
+          "gpu": 8,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        }
+      },
+      "target_worker_contract": {
+        "count": 1,
+        "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+        "cpu": 12,
+        "gpu": 2,
+        "memory": "200Gi",
+        "shared_memory": "200Gi"
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "live_split_contract_and_exp_robot_resource_carriers_for_2gpu_target",
+      "verified_at": "2026-08-18T00:00:00Z",
+      "evidence": "Live GetJob on dlcfp1szuc2cgqfp supplies the exact five-mount contract and pinned image; live GetJob on succeeded dlc1k4y4965q71yw independently supplies quota1ssrabud0bh, ForbiddenQuotaOverSold, disabled AIMaster, and the exp-robot carrier. The target deliberately requests only 2 A800 GPUs and submit repeats both exact live readbacks.",
+      "authorized_data_sources": [
+        {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+        {"id": "d-lg9t2b6xajpukeqqeb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon", "options": ""},
+        {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+        {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+        {"id": "d-7fi8hehav247qi6x5o", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/", "options": ""}
+      ]
+    },
+    "exp-robot-r10p07-stage2-r3b-2gpu": {
+      "display_name": "exp-robot",
+      "resource_id": "quota1ssrabud0bh",
+      "resource_source": "resource_quota_split_live_carriers",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1k4y4965q71yw",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92,
+          "gpu": 8,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92,
+          "gpu": 8,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        }
+      },
+      "target_worker_contract": {
+        "count": 1,
+        "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+        "cpu": 12,
+        "gpu": 2,
+        "memory": "200Gi",
+        "shared_memory": "200Gi"
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r10p07_stage2_r3b_over_live_exp_robot_two_card_carrier",
+      "verified_at": "2026-08-18T00:00:00Z",
+      "evidence": "Live GetJob on dlcfp1szuc2cgqfp supplies the exact five-mount contract and pinned image; live GetJob on succeeded dlc1k4y4965q71yw independently supplies quota1ssrabud0bh, ForbiddenQuotaOverSold, disabled AIMaster, and the exp-robot carrier. This alias is restricted to the hash-pinned R10-P07 Stage-2-R3B complete experiment and deliberately requests 2 A800 GPUs; submit repeats both live readbacks.",
+      "authorized_data_sources": [
+        {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+        {"id": "d-lg9t2b6xajpukeqqeb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon", "options": ""},
+        {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+        {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+        {"id": "d-7fi8hehav247qi6x5o", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/", "options": ""}
+      ]
+    },
+    "exp-robot-stablevla-8gpu": {
+      "display_name": "exp-robot",
+      "resource_id": "quota1ssrabud0bh",
+      "resource_source": "resource_quota",
+      "contract_source_job_id": "dlcj5vci2xlalafx",
+      "source_job_id": "dlcj5vci2xlalafx",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "live_cli_getjob_succeeded_exact_stablevla_contract",
+      "verified_at": "2026-07-30T21:54:00+08:00",
+      "evidence": "Pinned CLI GetJob on successful StableVLA target-domain open-loop job dlcj5vci2xlalafx: workspace 179169, quota1ssrabud0bh/ForbiddenQuotaOverSold, AIMaster disabled, 1 worker, 8 GPU, 96 CPU, 1600Gi memory/shared-memory, pinned image, empty network/driver, and exactly ten StableVLA data sources including x2robot_data. Submit must repeat live GetJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-4wtl4ihdmplrea1kxb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/Models/",
+          "options": ""
+        },
+        {
+          "id": "d-u06av4om42e7pwrl49",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/share/",
+          "options": ""
+        },
+        {
+          "id": "d-bass3dq57qv4sjxh24",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/open_data/",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-wf28n33a829hb5kvne",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/x2robot_data/",
+          "options": ""
+        },
+        {
+          "id": "d-n0h4g9qcnu9i4acnya",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/share/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-robot-stablevla-native5-split-8gpu": {
+      "display_name": "exp-robot",
+      "resource_id": "quota1ssrabud0bh",
+      "resource_source": "resource_quota_split_live_carriers",
+      "contract_source_job_id": "dlc1ousn4adr0qh6",
+      "source_job_id": "dlc1k4y4965q71yw",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 96,
+          "gpu": 8,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92,
+          "gpu": 8,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "live_split_contract_and_exp_robot_resource_carriers",
+      "verified_at": "2026-08-11T10:50:00+08:00",
+      "evidence": "Live GetJob on stopped formal WRC evaluation dlc1ousn4adr0qh6 supplies the exact StableVLA five-mount contract, pinned image and 1x8/96CPU/1600Gi contract worker. Live GetJob on succeeded exp-robot WRC evaluation dlc1k4y4965q71yw independently supplies quota1ssrabud0bh/ForbiddenQuotaOverSold, disabled AIMaster and the 1x8/92CPU/1600Gi resource carrier. Submit must repeat both exact live readbacks.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-wf28n33a829hb5kvne",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/x2robot_data/",
+          "options": ""
+        },
+        {
+          "id": "d-n0h4g9qcnu9i4acnya",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/share/",
+          "options": ""
+        }
+      ]
+    },
+    "idle-a800": {
+      "display_name": "灵骏智算-quota_a800",
+      "resource_id": "quotaewyznuc7b9l",
+      "resource_source": "idle_resource",
+      "contract_source_job_id": "dlct3tq8a7z5lsdd",
+      "source_job_id": "dlct3tq8a7z5lsdd",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": true,
+        "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=10 --fault-tolerant-policy=OnFailure"
+      },
+      "oversold_type": "AcceptQuotaOverSold",
+      "verification_state": "live_cli_getjob_succeeded_exact_contract",
+      "verified_at": "2026-07-30T19:31:00+08:00",
+      "evidence": "Pinned CLI GetJob on dlct3tq8a7z5lsdd: Succeeded, quotaewyznuc7b9l/AcceptQuotaOverSold, exact Sync restart=true max=10 OnFailure AIMaster, 1 worker, 8 GPU, 92 CPU, 1600Gi memory/shared-memory, pinned image, empty network/driver, and exactly three Leon new-root data sources. Submit must repeat live GetJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        }
+      ]
+    },
+    "idle-a800-wrc-4gpu": {
+      "display_name": "灵骏智算-quota_a800",
+      "resource_id": "quotaewyznuc7b9l",
+      "resource_source": "idle_resource_four_card_preset",
+      "contract_source_job_id": "dlct3tq8a7z5lsdd",
+      "source_job_id": "dlct3tq8a7z5lsdd",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": true,
+        "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=10 --fault-tolerant-policy=OnFailure"
+      },
+      "oversold_type": "AcceptQuotaOverSold",
+      "verification_state": "live_source_plus_service_advertised_four_card_preset",
+      "verified_at": "2026-07-31T10:50:00+08:00",
+      "evidence": "Pinned GetJob on dlct3tq8a7z5lsdd supplies the exact successful idle A800 resource, image, three Leon new-root mounts, empty network/driver and AIMaster source contract. PAI CreateJob rejection 019FB607-EADB-5E57-A44C-593E711DC4FC independently advertised 4卡 as the currently valid GPU preset while 8卡 was invalid. Target worker shape is the proportional four-card preset: 4 GPU, 46 CPU, 800Gi memory/shared-memory; submit and live GetJob must repeat the exact target contract.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        }
+      ]
+    },
+    "idle-a800-wallx-e2e-4gpu": {
+      "display_name": "灵骏智算-quota_a800",
+      "resource_id": "quotaewyznuc7b9l",
+      "resource_source": "idle_resource_four_card_verified_carrier",
+      "contract_source_job_id": "dlct3tq8a7z5lsdd",
+      "source_job_id": "dlc1x35e210yt1lg",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": true,
+        "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure"
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 4,
+          "cpu": 46,
+          "memory": "800Gi",
+          "shared_memory": "800Gi"
+        }
+      },
+      "oversold_type": "AcceptQuotaOverSold",
+      "verification_state": "specialized_wallx_e2e_profile_over_live_verified_idle_four_card_carrier",
+      "verified_at": "2026-08-11T01:37:00+08:00",
+      "evidence": "Pinned successful idle A800 GetJob dlct3tq8a7z5lsdd supplies the canonical image, three Leon new-root mounts and empty network/driver contract. Pinned successful idle A800 GetJob dlc1x35e210yt1lg independently supplies the exact 4 GPU, 46 CPU, 800Gi memory/shared-memory carrier, the same three mounts, idle ResourceId, AcceptQuotaOverSold placement and max-50 AIMaster source contract. This alias is restricted to the pinned Wall-X real-NPZ regression and must repeat both live GetJob readbacks after submit.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        }
+      ]
+    },
+    "idle-a800-stablevla-8gpu": {
+      "display_name": "灵骏智算-quota_a800",
+      "resource_id": "quotaewyznuc7b9l",
+      "resource_source": "idle_resource",
+      "contract_source_job_id": "dlc1r2uxhmg27vr0",
+      "source_job_id": "dlc1o0zea2lzqf9o",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": true,
+        "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=10 --fault-tolerant-policy=OnFailure"
+      },
+      "oversold_type": "AcceptQuotaOverSold",
+      "verification_state": "combined_live_stablevla_contract_and_idle_resource_readback",
+      "verified_at": "2026-07-31T11:46:00+08:00",
+      "evidence": "StableVLA idle 8-GPU shape, image and ten data sources come from stopped formal job dlc1r2uxhmg27vr0; idle ResourceId, AcceptQuotaOverSold and AIMaster max-10 OnFailure source contract come from successful formal job dlc1o0zea2lzqf9o. Submit must repeat exact GetJob and ListJobs idle placement readback.",
+      "authorized_data_sources": [
+        {
+          "id": "d-4wtl4ihdmplrea1kxb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/Models/",
+          "options": ""
+        },
+        {
+          "id": "d-u06av4om42e7pwrl49",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/share/",
+          "options": ""
+        },
+        {
+          "id": "d-bass3dq57qv4sjxh24",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/open_data/",
+          "options": ""
+        },
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        },
+        {
+          "id": "d-wf28n33a829hb5kvne",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/x2robot_data/",
+          "options": ""
+        },
+        {
+          "id": "d-n0h4g9qcnu9i4acnya",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/share/",
+          "options": ""
+        }
+      ]
+    },
+    "idle-a800-wallx-plug-native5-4gpu": {
+      "display_name": "灵骏智算-quota_a800",
+      "resource_id": "quotaewyznuc7b9l",
+      "resource_source": "idle_resource_four_card_carrier_with_native5_mount_contract",
+      "contract_source_job_id": "dlc1o0zea2lzqf9o",
+      "source_job_id": "dlc1x35e210yt1lg",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": true,
+        "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure"
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 4,
+          "cpu": 46,
+          "memory": "800Gi",
+          "shared_memory": "800Gi"
+        }
+      },
+      "oversold_type": "AcceptQuotaOverSold",
+      "contract_data_sources_mode": "requested_subset_of_source",
+      "verification_state": "task_scoped_native5_mount_contract_over_live_verified_idle_four_card_carrier",
+      "verified_at": "2026-08-21T03:00:00+08:00",
+      "evidence": "Pinned successful idle A800 job dlc1o0zea2lzqf9o supplies the canonical image and a source mount superset containing the exact required five sources. Pinned successful idle A800 job dlc1x35e210yt1lg supplies the exact 4 GPU, 46 CPU, 800Gi memory/shared-memory carrier and the same idle ResourceId. PAI rejection of the immediately preceding 8-GPU request advertised 4 cards as the currently valid preset. This alias is restricted by the controller to the generic formal 4-GPU contract and requires exact post-submit readback.",
+      "authorized_data_sources": [
+        {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+        {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+        {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+        {"id": "d-wf28n33a829hb5kvne", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/x2robot_data/", "options": ""},
+        {"id": "d-n0h4g9qcnu9i4acnya", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/share/", "options": ""}
+      ]
+    },
+    "idle-a800-stablevla-native5-8gpu": {
+      "display_name": "灵骏智算-quota_a800",
+      "resource_id": "quotaewyznuc7b9l",
+      "resource_source": "idle_resource",
+      "contract_source_job_id": "dlc1o0zea2lzqf9o",
+      "source_job_id": "dlc1o0zea2lzqf9o",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": true,
+        "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=10 --fault-tolerant-policy=OnFailure"
+      },
+      "oversold_type": "AcceptQuotaOverSold",
+      "contract_data_sources_mode": "requested_subset_of_source",
+      "verification_state": "live_successful_source_with_minimal_required_mount_contraction",
+      "verified_at": "2026-08-04T03:17:00+08:00",
+      "evidence": "Pinned GetJob on successful formal idle StableVLA job dlc1o0zea2lzqf9o supplies the exact 1x8 A800 idle shape, image, empty network/driver, AIMaster source contract, and a ten-source mount superset. The native-norm orientation workload audit requires only USERS/leon, CKPT/leon, dataset/leon, x2robot_data, and new-root share; the three legacy data sources rejected by current PAI and two unused new-root mounts are excluded. Source validation permits only this exact authorized five-source set as a strict subset; it cannot introduce an unobserved source.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-wf28n33a829hb5kvne",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/x2robot_data/",
+          "options": ""
+        },
+        {
+          "id": "d-n0h4g9qcnu9i4acnya",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/share/",
+          "options": ""
+        }
+      ]
+    },
+    "exp-efficiency-r23p02-stage5a-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r23p02_stage5a_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-18T00:00:00+00:00",
+      "evidence": "Exact dedicated 2xA800 worker and placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card carrier dlc1j2p8ui63ulps. This alias is scoped only to hash-locked R23-P02 Stage5A Phase-A A1 cross-fitting and Phase-B conditional-future-residual training/evaluation; CreateJob repeats both live readbacks, uses AIMaster off, zero platform restarts, and empty runtime pod_env.",
+      "authorized_data_sources": [
+        {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+        {"id": "d-lg9t2b6xajpukeqqeb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon", "options": ""},
+        {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+        {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+        {"id": "d-7fi8hehav247qi6x5o", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/", "options": ""}
+      ]
+    },
+    "exp-robot-r23p02-stage5a-2gpu": {
+      "display_name": "exp-robot",
+      "resource_id": "quota1ssrabud0bh",
+      "resource_source": "resource_quota_split_live_carriers",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1k4y4965q71yw",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92, "gpu": 8, "memory": "1600Gi", "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92, "gpu": 8, "memory": "1600Gi", "shared_memory": "1600Gi"
+        }
+      },
+      "target_worker_contract": {
+        "count": 1,
+        "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+        "cpu": 12, "gpu": 2, "memory": "200Gi", "shared_memory": "200Gi"
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r23p02_stage5a_over_live_split_contract_and_exp_robot_carriers",
+      "verified_at": "2026-08-18T00:00:00Z",
+      "evidence": "Live GetJob on dlcfp1szuc2cgqfp supplies the exact five-mount contract and pinned image; live GetJob on succeeded dlc1k4y4965q71yw independently supplies quota1ssrabud0bh, ForbiddenQuotaOverSold, disabled AIMaster, and the exp-robot carrier. The Stage5A target requests exactly 2 A800 GPUs and submit repeats both exact live readbacks.",
+      "authorized_data_sources": [
+        {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+        {"id": "d-lg9t2b6xajpukeqqeb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon", "options": ""},
+        {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+        {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+        {"id": "d-7fi8hehav247qi6x5o", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/", "options": ""}
+      ]
+    },
+    "exp-robot-r16p14-stage2d-2gpu": {
+      "display_name": "exp-robot",
+      "resource_id": "quota1ssrabud0bh",
+      "resource_source": "resource_quota_split_live_carriers",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1k4y4965q71yw",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92,
+          "gpu": 8,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "cpu": 92,
+          "gpu": 8,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        }
+      },
+      "target_worker_contract": {
+        "count": 1,
+        "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+        "cpu": 12,
+        "gpu": 2,
+        "memory": "200Gi",
+        "shared_memory": "200Gi"
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r16p14_stage2d_over_live_split_contract_and_exp_robot_carriers",
+      "verified_at": "2026-08-18T04:58:42Z",
+      "evidence": "Live GetJob on dlcfp1szuc2cgqfp supplies the exact five-mount contract and pinned image; live GetJob on succeeded dlc1k4y4965q71yw independently supplies quota1ssrabud0bh, ForbiddenQuotaOverSold, disabled AIMaster, and the exp-robot carrier. A live read-only ListJobs audit at 2026-08-18T04:58:42Z found zero queued exp-robot jobs while the original Stage2D exp-efficiency run had remained queued for more than eleven hours without a start time or any persisted shard. The Stage2D target preserves exactly 2 A800 GPUs and repeats both exact live readbacks before CreateJob.",
+      "authorized_data_sources": [
+        {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+        {"id": "d-lg9t2b6xajpukeqqeb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon", "options": ""},
+        {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+        {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+        {"id": "d-7fi8hehav247qi6x5o", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/", "options": ""}
+      ]
+    },
+    "exp-efficiency-r23p02-stage4-2gpu": {
+      "display_name": "exp-efficiency",
+      "resource_id": "quotakzri8a5wqcp",
+      "resource_source": "resource_quota_two_card_verified_carrier",
+      "contract_source_job_id": "dlcfp1szuc2cgqfp",
+      "source_job_id": "dlc1j2p8ui63ulps",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "source_worker_contracts": {
+        "contract": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 8,
+          "cpu": 92,
+          "memory": "1600Gi",
+          "shared_memory": "1600Gi"
+        },
+        "resource": {
+          "count": 1,
+          "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+          "gpu": 2,
+          "cpu": 12,
+          "memory": "200Gi",
+          "shared_memory": "200Gi"
+        }
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "specialized_r23p02_stage4_over_live_verified_two_card_carrier",
+      "verified_at": "2026-08-17T00:00:00+00:00",
+      "evidence": "Exact dedicated 2xA800 worker and placement are readback facts from canonical contract source dlcfp1szuc2cgqfp and succeeded exp-efficiency two-card carrier dlc1j2p8ui63ulps. This alias is scoped to the hash-locked R23-P02 Stage-4 Phase-A exact-once data construction and Phase-B model/evaluation run; CreateJob repeats both live readbacks, uses AIMaster off, permits zero platform restarts, and keeps runtime pod_env empty.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-lg9t2b6xajpukeqqeb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        },
+        {
+          "id": "d-7fi8hehav247qi6x5o",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+          "options": ""
+        }
+      ]
+    },
+    "rtx4090-general-1gpu": {
+      "display_name": "通用计算-rtx4090",
+      "resource_id": "quotaq1herttfeuy",
+      "resource_source": "resource_quota",
+      "resource_type": "general_compute",
+      "task_template": "1-gpu",
+      "contract_source_job_id": "dlcg57bpmp6cxq9p",
+      "source_job_id": "dlcg57bpmp6cxq9p",
+      "source_contract": {
+        "require_status": "Succeeded",
+        "aimaster_enabled": false,
+        "aimaster_args": ""
+      },
+      "required_pod_env": {
+        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
+      },
+      "oversold_type": "ForbiddenQuotaOverSold",
+      "verification_state": "live_getjob_succeeded_matched_carrier",
+      "verified_at": "2026-07-30T15:08:29+08:00",
+      "evidence": "Pinned CLI live GetJob on succeeded Panel-A-compatible carrier dlcg57bpmp6cxq9p; exact workspace, ResourceId, 1 worker, 1 GPU, 14 CPU, 120Gi memory/shared-memory, image, empty Driver/UserVpc, and three data sources. Submit must repeat live GetJob.",
+      "authorized_data_sources": [
+        {
+          "id": "d-mkixtohdn75dp8x9tb",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          "options": ""
+        },
+        {
+          "id": "d-36p023eg0f2vuqny8y",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          "options": ""
+        },
+        {
+          "id": "d-ejgj2ej7io1t2t32uc",
+          "version": "v1",
+          "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          "options": ""
+        }
+      ]
+    }
+  }
+}

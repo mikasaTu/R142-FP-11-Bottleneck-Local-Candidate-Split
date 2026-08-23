@@ -1,0 +1,1824 @@
+{
+  "candidate_rule": {
+    "checkpoint_indices": [
+      0,
+      53,
+      99
+    ],
+    "root_indices": [
+      0,
+      7
+    ],
+    "stream": "heldout",
+    "suffix_indices": [
+      0
+    ]
+  },
+  "case_count": 36,
+  "cases": [
+    {
+      "actions_unnormalized": [
+        [
+          268.29962158203125,
+          229.00103759765625
+        ],
+        [
+          265.11566162109375,
+          232.78054809570312
+        ],
+        [
+          261.6468505859375,
+          237.7090301513672
+        ],
+        [
+          259.54498291015625,
+          242.3019256591797
+        ],
+        [
+          258.17401123046875,
+          245.53138732910156
+        ],
+        [
+          259.1265869140625,
+          247.90487670898438
+        ],
+        [
+          262.08905029296875,
+          247.2430877685547
+        ],
+        [
+          266.96478271484375,
+          242.8858184814453
+        ]
+      ],
+      "candidate_id": "1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7:heldout:0:0:0",
+      "case_id": "cde08045d1e0c289fa916b28a132de1d3d6f69c296da2aa878c7c643e9a5676a",
+      "checkpoint_index": 0,
+      "control_step": 250,
+      "episode_seed": 0,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.9226268895602031,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7.npz",
+      "snapshot_id": "1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7",
+      "stratum": "hard",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          268.2028503417969,
+          227.4833221435547
+        ],
+        [
+          265.530517578125,
+          232.2876739501953
+        ],
+        [
+          262.330322265625,
+          236.42666625976562
+        ],
+        [
+          258.9158935546875,
+          240.6374053955078
+        ],
+        [
+          257.592041015625,
+          244.39942932128906
+        ],
+        [
+          258.41253662109375,
+          246.99668884277344
+        ],
+        [
+          262.727294921875,
+          246.17005920410156
+        ],
+        [
+          268.948974609375,
+          241.21444702148438
+        ]
+      ],
+      "candidate_id": "1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7:heldout:0:53:0",
+      "case_id": "98ad993ee442b00917fe72850512e985cbcc1832e94a01d182471c6151f540dd",
+      "checkpoint_index": 53,
+      "control_step": 250,
+      "episode_seed": 0,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.9084120004548273,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7.npz",
+      "snapshot_id": "1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7",
+      "stratum": "hard",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          270.6012268066406,
+          229.1511688232422
+        ],
+        [
+          266.3349609375,
+          233.10464477539062
+        ],
+        [
+          262.411865234375,
+          237.27206420898438
+        ],
+        [
+          259.43316650390625,
+          242.40585327148438
+        ],
+        [
+          258.51312255859375,
+          245.7364959716797
+        ],
+        [
+          258.6363525390625,
+          248.83314514160156
+        ],
+        [
+          261.52734375,
+          248.1383056640625
+        ],
+        [
+          268.0195617675781,
+          244.0355224609375
+        ]
+      ],
+      "candidate_id": "1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7:heldout:0:99:0",
+      "case_id": "74a582e2761f53b667cb0f1448ba2fadc6b933b56f179b22b136cab79981f811",
+      "checkpoint_index": 99,
+      "control_step": 250,
+      "episode_seed": 0,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.9131618360636908,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7.npz",
+      "snapshot_id": "1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7",
+      "stratum": "hard",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          267.5751647949219,
+          228.25538635253906
+        ],
+        [
+          263.8118896484375,
+          233.08387756347656
+        ],
+        [
+          260.78863525390625,
+          237.73814392089844
+        ],
+        [
+          258.0400390625,
+          241.83013916015625
+        ],
+        [
+          256.67132568359375,
+          246.30096435546875
+        ],
+        [
+          257.547119140625,
+          249.03433227539062
+        ],
+        [
+          260.07830810546875,
+          248.79527282714844
+        ],
+        [
+          268.16796875,
+          243.85536193847656
+        ]
+      ],
+      "candidate_id": "1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7:heldout:7:0:0",
+      "case_id": "07337b90ffb5c20af8f1a7adb517e35bd6271635c41b965fda8ea90074065dd9",
+      "checkpoint_index": 0,
+      "control_step": 250,
+      "episode_seed": 0,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.9303269781967998,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7.npz",
+      "snapshot_id": "1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7",
+      "stratum": "hard",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          266.6978759765625,
+          227.80177307128906
+        ],
+        [
+          262.56390380859375,
+          231.22976684570312
+        ],
+        [
+          261.2327880859375,
+          237.54083251953125
+        ],
+        [
+          260.3968811035156,
+          242.9019012451172
+        ],
+        [
+          259.0960388183594,
+          245.4163360595703
+        ],
+        [
+          260.3394775390625,
+          248.1391143798828
+        ],
+        [
+          262.6180419921875,
+          249.5384063720703
+        ],
+        [
+          270.1060485839844,
+          242.32916259765625
+        ]
+      ],
+      "candidate_id": "1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7:heldout:7:53:0",
+      "case_id": "91faa364d0a03c9a335ccd9831ad8d937c93237d989056356f9ba628a989632e",
+      "checkpoint_index": 53,
+      "control_step": 250,
+      "episode_seed": 0,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.9239903564029428,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7.npz",
+      "snapshot_id": "1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7",
+      "stratum": "hard",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          267.8572998046875,
+          228.93545532226562
+        ],
+        [
+          265.04498291015625,
+          232.8978271484375
+        ],
+        [
+          261.95758056640625,
+          236.52142333984375
+        ],
+        [
+          259.17767333984375,
+          240.69406127929688
+        ],
+        [
+          257.49993896484375,
+          244.59951782226562
+        ],
+        [
+          258.1676025390625,
+          246.90345764160156
+        ],
+        [
+          260.43206787109375,
+          246.8562469482422
+        ],
+        [
+          266.446533203125,
+          242.36004638671875
+        ]
+      ],
+      "candidate_id": "1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7:heldout:7:99:0",
+      "case_id": "715e8c9804144acd2849794640ce664e47ce1e0e2e2353916e73bf861f69e9aa",
+      "checkpoint_index": 99,
+      "control_step": 250,
+      "episode_seed": 0,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.9139296815479934,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7.npz",
+      "snapshot_id": "1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7",
+      "stratum": "hard",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          88.8041000366211,
+          249.014404296875
+        ],
+        [
+          92.00453186035156,
+          252.662109375
+        ],
+        [
+          95.97957611083984,
+          255.51882934570312
+        ],
+        [
+          100.21590423583984,
+          260.09063720703125
+        ],
+        [
+          103.11705017089844,
+          263.9318542480469
+        ],
+        [
+          106.8025894165039,
+          268.2086486816406
+        ],
+        [
+          108.03620147705078,
+          272.95166015625
+        ],
+        [
+          110.38086700439453,
+          277.8605651855469
+        ]
+      ],
+      "candidate_id": "21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0:heldout:0:0:0",
+      "case_id": "d9e10466404779a464b987cf89419868a256ac3443b9ee23ea48b8c52377295e",
+      "checkpoint_index": 0,
+      "control_step": 50,
+      "episode_seed": 2,
+      "genealogy_file": "descendant_genealogy.rank1.jsonl",
+      "immediate_progress": 0.08652216384466523,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0.npz",
+      "snapshot_id": "21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0",
+      "stratum": "hard",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          87.17668151855469,
+          250.5146026611328
+        ],
+        [
+          89.57123565673828,
+          253.3621063232422
+        ],
+        [
+          92.5958480834961,
+          258.1162109375
+        ],
+        [
+          97.21092224121094,
+          261.77764892578125
+        ],
+        [
+          101.11581420898438,
+          265.5062255859375
+        ],
+        [
+          103.6119613647461,
+          270.91961669921875
+        ],
+        [
+          106.7522201538086,
+          275.6241455078125
+        ],
+        [
+          109.72579956054688,
+          279.18798828125
+        ]
+      ],
+      "candidate_id": "21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0:heldout:0:53:0",
+      "case_id": "2b313a5bb5f0dece7d35a34416e1569cc4959ef532253a1a971c086c1dcee695",
+      "checkpoint_index": 53,
+      "control_step": 50,
+      "episode_seed": 2,
+      "genealogy_file": "descendant_genealogy.rank1.jsonl",
+      "immediate_progress": 0.08393695011389393,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0.npz",
+      "snapshot_id": "21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0",
+      "stratum": "hard",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          90.058837890625,
+          250.55809020996094
+        ],
+        [
+          92.89851379394531,
+          253.5092010498047
+        ],
+        [
+          95.49858856201172,
+          258.001220703125
+        ],
+        [
+          99.48604583740234,
+          261.81890869140625
+        ],
+        [
+          103.89045715332031,
+          266.77618408203125
+        ],
+        [
+          107.02637481689453,
+          272.099609375
+        ],
+        [
+          110.53738403320312,
+          276.0374755859375
+        ],
+        [
+          111.3144760131836,
+          278.72528076171875
+        ]
+      ],
+      "candidate_id": "21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0:heldout:0:99:0",
+      "case_id": "cdf43464ffd7a7195b5a2d5b2e6d17bebfd472614cf18793fc73b77930428ffc",
+      "checkpoint_index": 99,
+      "control_step": 50,
+      "episode_seed": 2,
+      "genealogy_file": "descendant_genealogy.rank1.jsonl",
+      "immediate_progress": 0.09158007460636851,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0.npz",
+      "snapshot_id": "21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0",
+      "stratum": "hard",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          89.74508666992188,
+          250.92181396484375
+        ],
+        [
+          92.67173767089844,
+          256.02154541015625
+        ],
+        [
+          95.05867767333984,
+          260.5928649902344
+        ],
+        [
+          96.91915893554688,
+          263.8418884277344
+        ],
+        [
+          100.52239990234375,
+          270.017333984375
+        ],
+        [
+          104.84467315673828,
+          275.13037109375
+        ],
+        [
+          108.56696319580078,
+          279.64080810546875
+        ],
+        [
+          111.48870849609375,
+          283.21484375
+        ]
+      ],
+      "candidate_id": "21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0:heldout:7:0:0",
+      "case_id": "aa4ff4720f1a8e68b0625f72a2dc4534ab7f4d7fe239858a5d2c12f40e06a9b4",
+      "checkpoint_index": 0,
+      "control_step": 50,
+      "episode_seed": 2,
+      "genealogy_file": "descendant_genealogy.rank1.jsonl",
+      "immediate_progress": 0.0929849214749078,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0.npz",
+      "snapshot_id": "21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0",
+      "stratum": "hard",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          88.94237518310547,
+          248.04063415527344
+        ],
+        [
+          91.77325439453125,
+          251.10980224609375
+        ],
+        [
+          94.68942260742188,
+          253.81689453125
+        ],
+        [
+          100.61075592041016,
+          257.24273681640625
+        ],
+        [
+          108.0619125366211,
+          262.9574279785156
+        ],
+        [
+          110.85929107666016,
+          267.8016357421875
+        ],
+        [
+          111.98917388916016,
+          272.7718505859375
+        ],
+        [
+          112.89766693115234,
+          276.38232421875
+        ]
+      ],
+      "candidate_id": "21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0:heldout:7:53:0",
+      "case_id": "a8e034f82f951cc76fc09105ebcef124309193907d2c25bb6fa9fa248fe6d6f1",
+      "checkpoint_index": 53,
+      "control_step": 50,
+      "episode_seed": 2,
+      "genealogy_file": "descendant_genealogy.rank1.jsonl",
+      "immediate_progress": 0.09224841724711087,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0.npz",
+      "snapshot_id": "21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0",
+      "stratum": "hard",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          88.31813049316406,
+          251.09226989746094
+        ],
+        [
+          92.21414947509766,
+          256.66436767578125
+        ],
+        [
+          95.84723663330078,
+          261.92303466796875
+        ],
+        [
+          99.68743896484375,
+          264.50164794921875
+        ],
+        [
+          103.9673843383789,
+          267.7417297363281
+        ],
+        [
+          108.78846740722656,
+          272.155517578125
+        ],
+        [
+          109.3427734375,
+          276.06500244140625
+        ],
+        [
+          109.87957763671875,
+          279.91412353515625
+        ]
+      ],
+      "candidate_id": "21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0:heldout:7:99:0",
+      "case_id": "515a2ca7cbe707501bd5c386e608db6fcc9b7ccc5a0f9c3f9bbb9f4fd859dd7a",
+      "checkpoint_index": 99,
+      "control_step": 50,
+      "episode_seed": 2,
+      "genealogy_file": "descendant_genealogy.rank1.jsonl",
+      "immediate_progress": 0.09138770348282059,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0.npz",
+      "snapshot_id": "21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0",
+      "stratum": "hard",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          290.57891845703125,
+          307.6390380859375
+        ],
+        [
+          289.3765869140625,
+          308.2000427246094
+        ],
+        [
+          287.2458801269531,
+          308.8917236328125
+        ],
+        [
+          284.923095703125,
+          308.6102600097656
+        ],
+        [
+          281.8852844238281,
+          308.212158203125
+        ],
+        [
+          279.0187072753906,
+          307.4780578613281
+        ],
+        [
+          275.4458312988281,
+          306.0179138183594
+        ],
+        [
+          272.3978271484375,
+          305.35943603515625
+        ]
+      ],
+      "candidate_id": "28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd:heldout:0:0:0",
+      "case_id": "ac7c0154049bd17d38a2e0092df7e157ecc6ea2fe86a12aa30859b6a163df0e5",
+      "checkpoint_index": 0,
+      "control_step": 50,
+      "episode_seed": 4,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.178877158154252,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd.npz",
+      "snapshot_id": "28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd",
+      "stratum": "ambiguous",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          289.2122497558594,
+          307.19818115234375
+        ],
+        [
+          287.2884826660156,
+          307.4266357421875
+        ],
+        [
+          284.0086975097656,
+          307.7250061035156
+        ],
+        [
+          282.11737060546875,
+          307.57757568359375
+        ],
+        [
+          279.337646484375,
+          307.6745300292969
+        ],
+        [
+          277.4104309082031,
+          307.72442626953125
+        ],
+        [
+          274.58172607421875,
+          306.84368896484375
+        ],
+        [
+          271.9117736816406,
+          306.2368469238281
+        ]
+      ],
+      "candidate_id": "28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd:heldout:0:53:0",
+      "case_id": "3a24a9da79e0b08461a244950ffaba237d6c139e3a25c4a608a431e785621ff0",
+      "checkpoint_index": 53,
+      "control_step": 50,
+      "episode_seed": 4,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.18053941986245434,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd.npz",
+      "snapshot_id": "28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd",
+      "stratum": "ambiguous",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          288.8717041015625,
+          306.2665710449219
+        ],
+        [
+          287.1578063964844,
+          306.84686279296875
+        ],
+        [
+          284.6490478515625,
+          307.43951416015625
+        ],
+        [
+          283.4075927734375,
+          307.4740905761719
+        ],
+        [
+          280.9130554199219,
+          307.3173522949219
+        ],
+        [
+          278.597900390625,
+          307.245361328125
+        ],
+        [
+          275.44244384765625,
+          306.8043518066406
+        ],
+        [
+          271.6577453613281,
+          306.6061096191406
+        ]
+      ],
+      "candidate_id": "28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd:heldout:0:99:0",
+      "case_id": "78fb2c83312a6bba60136ee28a44ac32531c66206c9339c12fbae25945db6843",
+      "checkpoint_index": 99,
+      "control_step": 50,
+      "episode_seed": 4,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.17956321271716383,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd.npz",
+      "snapshot_id": "28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd",
+      "stratum": "ambiguous",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          291.24700927734375,
+          308.5718994140625
+        ],
+        [
+          290.1502990722656,
+          309.1036071777344
+        ],
+        [
+          287.2698669433594,
+          309.3475646972656
+        ],
+        [
+          283.743896484375,
+          308.315673828125
+        ],
+        [
+          280.72735595703125,
+          307.9418029785156
+        ],
+        [
+          278.5700988769531,
+          308.1404724121094
+        ],
+        [
+          276.151123046875,
+          307.1756591796875
+        ],
+        [
+          273.59710693359375,
+          306.0700988769531
+        ]
+      ],
+      "candidate_id": "28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd:heldout:7:0:0",
+      "case_id": "5e70bced214aee5fa8da07357bf56231a835e4ee3b99a270632f4fc0083778b1",
+      "checkpoint_index": 0,
+      "control_step": 50,
+      "episode_seed": 4,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.17797801467797614,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd.npz",
+      "snapshot_id": "28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd",
+      "stratum": "ambiguous",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          289.2840576171875,
+          308.1243591308594
+        ],
+        [
+          287.94488525390625,
+          309.4368591308594
+        ],
+        [
+          286.04144287109375,
+          309.99365234375
+        ],
+        [
+          282.2120666503906,
+          309.3937072753906
+        ],
+        [
+          278.75714111328125,
+          308.6861877441406
+        ],
+        [
+          276.9383544921875,
+          307.9309997558594
+        ],
+        [
+          274.6012878417969,
+          306.9807434082031
+        ],
+        [
+          271.9020080566406,
+          306.4997253417969
+        ]
+      ],
+      "candidate_id": "28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd:heldout:7:53:0",
+      "case_id": "0005b8f178d258caf38f14d50a7b1daffdbcedb9382eef4526040e6bde42a37d",
+      "checkpoint_index": 53,
+      "control_step": 50,
+      "episode_seed": 4,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.1803450860306729,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd.npz",
+      "snapshot_id": "28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd",
+      "stratum": "ambiguous",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          287.7418518066406,
+          306.72515869140625
+        ],
+        [
+          286.0302429199219,
+          307.73394775390625
+        ],
+        [
+          284.6249084472656,
+          308.7212829589844
+        ],
+        [
+          283.26995849609375,
+          308.7210388183594
+        ],
+        [
+          280.7660827636719,
+          308.46954345703125
+        ],
+        [
+          278.9412536621094,
+          307.6322021484375
+        ],
+        [
+          276.1470642089844,
+          306.5460205078125
+        ],
+        [
+          270.6123352050781,
+          306.3379211425781
+        ]
+      ],
+      "candidate_id": "28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd:heldout:7:99:0",
+      "case_id": "d10962385d203de7d490dcdc125826905c7b89e0466a4d3bfc198c6662fa546d",
+      "checkpoint_index": 99,
+      "control_step": 50,
+      "episode_seed": 4,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.17945498452752318,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd.npz",
+      "snapshot_id": "28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd",
+      "stratum": "ambiguous",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          77.85629272460938,
+          343.3187561035156
+        ],
+        [
+          75.21998596191406,
+          352.0328674316406
+        ],
+        [
+          76.36395263671875,
+          360.9327697753906
+        ],
+        [
+          79.49533081054688,
+          368.738525390625
+        ],
+        [
+          84.6462173461914,
+          377.1639404296875
+        ],
+        [
+          89.51766967773438,
+          387.894775390625
+        ],
+        [
+          96.25863647460938,
+          413.154052734375
+        ],
+        [
+          111.32754516601562,
+          454.7922058105469
+        ]
+      ],
+      "candidate_id": "2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258:heldout:0:0:0",
+      "case_id": "39841c9a7d62f899b3620b75f15285d3058a3e912bf61947cf01a78922fe450c",
+      "checkpoint_index": 0,
+      "control_step": 50,
+      "episode_seed": 15,
+      "genealogy_file": "descendant_genealogy.rank1.jsonl",
+      "immediate_progress": 0.22668825283258753,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258.npz",
+      "snapshot_id": "2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258",
+      "stratum": "ambiguous",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          76.98697662353516,
+          342.822265625
+        ],
+        [
+          74.88795471191406,
+          350.9430236816406
+        ],
+        [
+          76.71893310546875,
+          359.9339599609375
+        ],
+        [
+          79.34203338623047,
+          368.4537048339844
+        ],
+        [
+          83.78974151611328,
+          376.8998107910156
+        ],
+        [
+          88.60333251953125,
+          386.9452209472656
+        ],
+        [
+          94.97770690917969,
+          414.26556396484375
+        ],
+        [
+          108.66262817382812,
+          452.59698486328125
+        ]
+      ],
+      "candidate_id": "2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258:heldout:0:53:0",
+      "case_id": "fb3b7a284bd3dd8bb555d470f68ea11092f2910bda3a69ff1b9ed71bc233b0d8",
+      "checkpoint_index": 53,
+      "control_step": 50,
+      "episode_seed": 15,
+      "genealogy_file": "descendant_genealogy.rank1.jsonl",
+      "immediate_progress": 0.2273022685903566,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258.npz",
+      "snapshot_id": "2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258",
+      "stratum": "ambiguous",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          77.29179382324219,
+          341.9697265625
+        ],
+        [
+          75.34274291992188,
+          351.5385437011719
+        ],
+        [
+          77.39766693115234,
+          360.7584228515625
+        ],
+        [
+          79.97598266601562,
+          368.15264892578125
+        ],
+        [
+          84.90934753417969,
+          376.29229736328125
+        ],
+        [
+          89.81563568115234,
+          387.35546875
+        ],
+        [
+          96.0084228515625,
+          414.7323303222656
+        ],
+        [
+          107.43562316894531,
+          451.615478515625
+        ]
+      ],
+      "candidate_id": "2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258:heldout:0:99:0",
+      "case_id": "556f9e632468df04851b75f920f09348861a9745809e9c93eac58c8bf1834449",
+      "checkpoint_index": 99,
+      "control_step": 50,
+      "episode_seed": 15,
+      "genealogy_file": "descendant_genealogy.rank1.jsonl",
+      "immediate_progress": 0.22760642835678002,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258.npz",
+      "snapshot_id": "2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258",
+      "stratum": "ambiguous",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          78.18358612060547,
+          342.774169921875
+        ],
+        [
+          75.82373809814453,
+          350.3923645019531
+        ],
+        [
+          77.12661743164062,
+          360.3274230957031
+        ],
+        [
+          79.40364837646484,
+          368.1139221191406
+        ],
+        [
+          84.62909698486328,
+          377.1420593261719
+        ],
+        [
+          90.11570739746094,
+          388.33416748046875
+        ],
+        [
+          96.01097106933594,
+          412.5015869140625
+        ],
+        [
+          107.01496887207031,
+          454.13671875
+        ]
+      ],
+      "candidate_id": "2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258:heldout:7:0:0",
+      "case_id": "205709d54933f98bc3290a45042d21937e4d64136050460b0ecf5aecc591b12a",
+      "checkpoint_index": 0,
+      "control_step": 50,
+      "episode_seed": 15,
+      "genealogy_file": "descendant_genealogy.rank1.jsonl",
+      "immediate_progress": 0.22683196232193728,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258.npz",
+      "snapshot_id": "2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258",
+      "stratum": "ambiguous",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          76.33128356933594,
+          343.445556640625
+        ],
+        [
+          74.37193298339844,
+          352.4715881347656
+        ],
+        [
+          76.05464935302734,
+          361.24554443359375
+        ],
+        [
+          78.35891723632812,
+          368.62744140625
+        ],
+        [
+          83.19673156738281,
+          377.5916748046875
+        ],
+        [
+          88.70120239257812,
+          388.2449951171875
+        ],
+        [
+          94.90715789794922,
+          413.7902526855469
+        ],
+        [
+          105.0940933227539,
+          448.5538024902344
+        ]
+      ],
+      "candidate_id": "2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258:heldout:7:53:0",
+      "case_id": "81ba392d1b39ce17a8d21df8c0dcf72f3df88b1711035f4fcf505c98d07b25fc",
+      "checkpoint_index": 53,
+      "control_step": 50,
+      "episode_seed": 15,
+      "genealogy_file": "descendant_genealogy.rank1.jsonl",
+      "immediate_progress": 0.2272721431505847,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258.npz",
+      "snapshot_id": "2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258",
+      "stratum": "ambiguous",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          77.94994354248047,
+          344.38946533203125
+        ],
+        [
+          76.12657928466797,
+          353.1039733886719
+        ],
+        [
+          77.75210571289062,
+          361.4848327636719
+        ],
+        [
+          80.29039764404297,
+          368.9440002441406
+        ],
+        [
+          85.1397705078125,
+          377.9325256347656
+        ],
+        [
+          90.24984741210938,
+          387.6763000488281
+        ],
+        [
+          98.2179946899414,
+          419.4235534667969
+        ],
+        [
+          108.6132583618164,
+          454.2396240234375
+        ]
+      ],
+      "candidate_id": "2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258:heldout:7:99:0",
+      "case_id": "adce888317dc0db428e629617445994bd3ab0b410219af55a7a0c1e773b26e30",
+      "checkpoint_index": 99,
+      "control_step": 50,
+      "episode_seed": 15,
+      "genealogy_file": "descendant_genealogy.rank1.jsonl",
+      "immediate_progress": 0.22611091261778582,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258.npz",
+      "snapshot_id": "2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258",
+      "stratum": "ambiguous",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          311.44720458984375,
+          266.2956237792969
+        ],
+        [
+          310.597900390625,
+          260.17767333984375
+        ],
+        [
+          307.1580810546875,
+          248.12953186035156
+        ],
+        [
+          301.97003173828125,
+          232.41357421875
+        ],
+        [
+          296.40899658203125,
+          228.16909790039062
+        ],
+        [
+          292.6460266113281,
+          224.92071533203125
+        ],
+        [
+          291.0191345214844,
+          224.33523559570312
+        ],
+        [
+          288.55450439453125,
+          222.9072265625
+        ]
+      ],
+      "candidate_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a:heldout:0:0:0",
+      "case_id": "ad03796c8ae661a9e8173b42c4f7c06afa418d3814aaaa9be9b3aef98fcae1a1",
+      "checkpoint_index": 0,
+      "control_step": 250,
+      "episode_seed": 6,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.9954022020078842,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a.npz",
+      "snapshot_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a",
+      "stratum": "easy",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          308.0067138671875,
+          265.3035888671875
+        ],
+        [
+          307.8065490722656,
+          259.0152893066406
+        ],
+        [
+          305.48443603515625,
+          253.0535125732422
+        ],
+        [
+          303.2930908203125,
+          249.1895751953125
+        ],
+        [
+          300.9034423828125,
+          246.48008728027344
+        ],
+        [
+          298.9187927246094,
+          243.25222778320312
+        ],
+        [
+          297.81097412109375,
+          242.2541046142578
+        ],
+        [
+          295.9751892089844,
+          240.63949584960938
+        ]
+      ],
+      "candidate_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a:heldout:0:53:0",
+      "case_id": "ab5640abffb2e2f1b37182cfae790cfd40ada62bd4ab66566f52a3b79bc15176",
+      "checkpoint_index": 53,
+      "control_step": 250,
+      "episode_seed": 6,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.9954022020078842,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a.npz",
+      "snapshot_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a",
+      "stratum": "easy",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          308.4825134277344,
+          267.30938720703125
+        ],
+        [
+          307.92724609375,
+          258.234130859375
+        ],
+        [
+          304.8599548339844,
+          251.0365753173828
+        ],
+        [
+          302.18829345703125,
+          245.83876037597656
+        ],
+        [
+          300.1275329589844,
+          243.67922973632812
+        ],
+        [
+          298.2209167480469,
+          241.54586791992188
+        ],
+        [
+          296.39306640625,
+          240.85157775878906
+        ],
+        [
+          294.6354675292969,
+          239.04200744628906
+        ]
+      ],
+      "candidate_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a:heldout:0:99:0",
+      "case_id": "40a7dffccfddb1ae98fc3c182a61881bcc6f103bff6fc8293874e7d624a70c57",
+      "checkpoint_index": 99,
+      "control_step": 250,
+      "episode_seed": 6,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.9954022020078842,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a.npz",
+      "snapshot_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a",
+      "stratum": "easy",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          309.1297607421875,
+          260.6764221191406
+        ],
+        [
+          306.7561340332031,
+          250.8529510498047
+        ],
+        [
+          302.59381103515625,
+          245.53866577148438
+        ],
+        [
+          301.1506652832031,
+          240.21343994140625
+        ],
+        [
+          298.9815673828125,
+          237.772216796875
+        ],
+        [
+          297.0845642089844,
+          235.18592834472656
+        ],
+        [
+          295.365234375,
+          232.7947235107422
+        ],
+        [
+          293.44549560546875,
+          229.99205017089844
+        ]
+      ],
+      "candidate_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a:heldout:7:0:0",
+      "case_id": "9498bcb9314e825486576537fe09d94d740f4be21464de7ad081db5363a030b7",
+      "checkpoint_index": 0,
+      "control_step": 250,
+      "episode_seed": 6,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.9954022020078842,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a.npz",
+      "snapshot_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a",
+      "stratum": "easy",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          310.1910705566406,
+          262.5515441894531
+        ],
+        [
+          309.5915222167969,
+          249.74325561523438
+        ],
+        [
+          305.8736267089844,
+          241.66845703125
+        ],
+        [
+          302.9488220214844,
+          235.0116424560547
+        ],
+        [
+          301.1039733886719,
+          231.33450317382812
+        ],
+        [
+          297.5027770996094,
+          226.98228454589844
+        ],
+        [
+          294.8890686035156,
+          224.78512573242188
+        ],
+        [
+          291.40167236328125,
+          222.10379028320312
+        ]
+      ],
+      "candidate_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a:heldout:7:53:0",
+      "case_id": "c7a5e2c875f576f09a8833e9184193c3058d43b599291333e2babb5390d3e573",
+      "checkpoint_index": 53,
+      "control_step": 250,
+      "episode_seed": 6,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.9954022020078842,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a.npz",
+      "snapshot_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a",
+      "stratum": "easy",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          308.0993957519531,
+          261.6799621582031
+        ],
+        [
+          306.6263122558594,
+          254.01438903808594
+        ],
+        [
+          302.9472961425781,
+          248.37493896484375
+        ],
+        [
+          301.2669677734375,
+          244.05307006835938
+        ],
+        [
+          298.7854919433594,
+          240.4359588623047
+        ],
+        [
+          296.8009033203125,
+          236.73580932617188
+        ],
+        [
+          294.22650146484375,
+          235.7375946044922
+        ],
+        [
+          293.0959777832031,
+          235.0504150390625
+        ]
+      ],
+      "candidate_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a:heldout:7:99:0",
+      "case_id": "f054b435c86b55cca7653e3cfcbfacb76684eec7486b5d0424f7b1b951d17432",
+      "checkpoint_index": 99,
+      "control_step": 250,
+      "episode_seed": 6,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.9954022020078842,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a.npz",
+      "snapshot_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a",
+      "stratum": "easy",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          338.9842224121094,
+          382.92535400390625
+        ],
+        [
+          342.35260009765625,
+          367.89654541015625
+        ],
+        [
+          341.1217041015625,
+          359.134033203125
+        ],
+        [
+          337.60198974609375,
+          351.18658447265625
+        ],
+        [
+          330.1615905761719,
+          340.719482421875
+        ],
+        [
+          325.80908203125,
+          333.336181640625
+        ],
+        [
+          319.7264709472656,
+          328.296142578125
+        ],
+        [
+          315.89202880859375,
+          325.8570861816406
+        ]
+      ],
+      "candidate_id": "59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5:heldout:0:0:0",
+      "case_id": "3c6285b4e09ee4dbff02da8a650a3daf67d02c0df07a7fe2dd9e70a18d2678a3",
+      "checkpoint_index": 0,
+      "control_step": 150,
+      "episode_seed": 15,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.8599767315364326,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5.npz",
+      "snapshot_id": "59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5",
+      "stratum": "easy",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          332.908935546875,
+          381.1741638183594
+        ],
+        [
+          339.3274841308594,
+          367.3431701660156
+        ],
+        [
+          338.7318420410156,
+          357.9787292480469
+        ],
+        [
+          336.4398193359375,
+          351.6407165527344
+        ],
+        [
+          330.7120666503906,
+          344.9153747558594
+        ],
+        [
+          326.5559387207031,
+          338.6808776855469
+        ],
+        [
+          319.4640808105469,
+          332.7381896972656
+        ],
+        [
+          315.5555725097656,
+          327.6852111816406
+        ]
+      ],
+      "candidate_id": "59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5:heldout:0:53:0",
+      "case_id": "8512a68216acc240cdef590887c55e20d727cc84c6bacc417207c2be92fbaae6",
+      "checkpoint_index": 53,
+      "control_step": 150,
+      "episode_seed": 15,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.8599767315364326,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5.npz",
+      "snapshot_id": "59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5",
+      "stratum": "easy",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          338.8805236816406,
+          382.92572021484375
+        ],
+        [
+          342.88751220703125,
+          369.5432434082031
+        ],
+        [
+          341.2447204589844,
+          358.8075866699219
+        ],
+        [
+          337.3401184082031,
+          350.7449645996094
+        ],
+        [
+          331.5824890136719,
+          342.4022521972656
+        ],
+        [
+          326.08111572265625,
+          335.2555236816406
+        ],
+        [
+          320.4609375,
+          330.22760009765625
+        ],
+        [
+          315.4107360839844,
+          326.3218994140625
+        ]
+      ],
+      "candidate_id": "59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5:heldout:0:99:0",
+      "case_id": "30e8f96c4953a2317e50edea126ed9ff61026d2f0be088b0177bc6e157ff0fe9",
+      "checkpoint_index": 99,
+      "control_step": 150,
+      "episode_seed": 15,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.8599767315364326,
+      "immediate_success": false,
+      "root_index": 0,
+      "snapshot_file": "snapshots/59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5.npz",
+      "snapshot_id": "59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5",
+      "stratum": "easy",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          340.352294921875,
+          381.6595458984375
+        ],
+        [
+          342.57080078125,
+          366.7569274902344
+        ],
+        [
+          340.3449401855469,
+          356.3636474609375
+        ],
+        [
+          335.86199951171875,
+          348.7481689453125
+        ],
+        [
+          329.39654541015625,
+          340.6517639160156
+        ],
+        [
+          324.1001892089844,
+          333.4314880371094
+        ],
+        [
+          318.5204162597656,
+          328.510498046875
+        ],
+        [
+          315.26788330078125,
+          325.0038146972656
+        ]
+      ],
+      "candidate_id": "59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5:heldout:7:0:0",
+      "case_id": "a0d7125179f651810b660fc4684fe2ee504b9cece80441337c95754a3a078e69",
+      "checkpoint_index": 0,
+      "control_step": 150,
+      "episode_seed": 15,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.859976731536433,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5.npz",
+      "snapshot_id": "59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5",
+      "stratum": "easy",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          339.1243896484375,
+          382.20977783203125
+        ],
+        [
+          343.0909118652344,
+          368.34368896484375
+        ],
+        [
+          341.7906799316406,
+          357.7131652832031
+        ],
+        [
+          337.8367919921875,
+          349.2135009765625
+        ],
+        [
+          331.0379638671875,
+          341.4155578613281
+        ],
+        [
+          326.10736083984375,
+          336.2933349609375
+        ],
+        [
+          318.79229736328125,
+          330.7544250488281
+        ],
+        [
+          314.6270446777344,
+          326.24371337890625
+        ]
+      ],
+      "candidate_id": "59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5:heldout:7:53:0",
+      "case_id": "4f171a47531d1d6739af346ea81d5e25a41e2c5eaed345676f914cc3984a1245",
+      "checkpoint_index": 53,
+      "control_step": 150,
+      "episode_seed": 15,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.859976731536433,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5.npz",
+      "snapshot_id": "59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5",
+      "stratum": "easy",
+      "stream": "heldout",
+      "suffix_index": 0
+    },
+    {
+      "actions_unnormalized": [
+        [
+          335.1866455078125,
+          384.6990966796875
+        ],
+        [
+          339.3595275878906,
+          369.0773010253906
+        ],
+        [
+          338.297119140625,
+          359.29486083984375
+        ],
+        [
+          335.4908752441406,
+          352.0460510253906
+        ],
+        [
+          327.60675048828125,
+          343.78033447265625
+        ],
+        [
+          322.87335205078125,
+          338.43609619140625
+        ],
+        [
+          316.30059814453125,
+          332.3594665527344
+        ],
+        [
+          313.1360168457031,
+          327.0142822265625
+        ]
+      ],
+      "candidate_id": "59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5:heldout:7:99:0",
+      "case_id": "52b4ea66f14eb599ad4c778516976bc1dee4d2c402dc278890bd4775921fb0a8",
+      "checkpoint_index": 99,
+      "control_step": 150,
+      "episode_seed": 15,
+      "genealogy_file": "descendant_genealogy.rank0.jsonl",
+      "immediate_progress": 0.859976731536433,
+      "immediate_success": false,
+      "root_index": 7,
+      "snapshot_file": "snapshots/59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5.npz",
+      "snapshot_id": "59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5",
+      "stratum": "easy",
+      "stream": "heldout",
+      "suffix_index": 0
+    }
+  ],
+  "schema_version": 1,
+  "selection_boundary": "descendant outcomes are not used: take the two lexicographically first frozen snapshot IDs per stratum and fixed root/checkpoint/suffix indices",
+  "snapshot_count": 6,
+  "snapshot_rule": "two lexicographically first selected IDs in each of easy, ambiguous, hard"
+}

@@ -1,0 +1,80 @@
+{
+  "branch_max_progress": 0.9954022020078842,
+  "branch_reward_trace": [
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842
+  ],
+  "candidate_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a:heldout:7:0:0",
+  "case_id": "9498bcb9314e825486576537fe09d94d740f4be21464de7ad081db5363a030b7",
+  "checkpoint_index": 0,
+  "continuation_generated_chunks": 2,
+  "continuation_model_nfe": 200,
+  "continuation_reward_trace": [
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9954022020078842,
+    0.9998594949692555,
+    1.0
+  ],
+  "control_actions_after_snapshot": 24,
+  "control_step": 250,
+  "episode_seed": 6,
+  "eventual_max_progress": 1.0,
+  "eventual_success": true,
+  "final_native_state": {
+    "agent_angle": 0.0,
+    "agent_angular_velocity": 0.0,
+    "agent_position": [
+      298.0395350914953,
+      275.61358305701737
+    ],
+    "agent_velocity": [
+      1.163099294313057,
+      16.515173343473652
+    ],
+    "block_angle": -5.529099518763727,
+    "block_angular_velocity": 0.10103971106808292,
+    "block_position": [
+      254.37352006172546,
+      255.05801836270967
+    ],
+    "block_velocity": [
+      -4.521095896800995,
+      4.813479175168384
+    ],
+    "elapsed_steps": 274,
+    "goal_pose": [
+      256.0,
+      256.0,
+      0.7853981633974483
+    ]
+  },
+  "genealogy_file": "descendant_genealogy.rank0.jsonl",
+  "immediate_progress": 0.9954022020078842,
+  "immediate_success": false,
+  "peak_vram_bytes": 1149988864,
+  "root_index": 7,
+  "snapshot_file": "snapshots/507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a.npz",
+  "snapshot_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a",
+  "stratum": "easy",
+  "stream": "heldout",
+  "suffix_index": 0,
+  "wall_clock_seconds": 1.161482494000012
+}

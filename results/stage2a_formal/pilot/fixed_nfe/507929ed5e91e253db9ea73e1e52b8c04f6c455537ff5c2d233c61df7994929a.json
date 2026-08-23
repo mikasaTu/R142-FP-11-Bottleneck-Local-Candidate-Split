@@ -1,0 +1,124 @@
+{
+  "no_branch": {
+    "sample_nfe": 800,
+    "score_mean_root_progress": 0.9954022020078842
+  },
+  "sample_nfe_budget": 7200,
+  "snapshot_id": "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a",
+  "strategies": {
+    "always_early": {
+      "actual_sample_nfe": 7200,
+      "allocations": [
+        {
+          "budget_slack": 0,
+          "checkpoint_index": 0,
+          "suffixes_per_root": 8
+        }
+      ],
+      "budget_slack": 0,
+      "gain_over_no_branch": 0.0,
+      "generated_suffixes": 64,
+      "score_best_progress_per_root": [
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842
+      ],
+      "score_mean_best_progress": 0.9954022020078842,
+      "wall_clock_seconds": 47.992600281000705
+    },
+    "oracle_local_crossfit": {
+      "actual_sample_nfe": 7200,
+      "allocations": [
+        {
+          "budget_slack": 0,
+          "checkpoint_index": 0,
+          "suffixes_per_root": 8
+        }
+      ],
+      "budget_slack": 0,
+      "gain_over_no_branch": 0.0,
+      "generated_suffixes": 64,
+      "score_best_progress_per_root": [
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842
+      ],
+      "score_mean_best_progress": 0.9954022020078842,
+      "wall_clock_seconds": 47.488285523999366
+    },
+    "random": {
+      "actual_sample_nfe": 7192,
+      "allocations": [
+        {
+          "budget_slack": 8,
+          "checkpoint_index": 53,
+          "suffixes_per_root": 17
+        }
+      ],
+      "budget_slack": 8,
+      "gain_over_no_branch": 0.0,
+      "generated_suffixes": 136,
+      "score_best_progress_per_root": [
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842
+      ],
+      "score_mean_best_progress": 0.9954022020078842,
+      "wall_clock_seconds": 100.89640542500092
+    },
+    "uniform_three_quantiles": {
+      "actual_sample_nfe": 6728,
+      "allocations": [
+        {
+          "budget_slack": 213,
+          "checkpoint_index": 20,
+          "sub_budget": 2933,
+          "suffixes_per_root": 3
+        },
+        {
+          "budget_slack": 253,
+          "checkpoint_index": 53,
+          "sub_budget": 2933,
+          "suffixes_per_root": 5
+        },
+        {
+          "budget_slack": 5,
+          "checkpoint_index": 86,
+          "sub_budget": 2933,
+          "suffixes_per_root": 19
+        }
+      ],
+      "budget_slack": 472,
+      "gain_over_no_branch": 0.0,
+      "generated_suffixes": 216,
+      "score_best_progress_per_root": [
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842,
+        0.9954022020078842
+      ],
+      "score_mean_best_progress": 0.9954022020078842,
+      "wall_clock_seconds": 152.7884690910014
+    }
+  },
+  "stratum": "easy"
+}

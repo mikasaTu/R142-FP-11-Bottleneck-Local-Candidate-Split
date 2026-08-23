@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "sealed_at_utc": "2026-08-23T17:40:00Z",
+  "workflow": "r142-fp11-stage2a-pusht-branchability-20260823",
+  "targets": [
+    {
+      "classification": "formal_predecessor_directly_superseded_by_repair",
+      "run_id": "r142-stage2a-formal-20260823-r1",
+      "job_id": "dlc1xar28asuv34o",
+      "expected_status": "Failed",
+      "expected_purpose": "formal-evaluation",
+      "failure_boundary": "runtime manifest capture invoked python -m pip in an exact environment without the pip module; no scientific work or FIRST_WORK.json was produced"
+    }
+  ],
+  "replacement": {
+    "run_id": "r142-stage2a-formal-20260823-r2",
+    "job_id": "dlcm4saves6zi30f",
+    "status": "Succeeded",
+    "first_work_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage2a/r142-stage2a-formal-20260823-r2/FIRST_WORK.json",
+    "completion_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage2a/r142-stage2a-formal-20260823-r2/COMPLETED_EVALUATION_RESULT.json"
+  },
+  "relation_evidence": "same task/model/checkpoint/seeds/topology/mounts and scientific protocol; R2 changes only environment-manifest capture and narrows the frozen LeRobot archive to runtime source",
+  "preservation": "delete only the exact PAI service record; preserve registry records and every CPFS artifact for R1 and R2"
+}

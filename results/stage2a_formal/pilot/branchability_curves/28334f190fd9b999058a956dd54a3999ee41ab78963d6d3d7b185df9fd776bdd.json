@@ -1,0 +1,482 @@
+{
+  "compute": {
+    "discovery_suffix_sample_nfe_per_stream": 51712,
+    "root_count": 8,
+    "root_sample_nfe": 800,
+    "suffix_count_per_root_checkpoint_stream": 8
+  },
+  "control_step": 50,
+  "curve": [
+    {
+      "calibration": {
+        "best_descendant_gain": 0.003035928042066399,
+        "mean_progress": 0.18078579532992345,
+        "progress_q10": 0.17891200485285855,
+        "progress_q90": 0.18273985174831903,
+        "progress_spread": 0.0038278468954604794,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.005090256407026558
+      },
+      "checkpoint_index": 0,
+      "heldout": {
+        "best_descendant_gain": 0.0030274222431804776,
+        "mean_progress": 0.18073742471993814,
+        "progress_q10": 0.1788058021863744,
+        "progress_q90": 0.18290991565567127,
+        "progress_spread": 0.004104113469296872,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.005144918779660628
+      },
+      "heldout_best_gain_per_nfe": 3.0274222431804775e-05,
+      "remaining_nfe": 100,
+      "timestep": 99
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.002851590651936825,
+        "mean_progress": 0.18072728608876154,
+        "progress_q10": 0.17916911856343654,
+        "progress_q90": 0.1825994206315321,
+        "progress_spread": 0.003430302068095553,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.005005048538465723
+      },
+      "checkpoint_index": 7,
+      "heldout": {
+        "best_descendant_gain": 0.002863783637570394,
+        "mean_progress": 0.1807859285509879,
+        "progress_q10": 0.17917591913755404,
+        "progress_q90": 0.18260174659022788,
+        "progress_spread": 0.0034258274526738353,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.005058415449596814
+      },
+      "heldout_best_gain_per_nfe": 3.079337244699348e-05,
+      "remaining_nfe": 93,
+      "timestep": 92
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.001917820706792528,
+        "mean_progress": 0.180425245513602,
+        "progress_q10": 0.17899165764902772,
+        "progress_q90": 0.18182276929328767,
+        "progress_spread": 0.002831111644259948,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004613218676167693
+      },
+      "checkpoint_index": 13,
+      "heldout": {
+        "best_descendant_gain": 0.0019275588594609983,
+        "mean_progress": 0.1803873325995744,
+        "progress_q10": 0.1788049190588481,
+        "progress_q90": 0.18180823394198242,
+        "progress_spread": 0.0030033148831343226,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004781968327581513
+      },
+      "heldout_best_gain_per_nfe": 2.2155848959321818e-05,
+      "remaining_nfe": 87,
+      "timestep": 86
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0028353526385573313,
+        "mean_progress": 0.18075012944249408,
+        "progress_q10": 0.17895114008951613,
+        "progress_q90": 0.18206159971576288,
+        "progress_spread": 0.0031104596262467588,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004812677942696888
+      },
+      "checkpoint_index": 20,
+      "heldout": {
+        "best_descendant_gain": 0.0028200839514731235,
+        "mean_progress": 0.1806881628253733,
+        "progress_q10": 0.17876228538221844,
+        "progress_q90": 0.18216330463220667,
+        "progress_spread": 0.0034010192499882297,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004881171409948124
+      },
+      "heldout_best_gain_per_nfe": 3.525104939341405e-05,
+      "remaining_nfe": 80,
+      "timestep": 79
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0023773088893777328,
+        "mean_progress": 0.1807254109072992,
+        "progress_q10": 0.1786355973507546,
+        "progress_q90": 0.1822931552814644,
+        "progress_spread": 0.0036575579307097927,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.005095902685577742
+      },
+      "checkpoint_index": 26,
+      "heldout": {
+        "best_descendant_gain": 0.0023955556888698715,
+        "mean_progress": 0.18069074688186898,
+        "progress_q10": 0.17869663569613928,
+        "progress_q90": 0.1822458884799422,
+        "progress_spread": 0.003549252783802914,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.005061672386545938
+      },
+      "heldout_best_gain_per_nfe": 3.237237417391718e-05,
+      "remaining_nfe": 74,
+      "timestep": 73
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0029908666936097617,
+        "mean_progress": 0.18076118725021773,
+        "progress_q10": 0.1793465758504687,
+        "progress_q90": 0.18251949419805066,
+        "progress_spread": 0.00317291834758196,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004922842678370291
+      },
+      "checkpoint_index": 33,
+      "heldout": {
+        "best_descendant_gain": 0.003011204395256817,
+        "mean_progress": 0.1806505135734279,
+        "progress_q10": 0.1793480451880794,
+        "progress_q90": 0.18235801352574757,
+        "progress_spread": 0.003009968337668173,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.005030169975318212
+      },
+      "heldout_best_gain_per_nfe": 4.494334918293756e-05,
+      "remaining_nfe": 67,
+      "timestep": 66
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0034904935403967663,
+        "mean_progress": 0.18059784071070598,
+        "progress_q10": 0.17912949672825548,
+        "progress_q90": 0.182005821191213,
+        "progress_spread": 0.002876324462957519,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004705314564466598
+      },
+      "checkpoint_index": 40,
+      "heldout": {
+        "best_descendant_gain": 0.003433533651460763,
+        "mean_progress": 0.18054924910088918,
+        "progress_q10": 0.17907151438696622,
+        "progress_q90": 0.18201808308402775,
+        "progress_spread": 0.00294656869706153,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004728073083883884
+      },
+      "heldout_best_gain_per_nfe": 5.722556085767938e-05,
+      "remaining_nfe": 60,
+      "timestep": 59
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.004252493602925955,
+        "mean_progress": 0.18095892273661954,
+        "progress_q10": 0.17943597040075118,
+        "progress_q90": 0.1826963077847793,
+        "progress_spread": 0.003260337384028117,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004848432822559009
+      },
+      "checkpoint_index": 46,
+      "heldout": {
+        "best_descendant_gain": 0.004292284829513354,
+        "mean_progress": 0.18091036956942103,
+        "progress_q10": 0.17935210034576451,
+        "progress_q90": 0.18261521179303847,
+        "progress_spread": 0.003263111447273953,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004848096959682011
+      },
+      "heldout_best_gain_per_nfe": 7.948675610209915e-05,
+      "remaining_nfe": 54,
+      "timestep": 53
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.002406495605918879,
+        "mean_progress": 0.18054092418929424,
+        "progress_q10": 0.1788609975544893,
+        "progress_q90": 0.18198432410037504,
+        "progress_spread": 0.003123326545885735,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004765780910941791
+      },
+      "checkpoint_index": 53,
+      "heldout": {
+        "best_descendant_gain": 0.00245203681726075,
+        "mean_progress": 0.18045498623323478,
+        "progress_q10": 0.1788691834649503,
+        "progress_q90": 0.18202648731321774,
+        "progress_spread": 0.0031573038482674565,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004731503007521543
+      },
+      "heldout_best_gain_per_nfe": 5.2170996111930845e-05,
+      "remaining_nfe": 47,
+      "timestep": 46
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.002279146592090414,
+        "mean_progress": 0.1805123148683605,
+        "progress_q10": 0.17900537240598344,
+        "progress_q90": 0.18207665439122786,
+        "progress_spread": 0.003071281985244423,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004937287947688693
+      },
+      "checkpoint_index": 59,
+      "heldout": {
+        "best_descendant_gain": 0.002286873169465131,
+        "mean_progress": 0.18042041816314647,
+        "progress_q10": 0.17892793621215525,
+        "progress_q90": 0.18195275727723056,
+        "progress_spread": 0.003024821065075317,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004894380497487509
+      },
+      "heldout_best_gain_per_nfe": 5.577739437719832e-05,
+      "remaining_nfe": 41,
+      "timestep": 40
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0031211605022882782,
+        "mean_progress": 0.18076874647197128,
+        "progress_q10": 0.1793587241420691,
+        "progress_q90": 0.18254635791926122,
+        "progress_spread": 0.0031876337771921115,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.0049101861786381125
+      },
+      "checkpoint_index": 66,
+      "heldout": {
+        "best_descendant_gain": 0.0030796180649308447,
+        "mean_progress": 0.18081317539376182,
+        "progress_q10": 0.179459167783284,
+        "progress_q90": 0.18273245187461679,
+        "progress_spread": 0.00327328409133279,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004986066431176192
+      },
+      "heldout_best_gain_per_nfe": 9.057700190973073e-05,
+      "remaining_nfe": 34,
+      "timestep": 33
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0023757087511315778,
+        "mean_progress": 0.18108596528261772,
+        "progress_q10": 0.1797206500287957,
+        "progress_q90": 0.1826581800476605,
+        "progress_spread": 0.0029375300188647924,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004806629828074819
+      },
+      "checkpoint_index": 73,
+      "heldout": {
+        "best_descendant_gain": 0.002345493730850967,
+        "mean_progress": 0.1809155608516147,
+        "progress_q10": 0.1795423706489678,
+        "progress_q90": 0.18255087846756626,
+        "progress_spread": 0.0030085078185984604,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004747105900704779
+      },
+      "heldout_best_gain_per_nfe": 8.687013817966545e-05,
+      "remaining_nfe": 27,
+      "timestep": 26
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0026257887632108734,
+        "mean_progress": 0.1806495799685143,
+        "progress_q10": 0.17893586550076213,
+        "progress_q90": 0.1818902266702697,
+        "progress_spread": 0.0029543611695075633,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.005000440588575205
+      },
+      "checkpoint_index": 79,
+      "heldout": {
+        "best_descendant_gain": 0.0025719829075222245,
+        "mean_progress": 0.18066392399371725,
+        "progress_q10": 0.1789504241127358,
+        "progress_q90": 0.18188644333496973,
+        "progress_spread": 0.0029360192222339376,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.005113784176077379
+      },
+      "heldout_best_gain_per_nfe": 0.00012247537654867737,
+      "remaining_nfe": 21,
+      "timestep": 20
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.002480795893902654,
+        "mean_progress": 0.18045741769463927,
+        "progress_q10": 0.17863045505719713,
+        "progress_q90": 0.18217633478236367,
+        "progress_spread": 0.0035458797251665397,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.005162176817453933
+      },
+      "checkpoint_index": 86,
+      "heldout": {
+        "best_descendant_gain": 0.002641157703002023,
+        "mean_progress": 0.18037770264644293,
+        "progress_q10": 0.17852913926529126,
+        "progress_q90": 0.18202461553049654,
+        "progress_spread": 0.0034954762652052718,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.005135533706721858
+      },
+      "heldout_best_gain_per_nfe": 0.00018865412164300162,
+      "remaining_nfe": 14,
+      "timestep": 13
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0027494847154036495,
+        "mean_progress": 0.18076919501666996,
+        "progress_q10": 0.17947629425118303,
+        "progress_q90": 0.18232583200880775,
+        "progress_spread": 0.002849537757624726,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.005049239229639033
+      },
+      "checkpoint_index": 92,
+      "heldout": {
+        "best_descendant_gain": 0.0028504132427995266,
+        "mean_progress": 0.18081543936893457,
+        "progress_q10": 0.1794083014406929,
+        "progress_q90": 0.18214339986142303,
+        "progress_spread": 0.0027350984207301365,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.0048992208032411985
+      },
+      "heldout_best_gain_per_nfe": 0.0003563016553499408,
+      "remaining_nfe": 8,
+      "timestep": 7
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.001982028496273547,
+        "mean_progress": 0.18078631880708634,
+        "progress_q10": 0.17916036441812766,
+        "progress_q90": 0.18276673103309235,
+        "progress_spread": 0.00360636661496469,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004759316041053797
+      },
+      "checkpoint_index": 99,
+      "heldout": {
+        "best_descendant_gain": 0.001982028496273547,
+        "mean_progress": 0.18078631880708634,
+        "progress_q10": 0.17916036441812766,
+        "progress_q90": 0.18276673103309235,
+        "progress_spread": 0.00360636661496469,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.004759316041053797
+      },
+      "heldout_best_gain_per_nfe": 0.001982028496273547,
+      "remaining_nfe": 1,
+      "timestep": 0
+    }
+  ],
+  "episode_seed": 4,
+  "peak_vram_bytes": 1197498368,
+  "root_disagreement": [
+    {
+      "checkpoint_index": 0,
+      "timestep": 99,
+      "z_disagreement": 1.4088711280223019
+    },
+    {
+      "checkpoint_index": 7,
+      "timestep": 92,
+      "z_disagreement": 1.3634223126756115
+    },
+    {
+      "checkpoint_index": 13,
+      "timestep": 86,
+      "z_disagreement": 1.3503346834068062
+    },
+    {
+      "checkpoint_index": 20,
+      "timestep": 79,
+      "z_disagreement": 1.264379871977287
+    },
+    {
+      "checkpoint_index": 26,
+      "timestep": 73,
+      "z_disagreement": 1.260299040204856
+    },
+    {
+      "checkpoint_index": 33,
+      "timestep": 66,
+      "z_disagreement": 1.265815388200078
+    },
+    {
+      "checkpoint_index": 40,
+      "timestep": 59,
+      "z_disagreement": 1.1700536382549198
+    },
+    {
+      "checkpoint_index": 46,
+      "timestep": 53,
+      "z_disagreement": 1.0494845260364178
+    },
+    {
+      "checkpoint_index": 53,
+      "timestep": 46,
+      "z_disagreement": 0.9963732052872399
+    },
+    {
+      "checkpoint_index": 59,
+      "timestep": 40,
+      "z_disagreement": 0.8632347498408509
+    },
+    {
+      "checkpoint_index": 66,
+      "timestep": 33,
+      "z_disagreement": 0.6982475368887121
+    },
+    {
+      "checkpoint_index": 73,
+      "timestep": 26,
+      "z_disagreement": 0.536073981826992
+    },
+    {
+      "checkpoint_index": 79,
+      "timestep": 20,
+      "z_disagreement": 0.4381692826907249
+    },
+    {
+      "checkpoint_index": 86,
+      "timestep": 13,
+      "z_disagreement": 0.317964567292029
+    },
+    {
+      "checkpoint_index": 92,
+      "timestep": 7,
+      "z_disagreement": 0.1953383056708093
+    },
+    {
+      "checkpoint_index": 99,
+      "timestep": 0,
+      "z_disagreement": 0.038327698700401834
+    }
+  ],
+  "snapshot_id": "28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd",
+  "stratum": "ambiguous",
+  "wall_clock_seconds": 361.320923105
+}

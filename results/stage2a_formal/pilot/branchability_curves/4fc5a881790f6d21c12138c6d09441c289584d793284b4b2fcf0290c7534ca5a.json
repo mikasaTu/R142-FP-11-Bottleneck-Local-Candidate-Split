@@ -1,0 +1,482 @@
+{
+  "compute": {
+    "discovery_suffix_sample_nfe_per_stream": 51712,
+    "root_count": 8,
+    "root_sample_nfe": 800,
+    "suffix_count_per_root_checkpoint_stream": 8
+  },
+  "control_step": 100,
+  "curve": [
+    {
+      "calibration": {
+        "best_descendant_gain": 0.002026805375757973,
+        "mean_progress": 0.1786764934567461,
+        "progress_q10": 0.17783530973133088,
+        "progress_q90": 0.17943171537813477,
+        "progress_spread": 0.0015964056468038834,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009591815077026928
+      },
+      "checkpoint_index": 0,
+      "heldout": {
+        "best_descendant_gain": 0.002026022716493825,
+        "mean_progress": 0.17869191468056897,
+        "progress_q10": 0.17780726845892159,
+        "progress_q90": 0.17942910360739106,
+        "progress_spread": 0.0016218351484694749,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.00960041946822258
+      },
+      "heldout_best_gain_per_nfe": 2.026022716493825e-05,
+      "remaining_nfe": 100,
+      "timestep": 99
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0013671889703300577,
+        "mean_progress": 0.17873995477876914,
+        "progress_q10": 0.17769175428087794,
+        "progress_q90": 0.17963450956747315,
+        "progress_spread": 0.0019427552865952102,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.010360306445591059
+      },
+      "checkpoint_index": 7,
+      "heldout": {
+        "best_descendant_gain": 0.0013882012693127999,
+        "mean_progress": 0.17868085114228505,
+        "progress_q10": 0.17767898184954134,
+        "progress_q90": 0.17962658060753028,
+        "progress_spread": 0.0019475987579889442,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.010044477997979553
+      },
+      "heldout_best_gain_per_nfe": 1.4926895368954837e-05,
+      "remaining_nfe": 93,
+      "timestep": 92
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0023295906911247888,
+        "mean_progress": 0.17894632832832613,
+        "progress_q10": 0.17806397000137877,
+        "progress_q90": 0.1798935007566349,
+        "progress_spread": 0.0018295307552561313,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.010248067929393437
+      },
+      "checkpoint_index": 13,
+      "heldout": {
+        "best_descendant_gain": 0.0023342654584009026,
+        "mean_progress": 0.17891183470973648,
+        "progress_q10": 0.17800319405105586,
+        "progress_q90": 0.179790134252585,
+        "progress_spread": 0.0017869402015291413,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009918924577879984
+      },
+      "heldout_best_gain_per_nfe": 2.6830637452883937e-05,
+      "remaining_nfe": 87,
+      "timestep": 86
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0019297098791201672,
+        "mean_progress": 0.17893891844963905,
+        "progress_q10": 0.1782530321348773,
+        "progress_q90": 0.17967964002084447,
+        "progress_spread": 0.0014266078859671572,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.00958403357428046
+      },
+      "checkpoint_index": 20,
+      "heldout": {
+        "best_descendant_gain": 0.00193900434105157,
+        "mean_progress": 0.1788996667172697,
+        "progress_q10": 0.17795135810550294,
+        "progress_q90": 0.17968886798968625,
+        "progress_spread": 0.001737509884183308,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009412583696567469
+      },
+      "heldout_best_gain_per_nfe": 2.4237554263144626e-05,
+      "remaining_nfe": 80,
+      "timestep": 79
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0016619902500682737,
+        "mean_progress": 0.1787927426003735,
+        "progress_q10": 0.1773999270029101,
+        "progress_q90": 0.17980079854129313,
+        "progress_spread": 0.0024008715383830315,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009418461363447669
+      },
+      "checkpoint_index": 26,
+      "heldout": {
+        "best_descendant_gain": 0.0016309463815657177,
+        "mean_progress": 0.1788296318378943,
+        "progress_q10": 0.17756997852657738,
+        "progress_q90": 0.17974723187373332,
+        "progress_spread": 0.002177253347155933,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009459273340398493
+      },
+      "heldout_best_gain_per_nfe": 2.2039815967104292e-05,
+      "remaining_nfe": 74,
+      "timestep": 73
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0011803817799718452,
+        "mean_progress": 0.17875700084942392,
+        "progress_q10": 0.17780282043995774,
+        "progress_q90": 0.17970918058620639,
+        "progress_spread": 0.001906360146248648,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009771364087719094
+      },
+      "checkpoint_index": 33,
+      "heldout": {
+        "best_descendant_gain": 0.0011523950896523971,
+        "mean_progress": 0.17879059161114066,
+        "progress_q10": 0.1780054256383112,
+        "progress_q90": 0.1796650858682114,
+        "progress_spread": 0.0016596602299001895,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009512364710161009
+      },
+      "heldout_best_gain_per_nfe": 1.7199926711229807e-05,
+      "remaining_nfe": 67,
+      "timestep": 66
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.001931954059563673,
+        "mean_progress": 0.1788057660189899,
+        "progress_q10": 0.17772640674520865,
+        "progress_q90": 0.17959622842439502,
+        "progress_spread": 0.0018698216791863675,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.01029401819151402
+      },
+      "checkpoint_index": 40,
+      "heldout": {
+        "best_descendant_gain": 0.0019082869327738394,
+        "mean_progress": 0.1788371623205183,
+        "progress_q10": 0.17775968778314313,
+        "progress_q90": 0.17973635765166965,
+        "progress_spread": 0.001976669868526515,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.010343523604065277
+      },
+      "heldout_best_gain_per_nfe": 3.180478221289732e-05,
+      "remaining_nfe": 60,
+      "timestep": 59
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0014137857961144251,
+        "mean_progress": 0.17876788579031422,
+        "progress_q10": 0.17791835093033603,
+        "progress_q90": 0.1798259134360864,
+        "progress_spread": 0.0019075625057503598,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009735394690693726
+      },
+      "checkpoint_index": 46,
+      "heldout": {
+        "best_descendant_gain": 0.0014844090957290834,
+        "mean_progress": 0.1788465060390658,
+        "progress_q10": 0.17807790562047193,
+        "progress_q90": 0.17997061349405705,
+        "progress_spread": 0.0018927078735851144,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009630807192736726
+      },
+      "heldout_best_gain_per_nfe": 2.748905732831636e-05,
+      "remaining_nfe": 54,
+      "timestep": 53
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0021353477865624637,
+        "mean_progress": 0.17882567575060787,
+        "progress_q10": 0.17778118903417853,
+        "progress_q90": 0.17986075175503918,
+        "progress_spread": 0.002079562720860656,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.010120355133087003
+      },
+      "checkpoint_index": 53,
+      "heldout": {
+        "best_descendant_gain": 0.002142217638090055,
+        "mean_progress": 0.17882186557282687,
+        "progress_q10": 0.17776245436821408,
+        "progress_q90": 0.17987784954961225,
+        "progress_spread": 0.0021153951813981664,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.010286639675317412
+      },
+      "heldout_best_gain_per_nfe": 4.557909868276712e-05,
+      "remaining_nfe": 47,
+      "timestep": 46
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0014559379758796176,
+        "mean_progress": 0.17897457350296667,
+        "progress_q10": 0.17817488871131615,
+        "progress_q90": 0.1797619659808242,
+        "progress_spread": 0.001587077269508047,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009183449576014186
+      },
+      "checkpoint_index": 59,
+      "heldout": {
+        "best_descendant_gain": 0.0014344869142946526,
+        "mean_progress": 0.1789373168271401,
+        "progress_q10": 0.1780773539124026,
+        "progress_q90": 0.17974068234091778,
+        "progress_spread": 0.0016633284285151873,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009206085355464811
+      },
+      "heldout_best_gain_per_nfe": 3.498748571450372e-05,
+      "remaining_nfe": 41,
+      "timestep": 40
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0016231656622631152,
+        "mean_progress": 0.17890298665494447,
+        "progress_q10": 0.17800253585196957,
+        "progress_q90": 0.17989463125569544,
+        "progress_spread": 0.0018920954037258686,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009485390740756742
+      },
+      "checkpoint_index": 66,
+      "heldout": {
+        "best_descendant_gain": 0.0015850088246310567,
+        "mean_progress": 0.1789418317261306,
+        "progress_q10": 0.17805394817690523,
+        "progress_q90": 0.17991274668285234,
+        "progress_spread": 0.0018587985059471124,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009524116180239496
+      },
+      "heldout_best_gain_per_nfe": 4.6617906606795785e-05,
+      "remaining_nfe": 34,
+      "timestep": 33
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.001221507957130108,
+        "mean_progress": 0.17890090691529095,
+        "progress_q10": 0.17805102762603484,
+        "progress_q90": 0.17985820061818816,
+        "progress_spread": 0.0018071729921533275,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009326059572377381
+      },
+      "checkpoint_index": 73,
+      "heldout": {
+        "best_descendant_gain": 0.0011642369680707476,
+        "mean_progress": 0.17886875772827718,
+        "progress_q10": 0.1780191808598793,
+        "progress_q90": 0.1798498480897813,
+        "progress_spread": 0.0018306672299019944,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.00939227522610123
+      },
+      "heldout_best_gain_per_nfe": 4.311988770632399e-05,
+      "remaining_nfe": 27,
+      "timestep": 26
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0014868641993261433,
+        "mean_progress": 0.17875978686687394,
+        "progress_q10": 0.17783808627674436,
+        "progress_q90": 0.17969656120594296,
+        "progress_spread": 0.0018584749291986058,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009306828711765964
+      },
+      "checkpoint_index": 79,
+      "heldout": {
+        "best_descendant_gain": 0.0013502495906106693,
+        "mean_progress": 0.1787452072218346,
+        "progress_q10": 0.17787460020965776,
+        "progress_q90": 0.17968548609371296,
+        "progress_spread": 0.0018108858840552022,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009141294721616193
+      },
+      "heldout_best_gain_per_nfe": 6.429759955288901e-05,
+      "remaining_nfe": 21,
+      "timestep": 20
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0011737510101366144,
+        "mean_progress": 0.17880692971342357,
+        "progress_q10": 0.1776811194126676,
+        "progress_q90": 0.179591754154459,
+        "progress_spread": 0.0019106347417914005,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009743735056815316
+      },
+      "checkpoint_index": 86,
+      "heldout": {
+        "best_descendant_gain": 0.0010879852215827934,
+        "mean_progress": 0.17879588469697527,
+        "progress_q10": 0.17794659641245622,
+        "progress_q90": 0.17949087948404313,
+        "progress_spread": 0.0015442830715869105,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009185317206429114
+      },
+      "heldout_best_gain_per_nfe": 7.771323011305667e-05,
+      "remaining_nfe": 14,
+      "timestep": 13
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0015380556273517088,
+        "mean_progress": 0.17861476274678165,
+        "progress_q10": 0.17771800500973797,
+        "progress_q90": 0.17941348622718645,
+        "progress_spread": 0.0016954812174484746,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009271128660776746
+      },
+      "checkpoint_index": 92,
+      "heldout": {
+        "best_descendant_gain": 0.0014497366476497742,
+        "mean_progress": 0.1785953308764131,
+        "progress_q10": 0.1775861612184607,
+        "progress_q90": 0.17948226036030596,
+        "progress_spread": 0.00189609914184527,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009154834007763471
+      },
+      "heldout_best_gain_per_nfe": 0.00018121708095622177,
+      "remaining_nfe": 8,
+      "timestep": 7
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 0.0011262157480707302,
+        "mean_progress": 0.17890821220764583,
+        "progress_q10": 0.17825431078760628,
+        "progress_q90": 0.18003520706092305,
+        "progress_spread": 0.0017808962733167621,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009346473295121418
+      },
+      "checkpoint_index": 99,
+      "heldout": {
+        "best_descendant_gain": 0.0011262157480707302,
+        "mean_progress": 0.1789082122076458,
+        "progress_q10": 0.17825431078760604,
+        "progress_q90": 0.18003520706092305,
+        "progress_spread": 0.001780896273317012,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.009346473295121418
+      },
+      "heldout_best_gain_per_nfe": 0.0011262157480707302,
+      "remaining_nfe": 1,
+      "timestep": 0
+    }
+  ],
+  "episode_seed": 38,
+  "peak_vram_bytes": 1197498368,
+  "root_disagreement": [
+    {
+      "checkpoint_index": 0,
+      "timestep": 99,
+      "z_disagreement": 1.4380131130678204
+    },
+    {
+      "checkpoint_index": 7,
+      "timestep": 92,
+      "z_disagreement": 1.5153672294203033
+    },
+    {
+      "checkpoint_index": 13,
+      "timestep": 86,
+      "z_disagreement": 1.3727193731502934
+    },
+    {
+      "checkpoint_index": 20,
+      "timestep": 79,
+      "z_disagreement": 1.4066260516236115
+    },
+    {
+      "checkpoint_index": 26,
+      "timestep": 73,
+      "z_disagreement": 1.395027859260523
+    },
+    {
+      "checkpoint_index": 33,
+      "timestep": 66,
+      "z_disagreement": 1.2144682434473828
+    },
+    {
+      "checkpoint_index": 40,
+      "timestep": 59,
+      "z_disagreement": 1.0645815317538216
+    },
+    {
+      "checkpoint_index": 46,
+      "timestep": 53,
+      "z_disagreement": 0.9773400398432578
+    },
+    {
+      "checkpoint_index": 53,
+      "timestep": 46,
+      "z_disagreement": 0.9229136560751666
+    },
+    {
+      "checkpoint_index": 59,
+      "timestep": 40,
+      "z_disagreement": 0.8375580973713701
+    },
+    {
+      "checkpoint_index": 66,
+      "timestep": 33,
+      "z_disagreement": 0.7046991842969911
+    },
+    {
+      "checkpoint_index": 73,
+      "timestep": 26,
+      "z_disagreement": 0.5594030694459035
+    },
+    {
+      "checkpoint_index": 79,
+      "timestep": 20,
+      "z_disagreement": 0.4737454911418242
+    },
+    {
+      "checkpoint_index": 86,
+      "timestep": 13,
+      "z_disagreement": 0.32047084666607634
+    },
+    {
+      "checkpoint_index": 92,
+      "timestep": 7,
+      "z_disagreement": 0.20374973669287905
+    },
+    {
+      "checkpoint_index": 99,
+      "timestep": 0,
+      "z_disagreement": 0.03704379202006557
+    }
+  ],
+  "snapshot_id": "4fc5a881790f6d21c12138c6d09441c289584d793284b4b2fcf0290c7534ca5a",
+  "stratum": "ambiguous",
+  "wall_clock_seconds": 643.2992743720001
+}

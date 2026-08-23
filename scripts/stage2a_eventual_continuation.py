@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -67,8 +68,11 @@ def load_action_index(pilot_output: Path, snapshot_ids: set[str]) -> dict[tuple,
         for suffix in SUFFIX_INDICES
     }
     index = {}
-    for path in sorted(pilot_output.glob("descendant_genealogy.rank*.jsonl")):
-        with path.open() as handle:
+    paths = sorted(pilot_output.glob("descendant_genealogy.rank*.jsonl"))
+    paths.extend(sorted(pilot_output.glob("descendant_genealogy.rank*.jsonl.gz")))
+    for path in paths:
+        opener = gzip.open if path.suffix == ".gz" else open
+        with opener(path, "rt") as handle:
             for line in handle:
                 row = json.loads(line)
                 if row.get("record_type") != "descendant" or row.get("stream") != STREAM:

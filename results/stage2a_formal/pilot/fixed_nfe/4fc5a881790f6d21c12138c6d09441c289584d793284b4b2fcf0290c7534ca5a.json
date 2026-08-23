@@ -1,0 +1,124 @@
+{
+  "no_branch": {
+    "sample_nfe": 800,
+    "score_mean_root_progress": 0.17890899131285232
+  },
+  "sample_nfe_budget": 7200,
+  "snapshot_id": "4fc5a881790f6d21c12138c6d09441c289584d793284b4b2fcf0290c7534ca5a",
+  "strategies": {
+    "always_early": {
+      "actual_sample_nfe": 7200,
+      "allocations": [
+        {
+          "budget_slack": 0,
+          "checkpoint_index": 0,
+          "suffixes_per_root": 8
+        }
+      ],
+      "budget_slack": 0,
+      "gain_over_no_branch": 0.0007728308810054374,
+      "generated_suffixes": 64,
+      "score_best_progress_per_root": [
+        0.17919477430316863,
+        0.18071756126524788,
+        0.17936432063498592,
+        0.17962041934652984,
+        0.1791172711075265,
+        0.17926881188277027,
+        0.17963029576537318,
+        0.18054112324525987
+      ],
+      "score_mean_best_progress": 0.17968182219385775,
+      "wall_clock_seconds": 19.055550234999828
+    },
+    "oracle_local_crossfit": {
+      "actual_sample_nfe": 7064,
+      "allocations": [
+        {
+          "budget_slack": 136,
+          "checkpoint_index": 13,
+          "suffixes_per_root": 9
+        }
+      ],
+      "budget_slack": 136,
+      "gain_over_no_branch": 0.0006992974823713805,
+      "generated_suffixes": 72,
+      "score_best_progress_per_root": [
+        0.179615009344745,
+        0.17930481320221922,
+        0.17896706058794953,
+        0.18048134957134612,
+        0.17980325952944826,
+        0.17963052362602688,
+        0.180106485077748,
+        0.1789578094223066
+      ],
+      "score_mean_best_progress": 0.1796082887952237,
+      "wall_clock_seconds": 22.64167962600004
+    },
+    "random": {
+      "actual_sample_nfe": 6696,
+      "allocations": [
+        {
+          "budget_slack": 504,
+          "checkpoint_index": 33,
+          "suffixes_per_root": 11
+        }
+      ],
+      "budget_slack": 504,
+      "gain_over_no_branch": 0.0009970859196585247,
+      "generated_suffixes": 88,
+      "score_best_progress_per_root": [
+        0.17972048770060467,
+        0.18008607575807895,
+        0.1792401094451511,
+        0.17948104707339146,
+        0.17931299855212685,
+        0.1808572543755321,
+        0.18129172967777665,
+        0.17925891527742485
+      ],
+      "score_mean_best_progress": 0.17990607723251084,
+      "wall_clock_seconds": 26.480088573000103
+    },
+    "uniform_three_quantiles": {
+      "actual_sample_nfe": 6728,
+      "allocations": [
+        {
+          "budget_slack": 213,
+          "checkpoint_index": 20,
+          "sub_budget": 2933,
+          "suffixes_per_root": 3
+        },
+        {
+          "budget_slack": 253,
+          "checkpoint_index": 53,
+          "sub_budget": 2933,
+          "suffixes_per_root": 5
+        },
+        {
+          "budget_slack": 5,
+          "checkpoint_index": 86,
+          "sub_budget": 2933,
+          "suffixes_per_root": 19
+        }
+      ],
+      "budget_slack": 472,
+      "gain_over_no_branch": 0.0014326347224480895,
+      "generated_suffixes": 216,
+      "score_best_progress_per_root": [
+        0.17954642795398348,
+        0.180566829570678,
+        0.18053254914387074,
+        0.1810023853451952,
+        0.18047228785326022,
+        0.18012360293427346,
+        0.17989107317415035,
+        0.18059785230699177
+      ],
+      "score_mean_best_progress": 0.1803416260353004,
+      "wall_clock_seconds": 66.7185226620004
+    }
+  },
+  "stratum": "ambiguous"
+}

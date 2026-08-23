@@ -1,0 +1,57 @@
+{
+  "baseline_summary": {
+    "batch_wall_clock_seconds": 71.91345445200001,
+    "episodes": 50,
+    "mean_max_progress": 0.9942743496848663,
+    "seed_start": 0,
+    "shared_batch_model_nfe": 3800,
+    "success_rate": 0.66
+  },
+  "gid": 2254,
+  "milestone": "baseline_and_snapshot_frame_complete",
+  "schema_version": 1,
+  "selection_manifest": {
+    "candidate_count": 185,
+    "counts": {
+      "ambiguous": 55,
+      "easy": 45,
+      "hard": 85
+    },
+    "rule": "stratify on frozen baseline outcomes only, deterministic SHA-256 rank, no descendant outcomes",
+    "schema_version": 1,
+    "selected_count": 24,
+    "selected_snapshot_ids": [
+      "1e0cfb26fd447667b1facf7f1082ed5a38e17e773b2faf047e8c031b8b780da7",
+      "21488bbdd15b9e7b78d7490ad18547fae04d693602416baa20270f7e4c2be1d0",
+      "28334f190fd9b999058a956dd54a3999ee41ab78963d6d3d7b185df9fd776bdd",
+      "2a18ccde7b353a56f68ec503388746930bd84289b9113acba946861497931258",
+      "2dca320a1874d9d2eecd74ce1614a423e199d5fa4ed4b6bc3d6aaddd04a3062c",
+      "2ea5c12fc88f1342a3588a60dbab9f06f33566a8124a934eecc7c6b349097d08",
+      "37d4c3028ed403ed87a9db86b0ab35672b0a4b4c1307a24d50300ff705e976c6",
+      "3a77e4ef4c70dadfc77b51d929e5e78117ffb15d0cdd56e318b3f27539ccb5ad",
+      "41435cf2a0c580c61a93db03a524bc64a3ae7cdb17c0688871e732e721ffe30f",
+      "4fc5a881790f6d21c12138c6d09441c289584d793284b4b2fcf0290c7534ca5a",
+      "507929ed5e91e253db9ea73e1e52b8c04f6c455537ff5c2d233c61df7994929a",
+      "562ac728211ec066e48bb3ab7391ad5df4ddf2625479182f5c2bb1a9e2dfcf03",
+      "59f5863b9e102973a45f38d1d58628dd96e99d7e939de2e024cbfd2c7f8c1bb5",
+      "61dee9e5e8e8779c60d1955790db093c908cc11c8ccbdb09e06596ca79336da7",
+      "73ceac1f52232f0de6b4a74044d842c3afde5ce5a3b4764354e0ac9e4f1cbff8",
+      "7d1f6b7a8025e5fd32fc303745f6e92f6ca89365c09392024b1162a6fad04fa9",
+      "9d1d5b58d0556398a8b534235fa8127120a5aab7c1609adf050cca9c9196521b",
+      "9d4cfdac4814a97bdf3b982d34e8a92bd0ad2e3006fd9f6cb946f99739699882",
+      "a915b48da9958ab824c1457ba350786cc6e7d93762896746ad5c713662cc894f",
+      "b95071879ecb8f58bdbac2476a8470adb56e0e890385f4524af492414c23d4bf",
+      "cb9f7a77ba39b104fff81e361b8e0810d436c801bb3ce474867c5a38fb49b3e9",
+      "f48b13e2644a168862f263168cbc32a5c51bf7c20d593e2dfffdb4a36e80d4b4",
+      "f6d1d82339bdfc505da34bd824538f385118ab5118f8f155049d68486a732d63",
+      "fdedc08410de4c677ead9f2fb5bb7f4c4a89d11a3832c0b737a54fa24b796625"
+    ],
+    "shortfall": {
+      "ambiguous": 0,
+      "easy": 0,
+      "hard": 0
+    },
+    "target_per_stratum": 8
+  },
+  "uid": 2254
+}

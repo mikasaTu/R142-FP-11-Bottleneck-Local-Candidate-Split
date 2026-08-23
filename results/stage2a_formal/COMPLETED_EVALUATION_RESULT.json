@@ -1,0 +1,10 @@
+{
+  "all_source_gates_pass": true,
+  "engineering_complete": true,
+  "gid": 2254,
+  "schema_version": 1,
+  "scientific_decision": "R142_FP11_CORE_HYPOTHESIS_WEAKENED",
+  "snapshot_count": 24,
+  "success_gate": "persisted_completed_evaluation_result",
+  "uid": 2254
+}

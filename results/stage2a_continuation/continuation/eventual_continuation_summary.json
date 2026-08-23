@@ -1,0 +1,45 @@
+{
+  "by_checkpoint": {
+    "0": {
+      "eventual_success_rate": 0.5833333333333334,
+      "mean_eventual_max_progress": 0.9848196601185761,
+      "n": 12
+    },
+    "53": {
+      "eventual_success_rate": 0.6666666666666666,
+      "mean_eventual_max_progress": 0.9877640953055807,
+      "n": 12
+    },
+    "99": {
+      "eventual_success_rate": 0.5,
+      "mean_eventual_max_progress": 0.9803108819066386,
+      "n": 12
+    }
+  },
+  "by_stratum": {
+    "ambiguous": {
+      "eventual_success_rate": 0.6666666666666666,
+      "mean_eventual_max_progress": 0.9931141475438584,
+      "n": 12
+    },
+    "easy": {
+      "eventual_success_rate": 0.6666666666666666,
+      "mean_eventual_max_progress": 0.9926665988916524,
+      "n": 12
+    },
+    "hard": {
+      "eventual_success_rate": 0.4166666666666667,
+      "mean_eventual_max_progress": 0.9671138908952847,
+      "n": 12
+    }
+  },
+  "case_count": 36,
+  "overall_eventual_success_rate": 0.5833333333333334,
+  "overall_mean_eventual_max_progress": 0.9842982124435985,
+  "peak_vram_bytes": 1149988864,
+  "schema_version": 1,
+  "selection_boundary": "descendant outcomes are not used: take the two lexicographically first frozen snapshot IDs per stratum and fixed root/checkpoint/suffix indices",
+  "snapshot_count": 6,
+  "total_continuation_model_nfe": 53200,
+  "total_wall_clock_seconds": 305.702771738
+}

@@ -37,6 +37,16 @@ negative controls and actual fixed-sample-NFE comparisons. Completion requires
 `COMPLETED_EVALUATION_RESULT.json`; queueing, `Running`, first work, or one
 completed snapshot is not a scientific result.
 
+Stage-2A is now complete. The final decision is
+`R142_FP11_CORE_HYPOTHESIS_WEAKENED`: 0/24 natural snapshots met the frozen
+location-sensitivity threshold and cross-fitted oracle-local branching did not
+meaningfully beat always-early, random or uniform branching at a 7200
+sample-NFE cap. The full report is `reports/STAGE2A_EXPERIMENT_REPORT.md`, the
+code-level mechanism audit is
+`reports/STAGE2A_MECHANISM_REVERSE_EXPLANATION.md`, and all persisted formal
+artifacts are under `results/`. Per the preregistered gate, no VLA expansion is
+authorized.
+
 ## Local CPU smoke
 
 ```bash

@@ -1,0 +1,12 @@
+{
+  "case_count": 36,
+  "engineering_complete": true,
+  "gid": 2254,
+  "input_job_id": "dlcm4saves6zi30f",
+  "input_run_id": "r142-stage2a-formal-20260823-r2",
+  "schema_version": 1,
+  "scientific_role": "predeclared representative eventual-success continuation subset",
+  "snapshot_count": 6,
+  "success_gate": "persisted_completed_evaluation_result",
+  "uid": 2254
+}

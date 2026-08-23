@@ -1,0 +1,482 @@
+{
+  "compute": {
+    "discovery_suffix_sample_nfe_per_stream": 51712,
+    "root_count": 8,
+    "root_sample_nfe": 800,
+    "suffix_count_per_root_checkpoint_stream": 8
+  },
+  "control_step": 200,
+  "curve": [
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.02096213321113434
+      },
+      "checkpoint_index": 0,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.021325596552116577
+      },
+      "heldout_best_gain_per_nfe": 1.1102230246251566e-18,
+      "remaining_nfe": 100,
+      "timestep": 99
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.021621459829351767
+      },
+      "checkpoint_index": 7,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.02151502638361299
+      },
+      "heldout_best_gain_per_nfe": 1.1937881985216738e-18,
+      "remaining_nfe": 93,
+      "timestep": 92
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.02320759690737434
+      },
+      "checkpoint_index": 13,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.021941510078086937
+      },
+      "heldout_best_gain_per_nfe": 1.2761184191093753e-18,
+      "remaining_nfe": 87,
+      "timestep": 86
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.022375496471558582
+      },
+      "checkpoint_index": 20,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.023460369178165127
+      },
+      "heldout_best_gain_per_nfe": 1.3877787807814458e-18,
+      "remaining_nfe": 80,
+      "timestep": 79
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.02158716257797979
+      },
+      "checkpoint_index": 26,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.021487600524036567
+      },
+      "heldout_best_gain_per_nfe": 1.50030138462859e-18,
+      "remaining_nfe": 74,
+      "timestep": 73
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.022388102962491527
+      },
+      "checkpoint_index": 33,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.021474708758879114
+      },
+      "heldout_best_gain_per_nfe": 1.6570492904853082e-18,
+      "remaining_nfe": 67,
+      "timestep": 66
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.021272901759639872
+      },
+      "checkpoint_index": 40,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.021437227825313744
+      },
+      "heldout_best_gain_per_nfe": 1.8503717077085942e-18,
+      "remaining_nfe": 60,
+      "timestep": 59
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.020767474909219874
+      },
+      "checkpoint_index": 46,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.021258012922553797
+      },
+      "heldout_best_gain_per_nfe": 2.05596856412066e-18,
+      "remaining_nfe": 54,
+      "timestep": 53
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.02115123219068921
+      },
+      "checkpoint_index": 53,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.021131794437764063
+      },
+      "heldout_best_gain_per_nfe": 2.362176648138631e-18,
+      "remaining_nfe": 47,
+      "timestep": 46
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.022463570053680156
+      },
+      "checkpoint_index": 59,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.022713188212351992
+      },
+      "heldout_best_gain_per_nfe": 2.7078610356711136e-18,
+      "remaining_nfe": 41,
+      "timestep": 40
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.02094855787310382
+      },
+      "checkpoint_index": 66,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.02127271815879597
+      },
+      "heldout_best_gain_per_nfe": 3.2653618371328133e-18,
+      "remaining_nfe": 34,
+      "timestep": 33
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.02339015769177252
+      },
+      "checkpoint_index": 73,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.022327663244958176
+      },
+      "heldout_best_gain_per_nfe": 4.11193712824132e-18,
+      "remaining_nfe": 27,
+      "timestep": 26
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.01977064800575323
+      },
+      "checkpoint_index": 79,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.019821065590068833
+      },
+      "heldout_best_gain_per_nfe": 5.28677630773884e-18,
+      "remaining_nfe": 21,
+      "timestep": 20
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.021097008825451232
+      },
+      "checkpoint_index": 86,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.021657392223535295
+      },
+      "heldout_best_gain_per_nfe": 7.93016446160826e-18,
+      "remaining_nfe": 14,
+      "timestep": 13
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.021387458287024614
+      },
+      "checkpoint_index": 92,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.022514899566719447
+      },
+      "heldout_best_gain_per_nfe": 1.3877787807814457e-17,
+      "remaining_nfe": 8,
+      "timestep": 7
+    },
+    {
+      "calibration": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.018578162935876382
+      },
+      "checkpoint_index": 99,
+      "heldout": {
+        "best_descendant_gain": 1.1102230246251565e-16,
+        "mean_progress": 0.8731322804670147,
+        "progress_q10": 0.8731322804670145,
+        "progress_q90": 0.8731322804670146,
+        "progress_spread": 1.1102230246251565e-16,
+        "rescue_probability": 0.0,
+        "support_diversity": 0.018578162935876382
+      },
+      "heldout_best_gain_per_nfe": 1.1102230246251565e-16,
+      "remaining_nfe": 1,
+      "timestep": 0
+    }
+  ],
+  "episode_seed": 10,
+  "peak_vram_bytes": 1197498368,
+  "root_disagreement": [
+    {
+      "checkpoint_index": 0,
+      "timestep": 99,
+      "z_disagreement": 1.3546255742597777
+    },
+    {
+      "checkpoint_index": 7,
+      "timestep": 92,
+      "z_disagreement": 1.4020190929438257
+    },
+    {
+      "checkpoint_index": 13,
+      "timestep": 86,
+      "z_disagreement": 1.300060453621165
+    },
+    {
+      "checkpoint_index": 20,
+      "timestep": 79,
+      "z_disagreement": 1.2707340615778728
+    },
+    {
+      "checkpoint_index": 26,
+      "timestep": 73,
+      "z_disagreement": 1.2378373679277748
+    },
+    {
+      "checkpoint_index": 33,
+      "timestep": 66,
+      "z_disagreement": 1.175448834849092
+    },
+    {
+      "checkpoint_index": 40,
+      "timestep": 59,
+      "z_disagreement": 1.0552791256074612
+    },
+    {
+      "checkpoint_index": 46,
+      "timestep": 53,
+      "z_disagreement": 0.9674718276115293
+    },
+    {
+      "checkpoint_index": 53,
+      "timestep": 46,
+      "z_disagreement": 0.8598097084502256
+    },
+    {
+      "checkpoint_index": 59,
+      "timestep": 40,
+      "z_disagreement": 0.7928642091058787
+    },
+    {
+      "checkpoint_index": 66,
+      "timestep": 33,
+      "z_disagreement": 0.6868644064781265
+    },
+    {
+      "checkpoint_index": 73,
+      "timestep": 26,
+      "z_disagreement": 0.5586074444504785
+    },
+    {
+      "checkpoint_index": 79,
+      "timestep": 20,
+      "z_disagreement": 0.45241512974107456
+    },
+    {
+      "checkpoint_index": 86,
+      "timestep": 13,
+      "z_disagreement": 0.3099416576898807
+    },
+    {
+      "checkpoint_index": 92,
+      "timestep": 7,
+      "z_disagreement": 0.20259858542708922
+    },
+    {
+      "checkpoint_index": 99,
+      "timestep": 0,
+      "z_disagreement": 0.03918531653324862
+    }
+  ],
+  "snapshot_id": "37d4c3028ed403ed87a9db86b0ab35672b0a4b4c1307a24d50300ff705e976c6",
+  "stratum": "hard",
+  "wall_clock_seconds": 1204.9938497499998
+}

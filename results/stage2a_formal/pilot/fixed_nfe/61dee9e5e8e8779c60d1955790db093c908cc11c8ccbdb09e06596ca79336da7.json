@@ -1,0 +1,124 @@
+{
+  "no_branch": {
+    "sample_nfe": 800,
+    "score_mean_root_progress": 0.9828313363185011
+  },
+  "sample_nfe_budget": 7200,
+  "snapshot_id": "61dee9e5e8e8779c60d1955790db093c908cc11c8ccbdb09e06596ca79336da7",
+  "strategies": {
+    "always_early": {
+      "actual_sample_nfe": 7200,
+      "allocations": [
+        {
+          "budget_slack": 0,
+          "checkpoint_index": 0,
+          "suffixes_per_root": 8
+        }
+      ],
+      "budget_slack": 0,
+      "gain_over_no_branch": 0.01716866368149894,
+      "generated_suffixes": 64,
+      "score_best_progress_per_root": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "score_mean_best_progress": 1.0,
+      "wall_clock_seconds": 36.806535443998655
+    },
+    "oracle_local_crossfit": {
+      "actual_sample_nfe": 7192,
+      "allocations": [
+        {
+          "budget_slack": 8,
+          "checkpoint_index": 53,
+          "suffixes_per_root": 17
+        }
+      ],
+      "budget_slack": 8,
+      "gain_over_no_branch": 0.01716866368149894,
+      "generated_suffixes": 136,
+      "score_best_progress_per_root": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "score_mean_best_progress": 1.0,
+      "wall_clock_seconds": 83.07472880800015
+    },
+    "random": {
+      "actual_sample_nfe": 7184,
+      "allocations": [
+        {
+          "budget_slack": 16,
+          "checkpoint_index": 79,
+          "suffixes_per_root": 38
+        }
+      ],
+      "budget_slack": 16,
+      "gain_over_no_branch": 0.01716866368149894,
+      "generated_suffixes": 304,
+      "score_best_progress_per_root": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "score_mean_best_progress": 1.0,
+      "wall_clock_seconds": 178.5299664969989
+    },
+    "uniform_three_quantiles": {
+      "actual_sample_nfe": 6728,
+      "allocations": [
+        {
+          "budget_slack": 213,
+          "checkpoint_index": 20,
+          "sub_budget": 2933,
+          "suffixes_per_root": 3
+        },
+        {
+          "budget_slack": 253,
+          "checkpoint_index": 53,
+          "sub_budget": 2933,
+          "suffixes_per_root": 5
+        },
+        {
+          "budget_slack": 5,
+          "checkpoint_index": 86,
+          "sub_budget": 2933,
+          "suffixes_per_root": 19
+        }
+      ],
+      "budget_slack": 472,
+      "gain_over_no_branch": 0.01716866368149894,
+      "generated_suffixes": 216,
+      "score_best_progress_per_root": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "score_mean_best_progress": 1.0,
+      "wall_clock_seconds": 121.68776378700022
+    }
+  },
+  "stratum": "easy"
+}

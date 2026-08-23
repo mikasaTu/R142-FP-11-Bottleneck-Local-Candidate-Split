@@ -1,0 +1,8 @@
+{
+  "batch_wall_clock_seconds": 71.91345445200001,
+  "episodes": 50,
+  "mean_max_progress": 0.9942743496848663,
+  "seed_start": 0,
+  "shared_batch_model_nfe": 3800,
+  "success_rate": 0.66
+}

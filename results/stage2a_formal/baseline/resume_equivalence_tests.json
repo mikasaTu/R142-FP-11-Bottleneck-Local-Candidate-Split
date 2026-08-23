@@ -1,0 +1,31 @@
+{
+  "all_pass": true,
+  "device": "cuda",
+  "schema_version": 1,
+  "tests": {
+    "A_tracing_disabled_delegates_exactly": {
+      "pass": true
+    },
+    "B_passive_tracing_is_noop": {
+      "captured_steps": 100,
+      "pass": true
+    },
+    "C_same_z_same_rng_reproduces_suffix": {
+      "checkpoint_index": 53,
+      "pass": true,
+      "resumed_final_sha256": "8e551b891a0db6de8d6b52241263c61b526a00d8026fa6a1ea36db2db204a5cb",
+      "root_final_sha256": "8e551b891a0db6de8d6b52241263c61b526a00d8026fa6a1ea36db2db204a5cb"
+    },
+    "D_same_z_new_rng_changes_suffix": {
+      "different_final_sha256": "0e90182a9bea0b9ba69976cf2e5334366344b47ad5005bbc955c7775bcf8a8cb",
+      "max_abs_difference": 0.043298251926898956,
+      "pass": true
+    },
+    "E_replay_snapshot_equivalence": {
+      "max_abs_native_state_error": 0.0,
+      "pass": true,
+      "restored_state_sha256": "99f6889a109530b4abc62541d6563de64af801dd74333cff0942369dc4ca0c1b",
+      "snapshot_sha256": "4509145762374699d62feaf47e343004de9ebfdfd43ac354863c0951acc51309"
+    }
+  }
+}

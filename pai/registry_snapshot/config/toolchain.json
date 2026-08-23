@@ -1,0 +1,305 @@
+{
+  "schema_version": 1,
+  "dlc": {
+    "file": "bin/dlc-2598c3119-202512111654",
+    "version": "2598c3119-202512111654",
+    "sha256": "09fac825e088dfeee7f55919d6ad8421d4f46c2a6554da1827b664a08518473c"
+  },
+  "default_config": "/workspace/leon/.dlc/config",
+  "region": "cn-wulanchabu",
+  "endpoint": "pai-dlc.cn-wulanchabu.aliyuncs.com",
+  "workspace_id": "179169",
+  "openapi_idle_source": {
+    "file": "bin/record-openapi-idle-source",
+    "sha256": "c12682268bb0c6d5661ca1255493c9711395ab5f67d0bd202aa9db59529c041c",
+    "api_path": "/api/v1/jobs",
+    "action": "ListJobs",
+    "version": "2020-12-03",
+    "source": "pai_openapi_listjobs_exact_job_readback"
+  },
+  "openapi_job_delete": {
+    "file": "bin/delete-openapi-job",
+    "sha256": "ffec4e1c87ce4685abe727e536ab020f81fe934c32b4d80c7ce834f88aaa8081",
+    "api_path_template": "/api/v1/jobs/{JobId}",
+    "action": "DeleteJob",
+    "version": "2020-12-03"
+  },
+  "contract_source_job_id": "dlcfp1szuc2cgqfp",
+  "canary_launcher": {
+    "file": "launchers/owner_autofault_canary.sh",
+    "sha256": "a7806b55fbaaf85cb9f0042a6b079d31d8e1e6dd1efe3ea5cf057e8faeb93537"
+  },
+  "vlajepa_trashcan_vjepa20_launcher": {
+    "file": "launchers/vlajepa_trashcan_vjepa20_resume36k.sh",
+    "sha256": "6e160890159046ddb64cd75b2c91d8b8d82cca9478ae8fd77eedfac85d37aa8b"
+  },
+  "vlajepa_trashcan_vjepa20_eval_launcher": {
+    "file": "launchers/vlajepa_trashcan_vjepa20_step40000_eval.sh",
+    "sha256": "60eb567326ba52208655f39ae6123409137ee813e3283b30157f7869c8700983"
+  },
+  "vlajepa_openfaucet_hiw50k_vjepa20_launcher": {
+    "file": "launchers/vlajepa_openfaucet_hiw50k_vjepa20_efficiency.sh",
+    "sha256": "4751f374961097c5e1283196c4668c515babb4dbd3e9da83e058cdf48c9a52f2"
+  },
+  "vlajepa_openfaucet_hiw50k_vjepa21_launcher": {
+    "file": "launchers/vlajepa_openfaucet_hiw50k_vjepa21_efficiency.sh",
+    "sha256": "28e40e5232d19e75f36d1674130d44d450c6280484a290e34ddc5d024ff42b32"
+  },
+  "vlajepa_bendpickmp_vjepa21_base_idle_launcher": {
+    "file": "launchers/vlajepa_bendpickmp_vjepa21_base_idle.sh",
+    "sha256": "3cd1d6b34771f38de43d86bdf092b42e11acefb7a3ecf7e0f2caa013d7883bdb"
+  },
+  "qpilots_panel_a_ordinal0_launcher": {
+    "file": "launchers/qpilots_panel_a_ordinal0_pilot.sh",
+    "sha256": "91b42ef13f986df6d7c008473e962e66c908288e9aac04ae12a2b5e01025024a"
+  },
+  "vlajepa_openfaucet_vjepa21_eval_launcher": {
+    "file": "launchers/vlajepa_openfaucet_vjepa21_step40000_eval.sh",
+    "sha256": "0ee189af1f194c223dee8082ec3ee56213e7867e334c0675dee3f322303923cc"
+  },
+  "vlajepa_openfaucet_vjepa20_eval_launcher": {
+    "file": "launchers/vlajepa_openfaucet_vjepa20_step40000_eval.sh",
+    "sha256": "5bea26a80fb289b8bd2dc37524c9aeab601948bca3f1d11b852f438abeb8dddb"
+  },
+  "vlajepa_simple4_vjepa20_eval_entry": {
+    "file": "launchers/vlajepa_simple4_vjepa20_step40000_eval_entry.sh",
+    "sha256": "7b22d9ade06e88b4fe9e386730a544dfaf1a3118492a58710831cb2bbd940c61"
+  },
+  "vlajepa_legacy_pick_between_tables_vjepa20_eval_entry": {
+    "file": "launchers/vlajepa_legacy_baseline_step40000_eval_entry.sh",
+    "sha256": "a1330695b4ff1a86f72d374ba3f05b669e1f7cd686b492107c05b1653a9f55be"
+  },
+  "vlajepa_xmove_pick_exec_horizon_eval_entry": {
+    "file": "launchers/vlajepa_xmove_pick_vjepa20_exec_horizon_level0_eval_entry.sh",
+    "sha256": "19cfb5865172cd7144a7bc5bb0fbceb229d8fa682d2f7705682f4ab0c68c31a4"
+  },
+  "vlajepa_bend_pick_mp_vjepa21_eval_launcher": {
+    "file": "launchers/vlajepa_bend_pick_mp_vjepa21_step40000_eval.sh",
+    "sha256": "ead274957c2ee98fa7debba2ebbc5a9051c9a1bf12465640114ed3dee8c4d69e"
+  },
+  "vlajepa_bend_pick_mp_vjepa21_eval_entry": {
+    "file": "launchers/vlajepa_bend_pick_mp_vjepa21_step40000_eval_entry.sh",
+    "sha256": "b60f9ca205c92f03a65e83228faf3e52558b8540173e2b5a348d5a1adfe0fb36"
+  },
+  "fastwam_g1_level012_1gpu4090_eval_launcher": {
+    "file": "launchers/fastwam_g1_level012_1gpu4090_eval.sh",
+    "sha256": "087580ca2536e71c236af0c52a76b54230e79e18357572c072287e0aaaca4669"
+  },
+  "dinowm_pusht_official_eval_launcher": {
+    "file": "launchers/dinowm_pusht_official_dual_seed_eval.sh",
+    "sha256": "819524747cf93ec7f174ba09713fb37f8b0bfc55751550d4f0ddd9e0a1f2994c"
+  },
+  "r22p10_libero_phase1_train_launcher": {
+    "file": "launchers/r22p10_libero_phase1_train.sh",
+    "sha256": "1b616d4a98047f9547264592b3b3a1fd2a5acfa8d27eaee88ea7458b85c5dc9f"
+  },
+  "r22p10_libero_phase1_eval_launcher": {
+    "file": "launchers/r22p10_libero_phase1_eval.sh",
+    "sha256": "5aeddc561e9d0bf686cc7fa62697a28ca24bb740444d51f15b5053c4b3040429"
+  },
+  "r22p10_libero_phase1b_eval_launcher": {
+    "file": "launchers/r22p10_libero_phase1b_eval.sh",
+    "sha256": "73ade418207d281b4d4ca35fc496703f6e359029da6c9824feff1db49366ad71"
+  },
+  "r22p10_libero_phase2_gate_launcher": {
+    "file": "launchers/r22p10_libero_phase2_gate.sh",
+    "sha256": "f7c04d2f5ec3f8b32ec15a034e3fb8eaedfde606046664f0e30788a7d5a8df92"
+  },
+  "r22p10_libero_phase2r_launcher": {
+    "file": "launchers/r22p10_libero_phase2r.sh",
+    "sha256": "5c2238d8414227c7f5c344a3427addd4c8b1eb96e47a5452475b98ad5acaf862"
+  },
+  "r22p10_libero_phase2r_bank_b_recovery_launcher": {
+    "file": "launchers/r22p10_libero_phase2r_bank_b_recovery.sh",
+    "sha256": "bde289cc6ab4fb516a1ccb2e3d5927ebe9807b59eaaea77d89c54f5bbf2f9227"
+  },
+  "r22p10_libero_phase2r_bank_b_finalize_launcher": {
+    "file": "launchers/r22p10_libero_phase2r_bank_b_finalize.sh",
+    "sha256": "4de3c7d713af58eb1e9df3b44fa586faa9d432e861a0538704bf2deb9c3a2d7e"
+  },
+  "r22p10_phase3a_step5_launcher": {
+    "file": "launchers/r22p10_phase3a_step5.sh",
+    "sha256": "d66a3fe2e670dc3d297b8b15f75804377731215df4a65992913fac86e3db22e2"
+  },
+  "r22p10_phase4a_step6_launcher": {
+    "file": "launchers/r22p10_phase4a_step6.sh",
+    "sha256": "50a82569879ec34caef7f416bb3152da9277b9b383d4905e61d5132d16eb74df"
+  },
+  "r10p07_libero_obligation_step1_launcher": {
+    "file": "launchers/r10p07_libero_obligation_step1.sh",
+    "sha256": "72067b54b74c1f215f1e1ea7823b9cd59c4fe6c8a58d636d45a9af8dd732841e"
+  },
+  "r10p07_mikasa_step1b_launcher": {
+    "file": "launchers/r10p07_mikasa_step1b.sh",
+    "sha256": "02488d851be84f61300fc9041b8af7bc157294c61558043d40fe166c99cd2af9"
+  },
+  "r10p07_mikasa_stage2_smoke_launcher": {
+    "file": "launchers/r10p07_mikasa_stage2_smoke.sh",
+    "sha256": "13fb2790f03e9cf4ea093386e07abefeed0eaeb8c48d368fa955e8cef38ab5c9"
+  },
+  "r10p07_stage2_r2a_preflight_launcher": {
+    "file": "launchers/r10p07_stage2_r2a_preflight.sh",
+    "sha256": "d620de45232cc77cd8a023fe24267cad55fd550fbad1c09bc02324f556e181b0"
+  },
+  "r10p07_stage2_r2a_preflight_repair_launcher": {
+    "file": "launchers/r10p07_stage2_r2a_preflight_repair.sh",
+    "sha256": "7ffb87b2bb9e35119c031ebb0f13f0d38a17dbc7c9c66a639d63048c2657a4dc"
+  },
+  "r10p07_stage2_r2a_formal_data_launcher": {
+    "file": "launchers/r10p07_stage2_r2a_formal_data.sh",
+    "sha256": "38242f780d0a94b94eb96d6505642226148f25cef774a4ed939fce7fff11c8d2"
+  },
+  "r10p07_stage2_r2a_smoke_launcher": {
+    "file": "launchers/r10p07_stage2_r2a_smoke.sh",
+    "sha256": "d6bcbde12b7002e10f776f68f19c57db92cff112c5fdaea016ab74dfe7b2837d"
+  },
+  "r10p07_stage2_r2a_pilot_launcher": {
+    "file": "launchers/r10p07_stage2_r2a_pilot.sh",
+    "sha256": "cc75fcc04e0c2cc21ba451f5ff8732ad58336e986cde8c125dc98d0e15c41ec0"
+  },
+  "r10p07_stage2_r3a_formal_launcher": {
+    "file": "launchers/r10p07_stage2_r3a_formal.sh",
+    "sha256": "f4b553e63cfd46e54b38ca5d5a1964a10787a96e1666c4024a881087e06fe416"
+  },
+  "r10p07_stage2_r3b_formal_launcher": {
+    "file": "launchers/r10p07_stage2_r3b_formal.sh",
+    "sha256": "a559fe65ef4a8e33189f252b76fec38f1b3d7309fee86ad36e987b8f475a69ff"
+  },
+  "r23p02_libero_oracle_launcher": {
+    "file": "launchers/r23p02_libero_oracle.sh",
+    "sha256": "68401ae35b49d040be8cbc9f663d79dd2989124e43738ef773f7fdb9a234fe02"
+  },
+  "r23p02_stage1b_launcher": {
+    "file": "launchers/r23p02_stage1b.sh",
+    "sha256": "a1d3cdab15f39e6dadb350e25a0e0b80d09c102146e27ae227ee8bd5db79c73b"
+  },
+  "r21p019_libero_stagea_launcher": {
+    "file": "launchers/r21p019_libero_stagea.sh",
+    "sha256": "47f7eab9eb26c023d567ed2adea1b5df762edff52a55b653a23e6733e7d5ef07"
+  },
+  "r21p019_libero_stageb_launcher": {
+    "file": "launchers/r21p019_stage_b.sh",
+    "sha256": "794b124c17b183f5fba86fb891c98f3c1cdf04c036059739b661387708048a61"
+  },
+  "r21p019_libero_stagec1_launcher": {
+    "file": "launchers/r21p019_stage_c1.sh",
+    "sha256": "c1a1df3f2932aa7923d9f68b32db4253eb4202da9912a7ed2808f346b4bf0bd6"
+  },
+  "r21p019_libero_stagec2_launcher": {
+    "file": "launchers/r21p019_stage_c2.sh",
+    "sha256": "c4c0e90c627e5329f1e647210a9d4f59b8e093c98e9543a1a5d6a7b93d5dc2ac"
+  },
+  "r21p019_libero_staged1_launcher": {
+    "file": "launchers/r21p019_stage_d1.sh",
+    "sha256": "5b9613107b1fa0dfc57d630efbeab228670beca5711ef2759c9bb5800a9e7808"
+  },
+  "r21p019_libero_staged2_launcher": {
+    "file": "launchers/r21p019_stage_d2.sh",
+    "sha256": "aec7708ed69b7a5cddb4581bd5235e43e3560d80826df86bb5882dc34ec39a87"
+  },
+  "r16p14_libero_stage1_launcher": {
+    "file": "launchers/r16p14_libero_stage1.sh",
+    "sha256": "3c4c83dc5c02b5b9ef780530589e22c4b451a2ab446f043112b224c2c715990a"
+  },
+  "wallx_where_real_npz_e2e_launcher": {
+    "file": "launchers/wallx_where_real_npz_e2e.sh",
+    "sha256": "fed90b513dab9ffdf37ce7df585462af24ee484228b37f78a01d7c2aa9036957"
+  },
+  "wallx_where_real_npz_e2e_idle4_launcher": {
+    "file": "launchers/wallx_where_real_npz_e2e_idle4.sh",
+    "sha256": "7b3d3d5b927b38ca5f53837dd4b43cdaf07beb108543367ed7b4025b32cc6d74"
+  },
+  "dinowm_pusht_official_cuda_entry_wrapper": {
+    "file": "launchers/dinowm_pusht_official_eval_entry.py",
+    "sha256": "ff894beeb92180b03e345b63dbd9092f225d24f968a8f40c91600c6b5d4b30b7"
+  },
+  "dinowm_pusht_official_artifact_validator": {
+    "file": "launchers/validate_dinowm_pusht_official_eval.py",
+    "sha256": "37d9a7bc969dde83f692a5e18fd6367cdf546bdec599d6a943a6f8c9ecb766bc"
+  },
+  "dinowm_wall_single_official_eval_launcher": {
+    "file": "launchers/dinowm_wall_single_official_dual_seed_eval.sh",
+    "sha256": "5053b262cb02bb34aa3ed4a369bdbd2847092bbb60baa883dbb79f9883487f37"
+  },
+  "dinowm_wall_single_official_cuda_entry_wrapper": {
+    "file": "launchers/dinowm_wall_single_official_eval_entry.py",
+    "sha256": "c6dc7edbad73a24243e3fc24b618a2c557ee6ef9dc6bb4b9a6f1d7155d6c32a3"
+  },
+  "dinowm_wall_single_official_artifact_validator": {
+    "file": "launchers/validate_dinowm_wall_single_official_eval.py",
+    "sha256": "4d0f5cc538557bec419069da0e5e8756332dbe4e15478aefa1bb2e30c6e05b3c"
+  },
+  "wrc_task_success_q_launcher": {
+    "file": "launchers/wrc_task_success_q_idle_autoresume.sh",
+    "sha256": "ab0aab91829ded8086bee62293d2423ff344c8dbe5b2cba3d6c7e1a5d573003e"
+  },
+  "stablevla_target_ib_idle_launcher": {
+    "file": "launchers/stablevla_target_ib_idle_autoresume.sh",
+    "sha256": "398f845aa255d8f09d72696b17cb1291ff1f3da0714c437c6b99457a594d9171"
+  },
+  "fastwam_simple_fsdp8_resume_launcher": {
+    "file": "launchers/fastwam_simple_fsdp8_resume.sh",
+    "sha256": "38e07970424a52a497110b9b6b40c9e0c75485cb417e0c8950735bb17bca0a79"
+  },
+  "wandb_submit_helper": {
+    "file": "bin/pai-wandb-submit",
+    "sha256": "05e276bdc64849687716609e9c74770e630464aae59525fad66df7ab0c1624e9"
+  },
+  "wrc_task_success_q_first_step_validator": {
+    "file": "bin/validate-wrc-task-q-first-step",
+    "sha256": "e14158cbf5cf58393c7d36e76022399f0ddf5ae3a39fb8dac7d897f5e3c13abd"
+  },
+  "wrc_task_success_q_wave_step_validator": {
+    "file": "bin/validate-wrc-task-q-wave-step",
+    "sha256": "36ffbb0f96210833164ccedeaffc595805cc683d23431541f069337dc0466469"
+  },
+  "wrc_task_success_q_method_materializer": {
+    "file": "bin/materialize-wrc-task-q-methods",
+    "sha256": "1ec27826596a91eef34e8db2fe9d76f03e8d750ee23d73f75968f238c0a6fc32"
+  },
+  "wrc_task_success_q_4gpu_wave_materializer": {
+    "file": "bin/materialize-wrc-task-q-4gpu-waves",
+    "sha256": "ee1d1b06e9ee0249190c22e35ed40980575e118016c9022dafc33dab0927b54d"
+  },
+  "new_cpfs": {
+    "id": "cpfs-29001v2qz7p5ag7gckzsw",
+    "mount_root": "/mnt/cpfs/zbl-cpfs-new"
+  },
+  "mount_sentinel": {
+    "path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/.pai_mount_identity",
+    "source_file": "config/mount-sentinel.txt",
+    "sha256": "b3cc124ffbbebf8a12d52f70555b834f9c62a34ae09ff6ee397d0abbba600ef9"
+  },
+  "authorized_data_sources": [
+    {
+      "id": "d-mkixtohdn75dp8x9tb",
+      "version": "v1",
+      "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+      "options": ""
+    },
+    {
+      "id": "d-lg9t2b6xajpukeqqeb",
+      "version": "v1",
+      "mount_path": "/mnt/cpfs/zbl-cpfs-new/SHARE/leon",
+      "options": ""
+    },
+    {
+      "id": "d-36p023eg0f2vuqny8y",
+      "version": "v1",
+      "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+      "options": ""
+    },
+    {
+      "id": "d-ejgj2ej7io1t2t32uc",
+      "version": "v1",
+      "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+      "options": ""
+    },
+    {
+      "id": "d-7fi8hehav247qi6x5o",
+      "version": "v1",
+      "mount_path": "/mnt/cpfs/zbl-cpfs-new/Models/",
+      "options": ""
+    }
+  ]
+}

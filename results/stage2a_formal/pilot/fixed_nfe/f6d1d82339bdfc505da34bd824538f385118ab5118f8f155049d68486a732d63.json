@@ -1,0 +1,124 @@
+{
+  "no_branch": {
+    "sample_nfe": 800,
+    "score_mean_root_progress": 0.9133036928506745
+  },
+  "sample_nfe_budget": 7200,
+  "snapshot_id": "f6d1d82339bdfc505da34bd824538f385118ab5118f8f155049d68486a732d63",
+  "strategies": {
+    "always_early": {
+      "actual_sample_nfe": 7200,
+      "allocations": [
+        {
+          "budget_slack": 0,
+          "checkpoint_index": 0,
+          "suffixes_per_root": 8
+        }
+      ],
+      "budget_slack": 0,
+      "gain_over_no_branch": 0.0,
+      "generated_suffixes": 64,
+      "score_best_progress_per_root": [
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745
+      ],
+      "score_mean_best_progress": 0.9133036928506745,
+      "wall_clock_seconds": 29.678929203000735
+    },
+    "oracle_local_crossfit": {
+      "actual_sample_nfe": 7200,
+      "allocations": [
+        {
+          "budget_slack": 0,
+          "checkpoint_index": 0,
+          "suffixes_per_root": 8
+        }
+      ],
+      "budget_slack": 0,
+      "gain_over_no_branch": 0.0,
+      "generated_suffixes": 64,
+      "score_best_progress_per_root": [
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745
+      ],
+      "score_mean_best_progress": 0.9133036928506745,
+      "wall_clock_seconds": 29.846843051000178
+    },
+    "random": {
+      "actual_sample_nfe": 7200,
+      "allocations": [
+        {
+          "budget_slack": 0,
+          "checkpoint_index": 99,
+          "suffixes_per_root": 800
+        }
+      ],
+      "budget_slack": 0,
+      "gain_over_no_branch": 0.0,
+      "generated_suffixes": 6400,
+      "score_best_progress_per_root": [
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745
+      ],
+      "score_mean_best_progress": 0.9133036928506745,
+      "wall_clock_seconds": 2869.393556408999
+    },
+    "uniform_three_quantiles": {
+      "actual_sample_nfe": 6728,
+      "allocations": [
+        {
+          "budget_slack": 213,
+          "checkpoint_index": 20,
+          "sub_budget": 2933,
+          "suffixes_per_root": 3
+        },
+        {
+          "budget_slack": 253,
+          "checkpoint_index": 53,
+          "sub_budget": 2933,
+          "suffixes_per_root": 5
+        },
+        {
+          "budget_slack": 5,
+          "checkpoint_index": 86,
+          "sub_budget": 2933,
+          "suffixes_per_root": 19
+        }
+      ],
+      "budget_slack": 472,
+      "gain_over_no_branch": 0.0,
+      "generated_suffixes": 216,
+      "score_best_progress_per_root": [
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745,
+        0.9133036928506745
+      ],
+      "score_mean_best_progress": 0.9133036928506745,
+      "wall_clock_seconds": 100.67387104299996
+    }
+  },
+  "stratum": "easy"
+}
