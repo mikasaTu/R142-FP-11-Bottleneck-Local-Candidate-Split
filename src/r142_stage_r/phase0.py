@@ -57,7 +57,7 @@ def _pack_rollouts(rows: list[dict[str, Any]]) -> dict[str, np.ndarray]:
 def load_task_rollouts(npz_path: str | Path) -> list[dict[str, Any]]:
     with np.load(npz_path, allow_pickle=False) as data:
         result = []
-        for index, (start, stop) in enumerate(zip(data["offsets"][:-1], data["offsets"][1:], strict=True)):
+        for index, (start, stop) in enumerate(zip(data["offsets"][:-1], data["offsets"][1:])):
             pose = np.concatenate([data["eef"][start:stop], data["objects"][start:stop]], axis=1)
             result.append(
                 {

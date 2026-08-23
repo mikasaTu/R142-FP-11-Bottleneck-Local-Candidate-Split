@@ -80,7 +80,9 @@ def infer_physical_many(policy: Any, observations: list[dict[str, Any]], noises:
     # (B,10,32) tensor would slice the horizon axis. Apply the exact official
     # transform per sample so E2 can demand bit identity.
     physical = []
-    for observation, actions in zip(observations, model_actions, strict=True):
+    if len(observations) != len(model_actions):
+        raise RuntimeError("observation/action batch length mismatch")
+    for observation, actions in zip(observations, model_actions):
         transformed = policy.input_transform(dict(observation))
         output = policy.output_transform(
             {"state": np.asarray(transformed["state"]), "actions": np.asarray(actions)}

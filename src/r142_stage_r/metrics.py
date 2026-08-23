@@ -92,8 +92,10 @@ def hierarchical_modes(features: np.ndarray, threshold: float, max_modes: int = 
 
 
 def midtrajectory_features(actions: list[np.ndarray], poses: list[np.ndarray]) -> np.ndarray:
+    if len(actions) != len(poses):
+        raise ValueError("actions and poses must have the same number of trajectories")
     output = []
-    for action, pose in zip(actions, poses, strict=True):
+    for action, pose in zip(actions, poses):
         length = min(len(action), len(pose))
         if length == 0:
             output.append(np.zeros(action.shape[1] * 2 + pose.shape[1], dtype=np.float64))
