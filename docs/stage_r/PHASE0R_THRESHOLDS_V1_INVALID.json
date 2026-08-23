@@ -1,0 +1,35 @@
+{
+  "decision": "PIPELINE_INVALID",
+  "null_control": {
+    "action_split_silhouette_max": 0.7127923128725111,
+    "divergence_max": 0.007038142532281887,
+    "low_p_fraction": 0.0,
+    "mode_count_unthresholded": 2,
+    "mode_silhouette": 0.35653034492393226,
+    "p_bar": 1.0,
+    "rho": null
+  },
+  "permutation_contract": "within-initial-state candidate identity permutation",
+  "permutation_invariance_observed": true,
+  "positive_control": {
+    "action_split_pass": false,
+    "action_split_silhouette_max": 0.7000218943651908,
+    "divergence_max": 0.21779835444573553,
+    "divergence_pass": true,
+    "low_p_fraction": 0.3125,
+    "mode_count_unthresholded": 2,
+    "mode_pass": true,
+    "mode_silhouette": 0.3930225040360486,
+    "p_bar": 0.4765625,
+    "rho": 21.255036293940133
+  },
+  "positive_control_pass": false,
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "quantile": 0.95,
+  "shuffles": 1000,
+  "thresholds": {
+    "action_split_silhouette": 0.7127923128725111,
+    "divergence_rms": 0.007038142532281887,
+    "mode_silhouette": 0.35653034492393226
+  }
+}
