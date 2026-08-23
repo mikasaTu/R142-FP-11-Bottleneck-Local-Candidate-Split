@@ -1,0 +1,131 @@
+<title>实验报告</title>
+<h1>R142-FP-11 Stage-2A：真实 learned policy 独立证伪</h1>
+<p><b>最终判定：</b><b>R142_FP11_CORE_HYPOTHESIS_WEAKENED</b>。官方 learned DiffusionPolicy 可以被真实 tracing、从 intermediate state 恢复并生成完整 genealogy；但 0/24 个自然 snapshot 达到预注册的 location-sensitive branchability 门限，0/8 个自然 hard snapshot 出现 recoverability cliff，且 fixed-NFE 下 cross-fitted oracle-local 没有实质超过 always-early、uniform 或 random。因此按冻结 gate 停止 Stage-2B 与 VLA/π0.5 扩展。</p>
+<p><b>执行日期：</b>2026-08-24（Asia/Shanghai）　<b>GitHub commit：</b><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/commit/fd649a55c3f02750b53eeb4c3475fdd974fcc9f7">fd649a55c3f02750b53eeb4c3475fdd974fcc9f7</a></p>
+
+<h2>1. 科学问题与冻结边界</h2>
+<p>本阶段只回答：在真实训练出的 stochastic generative robot policy 中，从某些真实 intermediate generation states 重新分叉，是否比其他位置显著更能恢复 downstream behavioral support 或 PushT task progress。</p>
+<ul>
+  <li>不继续使用人工 bottleneck 的 ForkPush2D，不修改 PushT 几何，不人工制造上下路径。</li>
+  <li>不训练 detector，不使用 success/mode/oracle label 作为部署输入，不调 threshold 追结果。</li>
+  <li>所有 snapshot 来自 frozen baseline 的自然 rollout，并在查看 descendant outcome 前按 SHA-256 规则选择。</li>
+  <li>即使主 gate 失败，baseline、全部 checkpoints、negative controls、fixed-NFE ablation 和 representative eventual continuation 仍全部完成。</li>
+</ul>
+
+<h2>2. 官方 source、checkpoint 与环境</h2>
+<ul>
+  <li><b>Policy：</b>Hugging Face LeRobot official Diffusion Policy，checkpoint <code>lerobot/diffusion_pusht</code>。</li>
+  <li><b>LeRobot commit：</b><code>3c0a209f9fac4d2a57617e686a7f2a2309144ba2</code>。</li>
+  <li><b>Checkpoint revision：</b><code>84a7c23178445c6bbf7e1a884ff497017910f653</code>。</li>
+  <li><b>Weights SHA-256：</b><code>995d14d35db57d95c35ad9704c3d79c8612b7bc45f3877e5c46c2cdc516856a8</code>。</li>
+  <li><b>标准环境：</b><code>gym_pusht/PushT-v0</code>，Pymunk simulator；Python 3.10.20、torch 2.6.0+cu124、diffusers 0.32.2、gymnasium 0.29.1、gym-pusht 0.1.5、pymunk 6.11.0。</li>
+  <li><b>冻结 inference：</b>DDPM 100 steps，horizon 16，2 observation steps，执行 8 action steps。</li>
+</ul>
+
+<h2>3. Source-first instrumentation A–E</h2>
+<table>
+  <tr><td><b>Gate</b></td><td><b>要求</b></td><td><b>结果</b></td></tr>
+  <tr><td>A</td><td>instrumentation disabled 与 frozen original 一致</td><td>bit-identical</td></tr>
+  <tr><td>B</td><td>passive tracing 不改 tensor/output</td><td>bit-identical，100 个真实 DDPM steps</td></tr>
+  <tr><td>C</td><td>保存的 z_s + 相同 RNG 复现 suffix</td><td>通过</td></tr>
+  <tr><td>D</td><td>相同 z_s + 新 RNG 改变 suffix</td><td>通过；exact smoke max abs action difference 0.0433</td></tr>
+  <tr><td>E</td><td>相同 simulator snapshot + chunk 物理结果一致</td><td>通过；native-state error 0</td></tr>
+</table>
+<p>Tracing wrapper 调用官方真实 UNet 与 scheduler，没有 surrogate sampler；simulator snapshot 使用 episode seed + 完整 action prefix replay，没有使用不完整的人工 reset。</p>
+
+<h2>4. Baseline 与自然状态采样</h2>
+<p>Frozen baseline 完整运行 seeds 0–49：success rate 0.66（33/50），mean max progress 0.994274，shared-batch model NFE 3800，wall-clock 71.91 s。保存了 episode seed、reward/progress、success、完整 trajectory、action chunks、scheduler、NFE 与 latency。</p>
+<p>在 control step 50/100/150/200/250 建立完整 sampling frame，按 descendant-blind SHA-256 rank 选择 24 个 snapshot：easy、ambiguous、naturally hard 各 8 个；没有根据最终 descendant label 挑选“好看”样本。</p>
+
+<h2>5. Counterfactual descendant tree</h2>
+<p>每个 snapshot 使用 K=8 roots、16 个预冻结真实 DDPM checkpoints（0,7,13,20,26,33,40,46,53,59,66,73,79,86,92,99），每个 root/checkpoint 使用 M=8 calibration 与 M=8 disjoint held-out suffix RNG。得到 49,344 条完整 descendant genealogy records（两条 stream 各 24,672）。</p>
+<p>每条记录保存 snapshot/root/checkpoint/suffix ancestry、真实 scheduler timestep、RNG/seed、normalized/unnormalized actions、progress、物体位移/角度、contacts、support diversity、remaining NFE、wall-clock 与 peak VRAM。</p>
+
+<h2>6. 主量化结果</h2>
+<table>
+  <tr><td><b>指标</b></td><td><b>结果</b></td><td><b>Gate/含义</b></td></tr>
+  <tr><td>Location-sensitive snapshots</td><td>0/24（0%）</td><td>门限要求 location spread-range ≥0.10</td></tr>
+  <tr><td>Hard-state recoverability cliffs</td><td>0/8（0%）</td><td>门限要求至少 6 个且 prevalence ≥30%</td></tr>
+  <tr><td>最大 location spread-range</td><td>0.040996</td><td>低于 0.10</td></tr>
+  <tr><td>中位 location spread-range</td><td>0.000562</td><td>曲线基本平坦</td></tr>
+  <tr><td>Mean within-snapshot disagreement/branchability correlation</td><td>−0.0286</td><td>无有效耦合</td></tr>
+  <tr><td>Pooled z_s disagreement/progress-spread correlation</td><td>−0.0031</td><td>近似完全脱钩</td></tr>
+  <tr><td>Always-early equivalent to oracle</td><td>true</td><td>Kill condition 命中</td></tr>
+</table>
+<p><b>图 1：</b>Held-out branchability 与 cost-aware utility 曲线。多数 snapshot 在所有 generation locations 上近似平坦；晚期 utility 的上升来自 remaining-NFE 分母变小，不构成 outcome cliff。</p>
+
+<h2>7. Fixed-NFE upper-bound 比较</h2>
+<p>每个 snapshot 的 sample-NFE 上限为 7200；离散 slack 全部保存。</p>
+<table>
+  <tr><td><b>Strategy</b></td><td><b>Mean NFE</b></td><td><b>Mean suffixes</b></td><td><b>Mean gain over no-branch</b></td><td><b>Mean wall s</b></td></tr>
+  <tr><td>Always early</td><td>7200</td><td>64.0</td><td>0.009655</td><td>25.18</td></tr>
+  <tr><td>Random location</td><td>7052.7</td><td>748.3</td><td>0.012011</td><td>239.74</td></tr>
+  <tr><td>Uniform three quantiles</td><td>6728</td><td>216.0</td><td>0.012364</td><td>83.28</td></tr>
+  <tr><td>Oracle local, cross-fit</td><td>7090</td><td>97.7</td><td>0.011913</td><td>33.71</td></tr>
+</table>
+<table>
+  <tr><td><b>Paired comparison</b></td><td><b>Mean</b></td><td><b>Paired bootstrap 95% CI</b></td></tr>
+  <tr><td>oracle − always early</td><td>+0.002258</td><td>[0.000345, 0.004919]</td></tr>
+  <tr><td>oracle − random</td><td>−0.000099</td><td>[−0.002204, 0.002766]</td></tr>
+  <tr><td>oracle − uniform</td><td>−0.000451</td><td>[−0.001419, 0.000361]</td></tr>
+</table>
+<p>唯一正差仅为 +0.002258，比预注册要求 +0.10 小两个数量级；oracle-local 没有超过 random/uniform。</p>
+<p><b>图 2：</b>Fixed 7200 sample-NFE outcome 与实际 wall-clock。随机 late checkpoint 可生成大量便宜 suffix，因此 wall-time 分布高度偏斜。</p>
+
+<h2>8. Representative eventual continuation</h2>
+<p>按 descendant-blind 规则固定每个 stratum 最小字典序的两个 snapshot、roots 0/7、checkpoints 0/53/99、held-out suffix 0，共 6 snapshots、36 cases。执行 branch chunk 后继续 frozen baseline policy 直到 termination。</p>
+<table>
+  <tr><td><b>Checkpoint</b></td><td><b>Eventual success</b></td><td><b>Mean max progress</b></td><td><b>Wilson 95% CI</b></td></tr>
+  <tr><td>0</td><td>7/12（58.3%）</td><td>0.984820</td><td>[0.320, 0.807]</td></tr>
+  <tr><td>53</td><td>8/12（66.7%）</td><td>0.987764</td><td>[0.391, 0.862]</td></tr>
+  <tr><td>99</td><td>6/12（50.0%）</td><td>0.980311</td><td>[0.254, 0.746]</td></tr>
+</table>
+<p>区间高度重叠。该 subset 小且仅作描述，不是 fixed-NFE superiority gate，不能挽救主 gate。</p>
+
+<h2>9. Negative controls 与失败案例</h2>
+<ul>
+  <li><b>No-bottleneck：</b>24/24。</li>
+  <li><b>Smooth-decay：</b>8/24。</li>
+  <li><b>Disagreement/outcome decoupled：</b>17/24。</li>
+  <li><b>Fake disagreement：</b>11/24。</li>
+  <li><b>Silent bottleneck、valid natural cliff、multiple cliff：</b>均为 0。</li>
+</ul>
+<p>部分 observation 在每个 location 都有较高 descendant spread，但同一 snapshot 内不同 location 的差别很小。这是 state-dependent task uncertainty，不是 generation-local bottleneck；全部 flat/negative cases 均保留，没有过滤。</p>
+<p><b>图 3：</b>真实 held-out candidate genealogy 示例。横轴是真实 DDPM checkpoint，纵轴是 immediate descendant progress；颜色表示 8 个 root。</p>
+
+<h2>10. 机制反解：为什么升、为什么降</h2>
+<ol>
+  <li><b>Latent collapse 存在，但不是 outcome bottleneck。</b>Median z_s disagreement 从 checkpoint 0 的 1.400 降到 99 的 0.038；median descendant progress spread 却保持约 0.0018–0.0019。Raw latent variation 可以落在 16-step horizon 中未执行的部分，或落在短时 PushT coverage 不敏感的方向。</li>
+  <li><b>Oracle-local 略高于 always-early 的原因是 compute allocation/order statistic。</b>早期 suffix 每条要 100 NFE，只能生成 64 条；oracle-local 平均生成 97.7 条。更多 terminal draws 可带来 +0.002258 的小幅 best-of gain，但没有局部 cliff，且远低于 +0.10 gate。</li>
+  <li><b>Oracle-local 未超过 random/uniform。</b>Location signal 基本平坦时，随机或均匀选“错”位置损失很小；random/uniform 又分别平均生成 748.3/216 条 suffix，uniform 还跨三个区域 hedge。oracle 的 −0.000099/−0.000451 均不显著，正确解释是本 pilot 分辨率下等价，不是 oracle 稳定有害。</li>
+  <li><b>Cross-fit 不是主要失败原因。</b>Calibration 与 held-out spread curve 的 pooled correlation 为 0.9971，best-gain checkpoint 在 19/24 snapshot 完全一致；负结果来自真实 location effect 太小，而不是单纯 selection noise。</li>
+</ol>
+<p>这里严格区分：上面第 1–4 点包含已确认 code facts、observed facts 与 controlled interpretation；没有生成新 idea，也没有提出新 detector。</p>
+
+<h2>11. PAI、compute 与完整性证据</h2>
+<ul>
+  <li><b>Main formal：</b><code>r142-stage2a-formal-20260823-r2</code>，JobId <code>dlcm4saves6zi30f</code>，2×A800 Efficiency，PAI 终态 <b>Succeeded</b>，Duration 16,562 s。</li>
+  <li><b>Eventual continuation：</b><code>r142-stage2a-continuation-20260824-r1</code>，JobId <code>dlcs1330q3a1eijb</code>，2×A800 Efficiency，PAI 终态 <b>Succeeded</b>，Duration 257 s。</li>
+  <li><b>Compute：</b>discovery trees 2,501,376 sample-NFE；四个 fixed-NFE strategies 合计 673,696 sample-NFE；continuation 53,200 model NFE。两项 PAI allocation 合计 9.344 allocated GPU-hours。</li>
+  <li><b>Peak tensor memory：</b>discovery 1.115 GiB，continuation 1.071 GiB；不是整卡 reservation。</li>
+  <li><b>Failed predecessor：</b><code>dlc1xar28asuv34o</code> 因 exact env 没有 pip 而在 first work 前失败，不产生科学结果。其 CPFS/registry evidence 已保留，仅 Failed service row 经两阶段 absence verification 删除。</li>
+</ul>
+<p>两项成功任务都有 persisted <code>COMPLETED_EVALUATION_RESULT.json</code>、完整 SHA-256 校验与 uid/gid 2254 ownership 证据；没有把 JobEnqueued、Running 或 FIRST_WORK 冒充完成。</p>
+
+<h2>12. 成果与复现链接</h2>
+<ul>
+  <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split">完整 GitHub 仓库</a></li>
+  <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/blob/main/reports/STAGE2A_EXPERIMENT_REPORT.md">完整 Stage-2A 报告</a></li>
+  <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/blob/main/reports/STAGE2A_MECHANISM_REVERSE_EXPLANATION.md">机制反解报告</a></li>
+  <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/blob/main/results/RESULTS_MANIFEST.json">375 文件结果 manifest</a></li>
+  <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/tree/main/results/stage2a_formal">主实验 raw results、genealogy、curves、negative controls 与 runtime evidence</a></li>
+  <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/tree/main/results/stage2a_continuation">36-case eventual continuation 结果</a></li>
+</ul>
+<p>GitHub fresh-clone 已在 dev14 验证：HEAD <code>fd649a55c3f02750b53eeb4c3475fdd974fcc9f7</code>、git fsck、9/9 tests、diagnostic JSON、375-file manifest、gzip genealogy 读取与 12 个图表重建全部通过，工作树干净。</p>
+
+<h2>13. Evidence boundary 与最终决策</h2>
+<p><b>Observed fact：</b>所有表格数值来自冻结官方 policy、标准 PushT 与持久化 PAI 输出。</p>
+<p><b>Controlled intervention：</b>每个比较复制相同真实 z_s，固定 conditioning、simulator seed 与完整 action prefix，只改变 suffix RNG；calibration 与 held-out seed streams 分离。</p>
+<p><b>Interpretation：</b>这个 policy/task 的 branchability 随 observation 变化，但没有实质 generation-location dependence；R142-FP-11 的最小 learned-policy 机制被削弱。</p>
+<p><b>Untested hypothesis：</b>其他 policy family、task、更大 natural snapshot frame 或 VLA 是否不同，均未测试，不能由本结果推断。</p>
+<p><b>最终决策：</b><b>R142_FP11_CORE_HYPOTHESIS_WEAKENED</b>。按冻结 kill conditions，不进入 Stage-2B detector design，不进入 VLA/π0.5 验证。</p>
