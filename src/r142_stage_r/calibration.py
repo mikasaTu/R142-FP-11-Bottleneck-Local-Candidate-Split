@@ -4,7 +4,7 @@ from typing import Any
 
 import numpy as np
 
-from .controls import generate_control_bank
+from .controls import CONTROL_PROTOCOL_ID, generate_control_bank
 from .metrics import (
     divergence_curve,
     group_controls,
@@ -97,6 +97,7 @@ def calibrate_thresholds(shuffles: int = 1000) -> dict[str, Any]:
     )
     return {
         "protocol_id": PROTOCOL_ID,
+        "control_protocol_id": CONTROL_PROTOCOL_ID,
         "shuffles": int(shuffles),
         "quantile": 0.95,
         "permutation_contract": "within-initial-state candidate identity permutation",
