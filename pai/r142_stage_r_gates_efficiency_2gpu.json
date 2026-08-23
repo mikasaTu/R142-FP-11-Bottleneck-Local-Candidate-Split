@@ -40,7 +40,7 @@
     "secret_env_names": [],
     "write_paths": ["{{ARTIFACT_DIR}}"],
     "output_mode": "new",
-    "create_artifact_dir": true,
+    "create_artifact_dir": false,
     "recursive_repair": false,
     "payload_transport": "base64"
   },
