@@ -71,6 +71,27 @@ def silhouette(features: np.ndarray, labels: np.ndarray) -> float:
     return float(np.mean(values))
 
 
+def merge_tiny_clusters(features: np.ndarray, labels: np.ndarray, minimum_size: int = 2) -> np.ndarray:
+    """Assign tiny linkage clusters to the nearest retained centroid.
+
+    This is deterministic and keeps every example in the analysis.
+    """
+    features = np.asarray(features, dtype=np.float64)
+    labels = np.asarray(labels, dtype=np.int64).copy()
+    unique, counts = np.unique(labels, return_counts=True)
+    retained = [int(label) for label, count in zip(unique, counts) if int(count) >= int(minimum_size)]
+    if not retained:
+        return labels
+    centroids = {label: np.mean(features[labels == label], axis=0) for label in retained}
+    for label, count in zip(unique, counts):
+        if int(count) >= int(minimum_size):
+            continue
+        for index in np.flatnonzero(labels == label):
+            labels[index] = min(retained, key=lambda target: float(np.linalg.norm(features[index] - centroids[target])))
+    mapping = {label: index + 1 for index, label in enumerate(sorted(np.unique(labels).tolist()))}
+    return np.asarray([mapping[int(label)] for label in labels], dtype=np.int64)
+
+
 def hierarchical_modes(features: np.ndarray, threshold: float, max_modes: int = 4) -> dict[str, Any]:
     features = np.asarray(features, dtype=np.float64)
     if features.ndim != 2 or features.shape[0] < 4:
@@ -81,13 +102,14 @@ def hierarchical_modes(features: np.ndarray, threshold: float, max_modes: int = 
     best = (float("-inf"), 0, np.zeros(len(features), dtype=np.int64))
     for modes in range(2, min(int(max_modes), len(features) - 1) + 1):
         labels = fcluster(tree, modes, criterion="maxclust")
+        labels = merge_tiny_clusters(standardized, labels, minimum_size=2)
         unique_labels = np.unique(labels)
         cluster_sizes = [int(np.sum(labels == label)) for label in unique_labels]
-        if len(unique_labels) != modes or min(cluster_sizes) < 2:
+        if len(unique_labels) < 2 or min(cluster_sizes) < 2:
             continue
         score = silhouette(standardized, labels)
         if score > best[0]:
-            best = (score, modes, labels)
+            best = (score, len(unique_labels), labels)
     if not np.isfinite(best[0]) or best[0] <= float(threshold):
         return {"mode_count": 1, "silhouette": None if not np.isfinite(best[0]) else float(best[0]), "labels": [1] * len(features)}
     return {"mode_count": int(best[1]), "silhouette": float(best[0]), "labels": best[2].astype(int).tolist()}
