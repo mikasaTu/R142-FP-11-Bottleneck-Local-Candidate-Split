@@ -93,7 +93,13 @@ def calibrate_thresholds(shuffles: int = 1000) -> dict[str, Any]:
     }
     positive_stats = _control_statistics(positive_traces, thresholds)
     positive_pass = bool(
-        positive_stats["divergence_pass"] and positive_stats["action_split_pass"] and positive_stats["mode_pass"]
+        positive_stats["divergence_pass"]
+        and positive_stats["action_split_pass"]
+        and positive_stats["mode_pass"]
+        and positive_stats["rho"] is not None
+        and float(positive_stats["rho"]) >= 3.0
+        and float(positive_stats["low_p_fraction"]) >= 0.25
+        and 0.25 <= float(positive_stats["p_bar"]) <= 0.75
     )
     return {
         "protocol_id": PROTOCOL_ID,

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-CONTROL_PROTOCOL_ID = "r142-stage-r-controls-v3"
+CONTROL_PROTOCOL_ID = "r142-stage-r-controls-v4"
 
 
 @dataclass(frozen=True)
@@ -42,6 +42,7 @@ class GeometricControl2D:
         actions: list[np.ndarray] = []
         committed = 0
         lane_choice = 0
+        allowed_lane = 1 if int(initial_state) % 2 == 0 else -1
         for step in range(self.horizon):
             x, y = position
             if self.kind == "positive":
@@ -63,10 +64,12 @@ class GeometricControl2D:
                 # Barrier occupies the central strip. Crossing through either
                 # geometric aperture creates a one-way committed side.
                 in_barrier_x = -0.08 <= proposed[0] <= 0.10
-                if in_barrier_x and abs(proposed[1]) < 0.22:
+                attempted_lane = 1 if proposed[1] > 0 else -1
+                blocked_aperture = in_barrier_x and abs(proposed[1]) >= 0.22 and attempted_lane != allowed_lane
+                if (in_barrier_x and abs(proposed[1]) < 0.22) or blocked_aperture:
                     proposed[0] = min(proposed[0], -0.081)
                     velocity[0] = min(velocity[0], 0.0)
-                if position[0] <= 0.10 < proposed[0] and abs(proposed[1]) >= 0.22:
+                if position[0] <= 0.10 < proposed[0] and abs(proposed[1]) >= 0.22 and attempted_lane == allowed_lane:
                     committed = 1 if proposed[1] > 0 else -1
                 if committed and proposed[0] > 0.10:
                     proposed[1] = committed * max(0.18, committed * proposed[1])
