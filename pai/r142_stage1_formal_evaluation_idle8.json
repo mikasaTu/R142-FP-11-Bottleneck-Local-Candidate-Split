@@ -49,9 +49,7 @@
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
     "uid": 2254,
     "gid": 2254,
-    "pod_env": {
-      "PYTHONUNBUFFERED": "1"
-    },
+    "pod_env": {},
     "secret_env_names": [],
     "write_paths": [
       "{{ARTIFACT_DIR}}",
