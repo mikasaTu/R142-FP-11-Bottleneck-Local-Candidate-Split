@@ -40,11 +40,22 @@ cd "$ARTIFACT_DIR"
 mkdir frozen_source frozen_lerobot baseline pilot runtime
 mkdir runtime/tmp runtime/cache
 git -C "$REPO" archive HEAD | tar -xf - -C frozen_source
-git -C "$LERO" archive "$EXPECTED_LEROBOT_COMMIT" | tar -xf - -C frozen_lerobot
+git -C "$LERO" archive "$EXPECTED_LEROBOT_COMMIT" -- lerobot pyproject.toml \
+  | tar -xf - -C frozen_lerobot
 git -C "$REPO" rev-parse HEAD > runtime/project_commit.txt
 git -C "$REPO" rev-parse 'HEAD^{tree}' > runtime/project_tree.txt
 git -C "$LERO" rev-parse HEAD > runtime/lerobot_commit.txt
-"$PYTHON" -m pip freeze --all > runtime/pip_freeze.txt
+"$PYTHON" - <<'PY' > runtime/pip_freeze.txt
+from importlib.metadata import distributions
+
+rows = []
+for distribution in distributions():
+    name = distribution.metadata.get("Name")
+    if name:
+        rows.append((name.casefold(), f"{name}=={distribution.version}"))
+for _, row in sorted(set(rows)):
+    print(row)
+PY
 nvidia-smi -L > runtime/gpu_inventory.txt
 nvidia-smi --query-gpu=index,uuid,name,memory.total --format=csv,noheader > runtime/gpu_identity.csv
 (

@@ -62,7 +62,7 @@
     "success_gate": "persisted_completed_evaluation_result",
     "validation_method": "static+dev14_smoke",
     "validation_status": "passed",
-    "validated_payload_sha256": "597b139a70445e453953be10b9d71daafc29c6ae41009b19a2efea3168924f54",
+    "validated_payload_sha256": "d867a9a95dccf2177d5da6b759778185f422e9b70eb187c8152fe45814e15482",
     "pai_probe_created": false,
     "first_work_evidence_path": "{{ARTIFACT_DIR}}/FIRST_WORK.json",
     "completed_evidence_path": "{{ARTIFACT_DIR}}/COMPLETED_EVALUATION_RESULT.json",
