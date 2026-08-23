@@ -1,0 +1,57 @@
+{
+  "files": [
+    {
+      "bytes": 4053,
+      "path": "docs/steps/step1/PLAN.md",
+      "sha256": "9dffd2b645479a0716dcf595ada85664858a759a60ebd2110b551e813c5072d8"
+    },
+    {
+      "bytes": 5494,
+      "path": "docs/steps/step1/PLAN_FEISHU_SNAPSHOT.xml",
+      "sha256": "78efe1120993a4c45783225557f73eb90314459791e7f918c4473cf4467d35ae"
+    },
+    {
+      "bytes": 5673,
+      "path": "docs/steps/step1/REPORT.md",
+      "sha256": "f6ac59e8ddb7efc86f8331cbb1173c2aaea0ea1e849c5d6f513960e0573ffe9e"
+    },
+    {
+      "bytes": 8743,
+      "path": "docs/steps/step1/REPORT_FEISHU_SOURCE.xml",
+      "sha256": "09659f9d75f34eb670493e470fd21b3af784f5c7758eb059e0ea7172c7974385"
+    },
+    {
+      "bytes": 903,
+      "path": "docs/steps/step1/SOURCE.json",
+      "sha256": "a800a2c1c1cb1b74fefe373ce1ac6f9d648f8e5293d23c552785ff1d10e2e2de"
+    },
+    {
+      "bytes": 5762,
+      "path": "docs/steps/step2/PLAN.md",
+      "sha256": "5ebf85c87feba06abfed21c099e9e1a3ab016fd3787b46d3b115bbb866ad3fae"
+    },
+    {
+      "bytes": 9588,
+      "path": "docs/steps/step2/PLAN_FEISHU_SNAPSHOT.xml",
+      "sha256": "350df84f9bef229d70f511ff19cb7f32d862e14c68061e84248c00bc8bab0b6f"
+    },
+    {
+      "bytes": 9458,
+      "path": "docs/steps/step2/REPORT.md",
+      "sha256": "787352cbabc0ca85394caad119aa11b1c705b01493048d888b973b6fd7a8dedc"
+    },
+    {
+      "bytes": 13626,
+      "path": "docs/steps/step2/REPORT_FEISHU_SOURCE.xml",
+      "sha256": "adec8cc2d945c13e345cd3c808c8a195faa15fce36d8e6f0ad96d4c1f9d7cee9"
+    },
+    {
+      "bytes": 903,
+      "path": "docs/steps/step2/SOURCE.json",
+      "sha256": "a6d8e915aa732022faf0abdc73ab45de37ec1118bf562b734e564e50bbe5f9c1"
+    }
+  ],
+  "generated_at_utc": "2026-08-23T18:31:28.043987+00:00",
+  "schema_version": 1,
+  "source": "Feishu docs v2 readback plus canonical repository artifacts"
+}

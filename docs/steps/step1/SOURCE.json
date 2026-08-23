@@ -1,0 +1,21 @@
+{
+  "fetched_at_utc": "2026-08-23T18:31:28.043987+00:00",
+  "plan": {
+    "document_token": "J4I0d5mjKo41zWxlbq3c9uYjnYy",
+    "revision_id": 4,
+    "snapshot_file": "PLAN_FEISHU_SNAPSHOT.xml",
+    "wiki_node_token": "BWy7wpbVjieM4QknvdxcfGABnFc",
+    "wiki_url": "https://icnbwz7kd1ui.feishu.cn/wiki/BWy7wpbVjieM4QknvdxcfGABnFc"
+  },
+  "report": {
+    "document_token": "FZVsdynvHocFCAxydO9c3pHbnwe",
+    "note": "The live report was read back to verify its current revision. REPORT_FEISHU_SOURCE.xml is the stable publication input and omits expiring signed image-download URLs returned by readback.",
+    "publication_source_file": "REPORT_FEISHU_SOURCE.xml",
+    "readable_file": "REPORT.md",
+    "revision_id": 3,
+    "wiki_node_token": "WRkEwByXUiRnLrklo0VcPiApnKh",
+    "wiki_url": "https://icnbwz7kd1ui.feishu.cn/wiki/WRkEwByXUiRnLrklo0VcPiApnKh"
+  },
+  "schema_version": 1,
+  "step": "step1"
+}

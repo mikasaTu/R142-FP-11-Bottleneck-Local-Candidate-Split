@@ -1,0 +1,79 @@
+<title>实验报告</title>
+<h1>R142-FP-11 Bottleneck-Local Candidate Split：第一阶段最小机制验证</h1>
+<p><b>结论：</b><b>SUPPORTED_STAGE1_NO_VLA_CLAIM</b>。在预注册的 ForkPush2D-v1 最小 benchmark 内，proposed 在相同 32-candidate 计算预算下稳定超过 uniform/random split，且可精确定位真实 failure branching point。这个结论只支持玩具环境中的最小机制，<b>不是 VLA 有效性证据，不直接进入 VLA</b>。</p>
+<p><b>执行日期：</b>2026-08-23（Asia/Shanghai）　<b>正式评测：</b>400 个 paired seeds，10,000 次 paired bootstrap，10 个连续 seed blocks。</p>
+
+<h2>1. 验证边界与冻结命题</h2>
+<ul>
+  <li>不使用 VLA；只检验 candidate collapse 是否存在，以及在共享失败前缀的 bottleneck 位置做 local split 是否比 uniform/random split 更有效。</li>
+  <li>不因任何单一 gate 失败而中止其他实验；全部 baseline、ablation、失败案例和机理反解均已执行。</li>
+  <li>主门限：proposed 必须在固定预算下稳定超过 B1/B2，且 bottleneck localization 必须预测真实 branching point。</li>
+</ul>
+
+<h2>2. Benchmark 定义</h2>
+<p><b>ForkPush2D-v1</b> 是一个小型 2D manipulation benchmark：物体在前半段共享近似直行推动前缀，然后必须在中间决策点选择上方或下方绕开中央障碍。上/下两条路径均为可行成功 mode；中心方向对应共享失败家族。真实 bottleneck 在 action step 4/5/6 之间按 seed 变化。</p>
+<p>普通 candidate 共享一个 family-level selector：82% 的家族选择中心失败路径，9% 选上方，9% 选下方，因此能在固定样本预算内显式检验“相关 candidate family 的 collapse”。</p>
+<p>genealogy 逐 candidate 保存 candidate id、parent id、generation step、latent/action prefix、final success label、mode 和 split 位置。正式输出共 140,800 条 candidate records，分成 8 个 gzip shards。</p>
+
+<h2>3. 方法与公平性控制</h2>
+<ul>
+  <li><b>B0 standard best-of-N：</b>32 candidates。</li>
+  <li><b>B1 uniform split：</b>在 step 2/5/8 均匀增加 diversity，总预算 32。</li>
+  <li><b>B2 random split：</b>随机选择 3 个 split steps，总预算 32。</li>
+  <li><b>Proposed：</b>8 scouts + 24 children；仅使用同一时刻的 state/action/latent prefix disagreement，找 earliest meaningful bottleneck，只在该位置增加 diversity，总预算 32。检测器不使用 final label、mode、failure 或 oracle bottleneck。</li>
+</ul>
+<p>所有 32-budget 方法共享相同 perturbation energy。额外 more-samples baseline 使用 B0-64，单独标注为 64 budget，不冒充固定预算比较。</p>
+
+<h2>4. 正式量化结果</h2>
+<table>
+  <tr><td><b>方法</b></td><td><b>Budget</b></td><td><b>Success rate</b></td><td><b>Mode discovery</b></td><td><b>Successful modes / sample</b></td><td><b>Localization MAE</b></td></tr>
+  <tr><td>B0 best-of-N</td><td>32</td><td>0.1550</td><td>0.0775</td><td>0.004844</td><td>—</td></tr>
+  <tr><td>B1 uniform split</td><td>32</td><td>0.4400</td><td>0.29375</td><td>0.018359</td><td>—</td></tr>
+  <tr><td>B2 random split</td><td>32</td><td>0.3500</td><td>0.2275</td><td>0.014219</td><td>—</td></tr>
+  <tr><td><b>Proposed bottleneck-local</b></td><td>32</td><td><b>1.0000</b></td><td><b>0.9225</b></td><td><b>0.057656</b></td><td><b>0.0000</b></td></tr>
+  <tr><td>No bottleneck detection</td><td>32</td><td>0.4400</td><td>0.3625</td><td>0.022656</td><td>1.0000 median</td></tr>
+  <tr><td>Wrong split: t*-2</td><td>32</td><td>0.1550</td><td>0.0775</td><td>0.004844</td><td>2.0000</td></tr>
+  <tr><td>Wrong split: t*+2</td><td>32</td><td>0.1550</td><td>0.0775</td><td>0.004844</td><td>2.0000</td></tr>
+  <tr><td>Correct location + Gaussian random operator</td><td>32</td><td>1.0000</td><td>0.98875</td><td>0.061797</td><td>0.0000</td></tr>
+  <tr><td>Full resampling at true location</td><td>32</td><td>1.0000</td><td>1.0000</td><td>0.062500</td><td>0.0000</td></tr>
+  <tr><td>More samples B0</td><td>64</td><td>0.1550</td><td>0.0775</td><td>0.002422</td><td>—</td></tr>
+</table>
+<p><b>门限证据：</b>proposed 相对 B1 的 paired success 差为 +0.5600，95% bootstrap CI [0.5100, 0.6075]，10/10 seed blocks 为正；相对 B2 为 +0.6500，95% CI [0.6025, 0.6950]，10/10 blocks 为正。定位 MAE=0，within-1=1.0。collapse-valid fraction=0.9725。预注册 gate 全部通过，accepted=true。</p>
+
+<h2>5. 机制反解（不生成新 idea）</h2>
+<ol>
+  <li><b>提升主因是 split 位置，而不是样本数。</b>正确位置 success=1.0，早/晚 2 steps 均回落到 0.155；B0 从 32 增到 64 仍为 0.155。这说明共享 family selector 使无定向的新样本仍留在同一失败族。</li>
+  <li><b>Uniform/random 的改善主要来自偶然命中真实 t*。</b>Uniform 在 400 seeds 中命中 138 次，命中时 success=0.9855，未命中时仅 0.1527；random 命中 91 次，命中时 1.0，未命中时 0.1586。</li>
+  <li><b>结构化 antithetic operator 不是必要原因。</b>正确位置的 Gaussian random operator 和 full resampling 同样达到 success=1.0，且 mode discovery 更高。因此本阶段被支持的是“位置敏感的局部多样性注入”，不是某个特殊 split operator。</li>
+  <li><b>定位器的成功依赖于 toy generator 在 t* 产生干净的 disagreement spike。</b>现实 policy 的方差峰可能受感知噪声、多峰与模型不确定性混杂，所以不能从这个玩具结果直接外推到 VLA。</li>
+</ol>
+
+<h2>6. 失败案例与限制</h2>
+<ul>
+  <li><b>Wrong location failure：</b>split 发生在 t*-2 时尚未产生可改变后续 mode 的分支；发生在 t*+2 时失败族已经固化，局部扰动无法逃离。</li>
+  <li><b>No-detection failure：</b>固定位置仅在与 seed-specific t* 重合时有效，因此表现退化到 0.44。</li>
+  <li><b>More-samples failure：</b>加倍样本没有打破 family-level correlation，反而使 successful modes/sample 减半。</li>
+  <li><b>外部有效性：</b>这是有意构造的最小 benchmark，不证明 learned policy 或 VLA 中存在同样可观测的 bottleneck。</li>
+</ul>
+
+<h2>7. 执行、可复现性与运行证据</h2>
+<p>开发机仅执行 CPU 单测和 8-episode smoke；正式 400-seed 评测在 PAI 闲时资源上执行。</p>
+<ul>
+  <li><b>Local tests：</b>5 passed。</li>
+  <li><b>dev14 CPU smoke：</b>5 passed，8 episodes，RUNTIME_MANIFEST_OK files=13。</li>
+  <li><b>PAI formal evaluation：</b>run r142-fp11-stage1-eval-20260823-1412-r3，JobId dlc1e1wg0af86rlq，8×A800 闲时 carrier，终态 Succeeded，launcher_attempts=1，完成 8/8 shards。这是 evaluation workload，不声称进行了训练或产生 checkpoint。</li>
+  <li><b>已保留的早期失败：</b>r2 JobId dlc1yavs3uab0cm0 因 launcher 期望 RUN_ID/ARTIFACT_DIR，而 controller 提供 PAI_CANARY_RUN_ID/PAI_CANARY_RUN_DIR，在 first work 前失败。仅修正变量映射后提交 r3；r2 被精确停止，在 r3 Succeeded 后仅删除 r2 的 service row，其 registry、CPFS、placement 和 logs 证据保留。</li>
+</ul>
+
+<h2>8. 成果链接</h2>
+<ul>
+  <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split">完整 GitHub 仓库</a></li>
+  <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/blob/main/reports/STAGE1_EXPERIMENT_REPORT.md">完整实验报告</a></li>
+  <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/blob/main/reports/MECHANISM_REVERSE_EXPLANATION.md">机制反解报告</a></li>
+  <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/blob/main/evidence/formal_pai/r3/results/gate_decision.json">Gate decision JSON</a></li>
+  <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/tree/main/evidence/formal_pai/r3/figures">Candidate genealogy、bottleneck detection 与 failure-case 可视化</a></li>
+</ul>
+<p><b>正式证据快照 commit：</b>cf23ef67c183ff9bb2953bd43fa9e9d87e02851c。仓库中包含代码、预注册配置、单测、CPU smoke、PAI 完整结果、checksums、逐方法 metrics、140,800 条 genealogy records、图和运行证据。</p>
+
+<h2>9. 决策</h2>
+<p><b>第一阶段最小机制 gate 通过；但不直接进入 VLA。</b>这一阶段只说明：当 candidate family 确实共享失败前缀，且中间分支能被 prefix disagreement 清晰定位时，把有限 diversity budget 放在该位置比均匀/随机分配更有效。若继续，下一个独立 gate 应是小型 BC/diffusion policy 仿真，用 learned candidates 检验 collapse 和 detector 在不干净分布下是否仍然成立。</p>
