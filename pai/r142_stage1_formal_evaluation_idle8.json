@@ -88,6 +88,8 @@
     "candidate_budget": 32,
     "more_samples_budget": 64,
     "policy_count": 10,
+    "replacement_lineage": "supersedes:r142-fp11-stage1-eval-20260823-1323-r2:dlc1yavs3uab0cm0",
+    "superseded_cleanup_target_count": 1,
     "metrics": "success-at-N,mode-discovery,successful-modes-per-sample,bottleneck-localization-error",
     "expected_first_work_uid": 2254,
     "expected_first_work_gid": 2254
