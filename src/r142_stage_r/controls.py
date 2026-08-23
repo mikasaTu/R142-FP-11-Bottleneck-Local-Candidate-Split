@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-CONTROL_PROTOCOL_ID = "r142-stage-r-controls-v4"
+CONTROL_PROTOCOL_ID = "r142-stage-r-controls-v5"
 
 
 @dataclass(frozen=True)
@@ -42,7 +42,8 @@ class GeometricControl2D:
         actions: list[np.ndarray] = []
         committed = 0
         lane_choice = 0
-        allowed_lane = 1 if int(initial_state) % 2 == 0 else -1
+        state_group = int(initial_state) // 4
+        allowed_lane = 1 if state_group in {0, 2} else -1
         for step in range(self.horizon):
             x, y = position
             if self.kind == "positive":
