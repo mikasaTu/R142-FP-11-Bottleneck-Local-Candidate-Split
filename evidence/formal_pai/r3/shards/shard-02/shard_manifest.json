@@ -1,0 +1,133 @@
+{
+  "benchmark_config": {
+    "action_noise": 0.001,
+    "bottleneck_noise": 0.055,
+    "bottleneck_steps": [
+      4,
+      5,
+      6
+    ],
+    "candidate_budget": 32,
+    "diversity_credits": 3,
+    "horizon": 12,
+    "mode_threshold": 0.62,
+    "more_samples_budget": 64,
+    "name": "ForkPush2D-v1",
+    "pre_noise": 0.0015,
+    "scout_count": 8,
+    "split_strength": 1.0,
+    "uniform_split_steps": [
+      2,
+      5,
+      8
+    ]
+  },
+  "complete": true,
+  "episode_indices": [
+    2,
+    10,
+    18,
+    26,
+    34,
+    42,
+    50,
+    58,
+    66,
+    74,
+    82,
+    90,
+    98,
+    106,
+    114,
+    122,
+    130,
+    138,
+    146,
+    154,
+    162,
+    170,
+    178,
+    186,
+    194,
+    202,
+    210,
+    218,
+    226,
+    234,
+    242,
+    250,
+    258,
+    266,
+    274,
+    282,
+    290,
+    298,
+    306,
+    314,
+    322,
+    330,
+    338,
+    346,
+    354,
+    362,
+    370,
+    378,
+    386,
+    394
+  ],
+  "experiment_config": {
+    "base_seed": 14211,
+    "block_size": 40,
+    "bootstrap_replicates": 10000,
+    "evaluation_seeds": 400,
+    "maximum_localization_median_error": 1.0,
+    "maximum_mode_discovery_drop": 0.02,
+    "minimum_localization_within_one": 0.8,
+    "minimum_success_gain": 0.05,
+    "minimum_valid_collapse_fraction": 0.8,
+    "minimum_winning_blocks": 7
+  },
+  "genealogy_saved": true,
+  "policy_metadata": {
+    "A_correct_random_operator": {
+      "ablation": "correct location + random operator",
+      "fixed_budget": true
+    },
+    "A_full_resampling": {
+      "ablation": "full resampling at true bottleneck",
+      "fixed_budget": true
+    },
+    "A_more_samples": {
+      "ablation": "2x best-of-N samples",
+      "fixed_budget": false
+    },
+    "A_no_detection": {
+      "ablation": "no bottleneck detection",
+      "fixed_budget": true
+    },
+    "A_wrong_early": {
+      "ablation": "wrong split location t*-2",
+      "fixed_budget": true
+    },
+    "A_wrong_late": {
+      "ablation": "wrong split location t*+2",
+      "fixed_budget": true
+    },
+    "B0_best_of_n": {
+      "baseline": "standard best-of-N",
+      "fixed_budget": true
+    },
+    "B1_uniform_split": {
+      "baseline": "uniform split",
+      "fixed_budget": true
+    },
+    "B2_random_split": {
+      "baseline": "random split",
+      "fixed_budget": true
+    },
+    "proposed_bottleneck_local": {
+      "baseline": null,
+      "fixed_budget": true
+    }
+  }
+}

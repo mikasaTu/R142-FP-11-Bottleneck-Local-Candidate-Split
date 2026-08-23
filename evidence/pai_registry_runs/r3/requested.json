@@ -1,0 +1,125 @@
+{
+  "description": "Formal fixed-budget ForkPush2D evaluation of bottleneck-local candidate split, all baselines and ablations; synthetic 2D mechanism evidence only",
+  "evidence": {
+    "benchmark": "ForkPush2D-v1",
+    "candidate_budget": 32,
+    "completed_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11/{{RUN_ID}}/results/COMPLETED_EVALUATION.json",
+    "contract_ready": true,
+    "evaluation_seed_count": 400,
+    "expected_first_work_gid": 2254,
+    "expected_first_work_uid": 2254,
+    "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11/{{RUN_ID}}/results/FIRST_WORK.json",
+    "idle_8gpu_contract": "generic_formal_idle_8gpu_v1",
+    "kind": "r142_fp11_stage1_candidate_split_formal_evaluation",
+    "metrics": "success-at-N,mode-discovery,successful-modes-per-sample,bottleneck-localization-error",
+    "model_id": "forkpush2d-v1-correlated-candidate-generator",
+    "more_samples_budget": 64,
+    "mount_contract": "minimal-required-three-from-live-idle-source",
+    "pai_probe_created": false,
+    "policy_count": 10,
+    "replacement_lineage": "supersedes:r142-fp11-stage1-eval-20260823-1323-r2:dlc1yavs3uab0cm0",
+    "require_actual_idle": true,
+    "success_gate": "persisted_completed_evaluation_result",
+    "superseded_cleanup_target_count": 1,
+    "task_id": "r142-fp11-stage1-candidate-split-20260823",
+    "validated_payload_sha256": "3aaa45a315bab31c438a679d2eac6b099a04770644fcd9e55017be2c2a2f9918",
+    "validation_method": "static+dev14_smoke",
+    "validation_status": "passed",
+    "workload_type": "evaluation"
+  },
+  "fault_tolerance": {
+    "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure",
+    "launcher_attempts": 1,
+    "maximum_platform_restarts": 50,
+    "pai_automatic_fault_tolerance": true,
+    "retry_sleep_seconds": 30
+  },
+  "kind": "pytorchjob",
+  "name_prefix": "r142-fp11-stage1-eval-idle",
+  "network": {},
+  "provenance": {
+    "contract_source_job_id": "dlct3tq8a7z5lsdd",
+    "pai_clone_performed": false,
+    "resource_source_job_id": "dlct3tq8a7z5lsdd",
+    "source_role": "readback_reference",
+    "submission_method": "cli_create"
+  },
+  "resource_alias": "idle-a800",
+  "runtime": {
+    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split/pai/run_formal_evaluation.sh",
+    "create_artifact_dir": false,
+    "gid": 2254,
+    "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
+    "output_mode": "new",
+    "pod_env": {},
+    "recursive_repair": false,
+    "secret_env_names": [
+      "WANDB_API_KEY",
+      "WANDB_ENTITY"
+    ],
+    "uid": 2254,
+    "wandb_entity_contract": {
+      "allow_identity_inference": false,
+      "entity": "chen_jian-cj-workspace",
+      "forbidden_viewers": [
+        "shiyanpei0826"
+      ],
+      "require_live_membership_write_gate": true,
+      "source": "explicit_user_contract"
+    },
+    "write_paths": [
+      "{{ARTIFACT_DIR}}",
+      "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11/{{RUN_ID}}",
+      "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_fp11/{{RUN_ID}}"
+    ]
+  },
+  "schema_version": 2,
+  "storage": {
+    "data_sources": [
+      {
+        "id": "d-mkixtohdn75dp8x9tb",
+        "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+        "options": "",
+        "version": "v1"
+      },
+      {
+        "id": "d-36p023eg0f2vuqny8y",
+        "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+        "options": "",
+        "version": "v1"
+      },
+      {
+        "id": "d-ejgj2ej7io1t2t32uc",
+        "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+        "options": "",
+        "version": "v1"
+      }
+    ],
+    "output_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_fp11_stage1_evaluation"
+  },
+  "submission": {
+    "disable_ecs_stock_check": true,
+    "job_max_running_time_minutes": 0,
+    "job_reserved_minutes": 0,
+    "job_reserved_policy": "",
+    "priority": 9,
+    "tags": {
+      "dataset": "synthetic-forkpush2d-seeds-0-399",
+      "hardware": "8xa800-idle",
+      "managed_by": "pai-job-registry",
+      "model": "forkpush2d-v1-correlated-candidate-generator",
+      "purpose": "formal-evaluation",
+      "resource_pool": "idle-a800",
+      "task": "r142-fp11-stage1-candidate-split-20260823"
+    }
+  },
+  "worker": {
+    "count": 1,
+    "cpu": 92,
+    "gpu": 8,
+    "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+    "memory": "1600Gi",
+    "shared_memory": "1600Gi"
+  },
+  "workspace_id": "179169"
+}

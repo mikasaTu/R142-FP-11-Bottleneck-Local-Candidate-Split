@@ -1,0 +1,170 @@
+[
+  {
+    "B0_failures": {
+      "collision_center": 32
+    },
+    "B0_success": 0,
+    "episode_id": 0,
+    "predicted_bottleneck_step": 5,
+    "proposed_success": 1,
+    "true_bottleneck_step": 5,
+    "wrong_late_failures": {
+      "collision_center": 32
+    },
+    "wrong_late_success": 0
+  },
+  {
+    "B0_failures": {
+      "collision_center": 32
+    },
+    "B0_success": 0,
+    "episode_id": 1,
+    "predicted_bottleneck_step": 6,
+    "proposed_success": 1,
+    "true_bottleneck_step": 6,
+    "wrong_late_failures": {
+      "collision_center": 32
+    },
+    "wrong_late_success": 0
+  },
+  {
+    "B0_failures": {
+      "collision_center": 32
+    },
+    "B0_success": 0,
+    "episode_id": 2,
+    "predicted_bottleneck_step": 5,
+    "proposed_success": 1,
+    "true_bottleneck_step": 5,
+    "wrong_late_failures": {
+      "collision_center": 32
+    },
+    "wrong_late_success": 0
+  },
+  {
+    "B0_failures": {
+      "collision_center": 32
+    },
+    "B0_success": 0,
+    "episode_id": 3,
+    "predicted_bottleneck_step": 5,
+    "proposed_success": 1,
+    "true_bottleneck_step": 5,
+    "wrong_late_failures": {
+      "collision_center": 32
+    },
+    "wrong_late_success": 0
+  },
+  {
+    "B0_failures": {
+      "collision_center": 32
+    },
+    "B0_success": 0,
+    "episode_id": 4,
+    "predicted_bottleneck_step": 6,
+    "proposed_success": 1,
+    "true_bottleneck_step": 6,
+    "wrong_late_failures": {
+      "collision_center": 32
+    },
+    "wrong_late_success": 0
+  },
+  {
+    "B0_failures": {
+      "collision_center": 32
+    },
+    "B0_success": 0,
+    "episode_id": 5,
+    "predicted_bottleneck_step": 5,
+    "proposed_success": 1,
+    "true_bottleneck_step": 5,
+    "wrong_late_failures": {
+      "collision_center": 32
+    },
+    "wrong_late_success": 0
+  },
+  {
+    "B0_failures": {
+      "collision_center": 32
+    },
+    "B0_success": 0,
+    "episode_id": 6,
+    "predicted_bottleneck_step": 6,
+    "proposed_success": 1,
+    "true_bottleneck_step": 6,
+    "wrong_late_failures": {
+      "collision_center": 32
+    },
+    "wrong_late_success": 0
+  },
+  {
+    "B0_failures": {
+      "collision_center": 32
+    },
+    "B0_success": 0,
+    "episode_id": 7,
+    "predicted_bottleneck_step": 5,
+    "proposed_success": 1,
+    "true_bottleneck_step": 5,
+    "wrong_late_failures": {
+      "collision_center": 32
+    },
+    "wrong_late_success": 0
+  },
+  {
+    "B0_failures": {
+      "collision_center": 32
+    },
+    "B0_success": 0,
+    "episode_id": 8,
+    "predicted_bottleneck_step": 4,
+    "proposed_success": 1,
+    "true_bottleneck_step": 4,
+    "wrong_late_failures": {
+      "collision_center": 32
+    },
+    "wrong_late_success": 0
+  },
+  {
+    "B0_failures": {
+      "collision_center": 32
+    },
+    "B0_success": 0,
+    "episode_id": 9,
+    "predicted_bottleneck_step": 6,
+    "proposed_success": 1,
+    "true_bottleneck_step": 6,
+    "wrong_late_failures": {
+      "collision_center": 32
+    },
+    "wrong_late_success": 0
+  },
+  {
+    "B0_failures": {
+      "collision_center": 32
+    },
+    "B0_success": 0,
+    "episode_id": 10,
+    "predicted_bottleneck_step": 4,
+    "proposed_success": 1,
+    "true_bottleneck_step": 4,
+    "wrong_late_failures": {
+      "collision_center": 32
+    },
+    "wrong_late_success": 0
+  },
+  {
+    "B0_failures": {
+      "collision_center": 32
+    },
+    "B0_success": 0,
+    "episode_id": 11,
+    "predicted_bottleneck_step": 6,
+    "proposed_success": 1,
+    "true_bottleneck_step": 6,
+    "wrong_late_failures": {
+      "collision_center": 32
+    },
+    "wrong_late_success": 0
+  }
+]

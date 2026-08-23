@@ -1,0 +1,38 @@
+{
+  "conditional_split_location": {
+    "B1_uniform_split": {
+      "hit_count": 138,
+      "miss_count": 262,
+      "success_when_hit": 0.9855072463768116,
+      "success_when_missed": 0.15267175572519084
+    },
+    "B2_random_split": {
+      "hit_count": 91,
+      "miss_count": 309,
+      "success_when_hit": 1.0,
+      "success_when_missed": 0.15857605177993528
+    }
+  },
+  "controlled_findings": {
+    "location_effect": {
+      "proposed_success": 1.0,
+      "status": "confirmed_by_location_intervention",
+      "wrong_early_success": 0.155,
+      "wrong_late_success": 0.155
+    },
+    "more_samples": {
+      "B0_budget": 32,
+      "B0_success": 0.155,
+      "more_samples_budget": 64,
+      "more_samples_success": 0.155,
+      "status": "tests_correlated_family_collapse"
+    },
+    "operator_specificity": {
+      "full_resampling_at_correct_location_success": 1.0,
+      "random_operator_at_correct_location_success": 1.0,
+      "status": "structured_operator_not_isolated_if_alternatives_match_or_win",
+      "structured_local_success": 1.0
+    }
+  },
+  "interpretation_boundary": "mechanism findings are benchmark-specific controlled interventions"
+}

@@ -1,0 +1,31 @@
+{
+  "absence": {
+    "complete": true,
+    "getjob_absent": true,
+    "getjob_code": "OperationForbidden",
+    "getjob_http_status": 403,
+    "getjob_operation_forbidden": true,
+    "getjob_response_sha256": "ec28315baae907c0c5bb00a14ef30dc8dc3ba42062534111fc70728f2634f16b",
+    "getjob_tombstone": false,
+    "getjob_valid_json_object": true,
+    "listjobs": {
+      "http_status": 200,
+      "matching_job_count": 0,
+      "response_sha256": "0fa96cc29ccc5b49951ac7f957eb3c74dbc9c554c54dbc63323b37790298f025",
+      "total_count": 0
+    },
+    "listjobs_absent": true
+  },
+  "complete": true,
+  "cpfs_and_registry_evidence_preserved": true,
+  "delete_request_id": "01A02D41-BAD9-5C7A-9578-547EDEF334BA",
+  "deleted_at_utc": "2026-08-23T06:14:39Z",
+  "expected_purpose": "formal-evaluation",
+  "job_id": "dlc1yavs3uab0cm0",
+  "performed_by_gid": 2254,
+  "performed_by_uid": 2254,
+  "pre_delete_status": "Stopped",
+  "run_id": "r142-fp11-stage1-eval-20260823-1323-r2",
+  "schema_version": 1,
+  "workspace_id": "179169"
+}

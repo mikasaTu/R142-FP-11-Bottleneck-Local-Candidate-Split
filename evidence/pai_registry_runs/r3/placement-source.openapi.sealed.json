@@ -1,0 +1,306 @@
+{
+  "observed_at_utc": "2026-08-23T06:14:09Z",
+  "request": {
+    "action": "ListJobs",
+    "api_path": "/api/v1/jobs",
+    "endpoint": "pai-dlc.cn-wulanchabu.aliyuncs.com",
+    "http_method": "GET",
+    "query": {
+      "JobId": "dlc1e1wg0af86rlq",
+      "Order": "desc",
+      "PageNumber": "1",
+      "PageSize": "10",
+      "ResourceId": "quotaewyznuc7b9l",
+      "SortBy": "GmtCreateTime",
+      "WorkspaceId": "179169"
+    },
+    "version": "2020-12-03"
+  },
+  "response": {
+    "Jobs": [
+      {
+        "Accessibility": "PRIVATE",
+        "ClusterId": "asi_cn-wulanchabu_pai-serverless_prd01.1294336768262632",
+        "CodeSource": {
+          "CodeSourceId": "",
+          "MountPath": "",
+          "Uri": ""
+        },
+        "CredentialConfig": {
+          "AliyunEnvRoleKey": "",
+          "CredentialConfigItems": null,
+          "EnableCredentialInject": false
+        },
+        "CustomEnvs": [
+          {
+            "Key": "WANDB_API_KEY",
+            "Value": "<redacted>",
+            "Visible": "public"
+          },
+          {
+            "Key": "WANDB_ENTITY",
+            "Value": "<redacted>",
+            "Visible": "public"
+          }
+        ],
+        "DataSourceSharedConfigs": null,
+        "DataSources": [
+          {
+            "DataSourceId": "d-mkixtohdn75dp8x9tb",
+            "DataSourceType": "bmcpfs",
+            "DataSourceVersion": "v1",
+            "MountAccess": "RW",
+            "MountPath": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+            "Options": "",
+            "Uri": ""
+          },
+          {
+            "DataSourceId": "d-36p023eg0f2vuqny8y",
+            "DataSourceType": "bmcpfs",
+            "DataSourceVersion": "v1",
+            "MountAccess": "RW",
+            "MountPath": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+            "Options": "",
+            "Uri": ""
+          },
+          {
+            "DataSourceId": "d-ejgj2ej7io1t2t32uc",
+            "DataSourceType": "bmcpfs",
+            "DataSourceVersion": "v1",
+            "MountAccess": "RW",
+            "MountPath": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+            "Options": "",
+            "Uri": ""
+          }
+        ],
+        "DisplayName": "r142-fp11-stag-r142-fp11-stage1-eval-20260823-1412-r3-nd478358d",
+        "Duration": 92,
+        "ElasticSpec": {
+          "AIMasterDockerImage": "",
+          "AIMasterType": "",
+          "ElasticStrategy": "",
+          "EnableAIMaster": false,
+          "EnableElasticInference": false,
+          "EnableElasticTraining": false,
+          "EnablePsJobElasticPS": false,
+          "EnablePsJobElasticWorker": false,
+          "EnablePsResourceEstimate": false,
+          "MaxParallelism": 0,
+          "MinParallelism": 0,
+          "PSMaxParallelism": 0,
+          "PSMinParallelism": 0
+        },
+        "EnableOptimalDataAccess": false,
+        "EnablePreemptibleJob": true,
+        "EnablePriorityPreemption": null,
+        "EnableUnifiedQueuing": null,
+        "EnabledDebugger": false,
+        "Envs": {
+          "WANDB_API_KEY": "<redacted>",
+          "WANDB_ENTITY": "<redacted>"
+        },
+        "GmtCreateTime": "2026-08-23T06:12:05Z",
+        "GmtFailedTime": null,
+        "GmtFinishTime": "2026-08-23T06:13:37Z",
+        "GmtModifiedTime": "2026-08-23T06:14:08Z",
+        "GmtRunningTime": "2026-08-23T06:13:24Z",
+        "GmtStoppedTime": null,
+        "GmtSubmittedTime": "2026-08-23T06:12:09Z",
+        "GmtSuccessedTime": "2026-08-23T06:13:37Z",
+        "IsDeleted": false,
+        "JobId": "dlc1e1wg0af86rlq",
+        "JobMaxRunningTimeMinutes": 0,
+        "JobRestartCount": 0,
+        "JobSpecs": [
+          {
+            "AssignNodeSpec": {
+              "AntiAffinityHyperNodes": [],
+              "AntiAffinityNodeNames": "",
+              "EnableAssignNode": false,
+              "HyperNodes": [],
+              "NodeNames": ""
+            },
+            "EcsSpec": "",
+            "Image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+            "ImageConfig": {
+              "Auth": "",
+              "DockerRegistry": "",
+              "Password": "",
+              "Username": ""
+            },
+            "PodCount": 1,
+            "ResourceConfig": {
+              "CPU": "92",
+              "GPU": "8",
+              "GPUType": "",
+              "Memory": "1600Gi",
+              "SharedMemory": "1600Gi"
+            },
+            "Type": "Worker"
+          }
+        ],
+        "JobType": "PyTorchJob",
+        "NodeCount": 0,
+        "NodeNames": null,
+        "PodCount": 1,
+        "Pods": null,
+        "Position": 0,
+        "Priority": 9,
+        "ReasonCode": "JobSucceeded",
+        "ReasonMessage": "",
+        "RequestCPU": 92,
+        "RequestGPU": 8,
+        "RequestMemory": 1600,
+        "ResourceId": "quotaewyznuc7b9l",
+        "ResourceName": "quota_a800",
+        "ResourceQuotaName": "",
+        "ResourceType": "Lingjun",
+        "RestartRecord": null,
+        "RestartTimes": "",
+        "RetryCount": 0,
+        "SchedulingStrategy": "Auto",
+        "Settings": {
+          "AdvancedSettings": null,
+          "AllocateAllRDMADevices": false,
+          "AllowUnschedulableNodes": false,
+          "BusinessUserId": "",
+          "Caller": "",
+          "DataJuicerConfig": null,
+          "DisableEcsStockCheck": true,
+          "Driver": "",
+          "EnableCpusetScheduling": false,
+          "EnableDSWDev": false,
+          "EnableDistributedTaskAssigment": false,
+          "EnableErrorMonitoringInAIMaster": true,
+          "EnableOssAppend": false,
+          "EnablePreemptibleJob": false,
+          "EnablePriorityPreemption": null,
+          "EnableRDMA": true,
+          "EnableSanityCheck": false,
+          "EnableTideResource": false,
+          "EnvAutoInjectionHint": "",
+          "ErrorMonitoringArgs": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure",
+          "JobReservedMinutes": 0,
+          "JobReservedPolicy": "",
+          "MaxPriorityPreemptionPriority": null,
+          "NasReadMode": "",
+          "OversoldType": "AcceptQuotaOverSold",
+          "PipelineId": "",
+          "QueueId": "",
+          "QuotaInstanceTypes": null,
+          "ResourceGroupVersion": "",
+          "ResourceQuotaUserQuotaValue": "204304175653577039-179169",
+          "SanityCheckArgs": "",
+          "SchedulingStrategy": "",
+          "Tags": {
+            "contract_source_job_id": "dlct3tq8a7z5lsdd",
+            "dataset": "synthetic-forkpush2d-seeds-0-399",
+            "hardware": "8xa800-idle",
+            "managed_by": "pai-job-registry",
+            "model": "forkpush2d-v1-correlated-candidate-generator",
+            "nonce": "d478358d8595582599341a9fa88a1054",
+            "purpose": "formal-evaluation",
+            "resource_pool": "idle-a800",
+            "run_id": "r142-fp11-stage1-eval-20260823-1412-r3",
+            "task": "r142-fp11-stage1-candidate-split-20260823"
+          },
+          "TensorboardSummaryPath": "",
+          "VmMaxMapCount": 0
+        },
+        "Status": "Succeeded",
+        "StatusHistory": [
+          {
+            "EndTime": "2026-08-23T06:12:09Z",
+            "ReasonCode": "JobCreating",
+            "ReasonMessage": "Job is creating",
+            "StartTime": "2026-08-23T06:12:05Z",
+            "Status": "Creating",
+            "SubStatus": "JobCreating"
+          },
+          {
+            "EndTime": "2026-08-23T06:12:10Z",
+            "ReasonCode": "JobEnqueued",
+            "ReasonMessage": "sync enqueue status from queueUnit status",
+            "StartTime": "2026-08-23T06:12:09Z",
+            "Status": "Queuing"
+          },
+          {
+            "EndTime": "2026-08-23T06:13:24Z",
+            "ReasonCode": "JobPreparing",
+            "ReasonMessage": "PyTorchJob dlc1e1wg0af86rlq has been successfully scheduled and is now entering the preparation phase.",
+            "StartTime": "2026-08-23T06:12:10Z",
+            "Status": "EnvPreparing",
+            "SubStatus": "Preparing"
+          },
+          {
+            "EndTime": "2026-08-23T06:13:37Z",
+            "ReasonCode": "JobRunning",
+            "ReasonMessage": "PyTorchJob dlc1e1wg0af86rlq is running.",
+            "StartTime": "2026-08-23T06:13:24Z",
+            "Status": "Running"
+          },
+          {
+            "EndTime": "2026-08-23T06:13:37Z",
+            "ReasonCode": "JobSucceeded",
+            "ReasonMessage": "PyTorchJob dlc1e1wg0af86rlq is successfully completed.",
+            "StartTime": "2026-08-23T06:13:37Z",
+            "Status": "Succeeded"
+          }
+        ],
+        "SubStatus": "",
+        "SuccessPolicy": "",
+        "SupportedProfilingTypes": "",
+        "SystemEnvs": {
+          "DLC_JOB_ID": "dlc1e1wg0af86rlq",
+          "GLOO_SOCKET_IFNAME": "eth0",
+          "NCCL_DEBUG": "INFO",
+          "NCCL_IB_GID_INDEX": "3",
+          "NCCL_IB_HCA": "mlx5",
+          "NCCL_IB_QPS_PER_CONNECTION": "8",
+          "NCCL_IB_SL": "5",
+          "NCCL_IB_TC": "136",
+          "NCCL_IB_TIMEOUT": "22",
+          "NCCL_MIN_NCHANNELS": "4",
+          "NCCL_NET_PLUGIN": "none",
+          "NCCL_SOCKET_IFNAME": "eth",
+          "NVSHMEM_BOOTSTRAP_UID_SOCK_IFNAME": "eth",
+          "PAI_USER_ID": "204304175653577039",
+          "PAI_WORKSPACE_ID": "179169",
+          "PYTHONUNBUFFERED": "1",
+          "REGION": "cn-wulanchabu",
+          "TZ": "Asia/Shanghai"
+        },
+        "TenantId": "1699749014527917",
+        "ThirdpartyLibDir": "",
+        "ThirdpartyLibs": [],
+        "UpdateJobContext": null,
+        "UseOversoldResource": true,
+        "UserCommand": "exec /bin/bash --noprofile --norc -c '#!/usr/bin/env bash\nset -Eeuo pipefail\numask 077\nexport PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\nunset BASH_ENV ENV CDPATH GLOBIGNORE\nLEON_UID=2254\nLEON_GID=2254\nNEW_ROOT=/mnt/cpfs/zbl-cpfs-new\nUSER_ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon\nRUN_ID=r142-fp11-stage1-eval-20260823-1412-r3\nNONCE=d478358d8595582599341a9fa88a1054\nEXPECTED_GPUS=8\nSENTINEL=/mnt/cpfs/zbl-cpfs-new/USERS/leon/.pai_mount_identity\nSENTINEL_SHA256=b3cc124ffbbebf8a12d52f70555b834f9c62a34ae09ff6ee397d0abbba600ef9\nEXPECTED_CPFS_ID=cpfs-29001v2qz7p5ag7gckzsw\nPAYLOAD_SHA256=3aaa45a315bab31c438a679d2eac6b099a04770644fcd9e55017be2c2a2f9918\nWRITE_PATHS=(/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_fp11_stage1_evaluation/r142-fp11-stage1-eval-20260823-1412-r3 /mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11/r142-fp11-stage1-eval-20260823-1412-r3 /mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_fp11/r142-fp11-stage1-eval-20260823-1412-r3)\nRECURSIVE_REPAIR=0\nCURRENT_UID=$(id -u)\nCURRENT_GID=$(id -g)\nif [[ \"$CURRENT_UID\" != 0 && \"$CURRENT_UID:$CURRENT_GID\" != \"$LEON_UID:$LEON_GID\" ]]; then\n  echo \"BOOTSTRAP_REFUSED unexpected identity $CURRENT_UID:$CURRENT_GID\" >&2\n  exit 50\nfi\nfor required in realpath findmnt sha256sum base64 mktemp stat dirname install setpriv env bash; do\n  command -v \"$required\" >/dev/null || {\n    echo \"BOOTSTRAP_REFUSED missing command: $required\" >&2\n    exit 51\n  }\ndone\ntest -d \"$NEW_ROOT\" || { echo \"BOOTSTRAP_REFUSED missing new root\" >&2; exit 52; }\n[[ \"$(realpath -e \"$NEW_ROOT\")\" == \"$NEW_ROOT\" ]] || {\n  echo \"BOOTSTRAP_REFUSED non-canonical new root\" >&2; exit 53;\n}\nassert_cpfs_path() {\n  local path=$1 resolved target fstype source\n  resolved=$(realpath -e -- \"$path\") || {\n    echo \"BOOTSTRAP_REFUSED cannot resolve CPFS path: $path\" >&2; exit 54;\n  }\n  case \"$resolved\" in \"$NEW_ROOT\"|\"$NEW_ROOT\"/*) ;;\n    *) echo \"BOOTSTRAP_REFUSED path outside new root: $resolved\" >&2; exit 55 ;;\n  esac\n  target=$(findmnt -n -o TARGET -T \"$resolved\") || {\n    echo \"BOOTSTRAP_REFUSED path is not mounted: $resolved\" >&2; exit 56;\n  }\n  case \"$target\" in \"$NEW_ROOT\"|\"$NEW_ROOT\"/*) ;;\n    *) echo \"BOOTSTRAP_REFUSED unexpected mount target: $target\" >&2; exit 57 ;;\n  esac\n  fstype=$(findmnt -n -o FSTYPE -T \"$resolved\")\n  case \"$fstype\" in *cpfs*|*aliyun-alinas*) ;;\n    *) echo \"BOOTSTRAP_REFUSED unexpected filesystem: $fstype\" >&2; exit 58 ;;\n  esac\n  source=$(findmnt -n -o SOURCE -T \"$resolved\")\n  [[ \"$source\" == *\"$EXPECTED_CPFS_ID\"* ]] || {\n    echo \"BOOTSTRAP_REFUSED unexpected CPFS source: $source\" >&2; exit 59;\n  }\n}\ntest -f \"$SENTINEL\" && test ! -L \"$SENTINEL\" || {\n  echo \"BOOTSTRAP_REFUSED mount sentinel missing\" >&2; exit 60;\n}\n[[ \"$(sha256sum \"$SENTINEL\" | awk '\"'\"'{print $1}'\"'\"')\" == \"$SENTINEL_SHA256\" ]] || {\n  echo \"BOOTSTRAP_REFUSED mount sentinel mismatch\" >&2; exit 61;\n}\nassert_cpfs_path \"$SENTINEL\"\nassert_write_path() {\n  local path=$1 resolved\n  [[ \"$path\" == /* && \"$path\" != *\"/../\"* && \"$path\" != */.. ]] || {\n    echo \"BOOTSTRAP_REFUSED invalid write path $path\" >&2; exit 62;\n  }\n  resolved=$(realpath -m -- \"$path\")\n  [[ \"$resolved\" == \"$path\" ]] || {\n    echo \"BOOTSTRAP_REFUSED non-canonical write path $path -> $resolved\" >&2; exit 63;\n  }\n  case \"$path\" in\n    /mnt/cpfs/zbl-cpfs-new/USERS/leon/checkpoints/wallx_plug_14693_fullft_v1/*|/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/*|/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/*|/mnt/cpfs/zbl-cpfs-new/USERS/leon/assets/*|/mnt/cpfs/zbl-cpfs-new/USERS/leon/artifacts/qpilots/wrc_task_success_q/*|/mnt/cpfs/zbl-cpfs-new/dataset/leon/*|/mnt/cpfs/zbl-cpfs-new/CKPT/leon/*|/mnt/cpfs/zbl-cpfs-new/SHARE/leon/*) ;;\n    *) echo \"BOOTSTRAP_REFUSED write path outside Leon roots: $path\" >&2; exit 64 ;;\n  esac\n}\nfor path in \"${WRITE_PATHS[@]}\"; do\n  assert_write_path \"$path\"\n  anchor=\"$path\"\n  while [[ ! -e \"$anchor\" ]]; do\n    parent=$(dirname -- \"$anchor\")\n    [[ \"$parent\" != \"$anchor\" ]] || {\n      echo \"BOOTSTRAP_REFUSED no mounted ancestor for $path\" >&2; exit 65;\n    }\n    anchor=\"$parent\"\n  done\n  assert_cpfs_path \"$anchor\"\n  if [[ \"$CURRENT_UID\" == 0 ]]; then\n    install -d -m 0700 -o \"$LEON_UID\" -g \"$LEON_GID\" -- \"$path\"\n  else\n    mkdir -p -- \"$path\"\n    chmod 0700 -- \"$path\"\n  fi\n  assert_cpfs_path \"$path\"\n  [[ \"$(stat -c '\"'\"'%u:%g'\"'\"' \"$path\")\" == \"$LEON_UID:$LEON_GID\" ]] || {\n    echo \"BOOTSTRAP_REFUSED write directory owner mismatch: $path\" >&2; exit 66;\n  }\ndone\nif [[ \"$CURRENT_UID\" == 0 && \"$RECURSIVE_REPAIR\" == 1 ]]; then\n  chown -R --no-dereference \"$LEON_UID:$LEON_GID\" -- \"${WRITE_PATHS[@]}\"\nfi\npayload_dir=$(mktemp -d /tmp/pai-payload.XXXXXXXX) || exit 67\nif [[ \"$CURRENT_UID\" == 0 ]]; then chmod 0711 \"$payload_dir\"; fi\npayload_path=\"$payload_dir/payload.sh\"\npayload_b64=IyEvdXNyL2Jpbi9lbnYgYmFzaApzZXQgLWV1byBwaXBlZmFpbAoKTkVXX1JPT1Q9L21udC9jcGZzL3pibC1jcGZzLW5ldwpVU0VSX1JPT1Q9JE5FV19ST09UL1VTRVJTL2xlb24KUFJPSkVDVF9ESVI9JFVTRVJfUk9PVC9jb2RlL1IxNDItRlAtMTEtQm90dGxlbmVjay1Mb2NhbC1DYW5kaWRhdGUtU3BsaXQKUFlUSE9OX0JJTj0kVVNFUl9ST09UL2VudnMvb3BlbnBpX3B5MzExL2Jpbi9weXRob24KUlVOX0lEPSR7UEFJX0NBTkFSWV9SVU5fSUQ6P1BBSV9DQU5BUllfUlVOX0lEIGlzIHJlcXVpcmVkfQpPVVRQVVRfUk9PVD0kVVNFUl9ST09UL2xvZ3MvcjE0Ml9mcDExLyRSVU5fSUQKQ0FDSEVfRElSPSRVU0VSX1JPT1QvY2FjaGUvcjE0Ml9mcDExLyRSVU5fSUQKQVJUSUZBQ1RfRElSPSR7UEFJX0NBTkFSWV9SVU5fRElSOj9QQUlfQ0FOQVJZX1JVTl9ESVIgaXMgcmVxdWlyZWR9CgpbWyAiJChpZCAtdSk6JChpZCAtZykiID09ICIyMjU0OjIyNTQiIF1dIHx8IHsKICBlY2hvICJbcjE0Ml0gZXhwZWN0ZWQgMjI1NDoyMjU0LCBnb3QgJChpZCAtdSk6JChpZCAtZykiID4mMgogIGV4aXQgNDEKfQpmb3IgcmVxdWlyZWQgaW4gIiRORVdfUk9PVCIgIiRVU0VSX1JPT1QiICIkUFJPSkVDVF9ESVIiICIkUFlUSE9OX0JJTiIgIiRBUlRJRkFDVF9ESVIiICIkT1VUUFVUX1JPT1QiICIkQ0FDSEVfRElSIjsgZG8KICB0ZXN0IC1lICIkcmVxdWlyZWQiIHx8IHsKICAgIGVjaG8gIltyMTQyXSByZXF1aXJlZCBwYXRoIG1pc3Npbmc6ICRyZXF1aXJlZCIgPiYyCiAgICBleGl0IDQyCiAgfQpkb25lCmZvciB3cml0YWJsZSBpbiAiJEFSVElGQUNUX0RJUiIgIiRPVVRQVVRfUk9PVCIgIiRDQUNIRV9ESVIiOyBkbwogIHRlc3QgLWQgIiR3cml0YWJsZSIgJiYgdGVzdCAtdyAiJHdyaXRhYmxlIiB8fCB7CiAgICBlY2hvICJbcjE0Ml0gcGF0aCBpcyBub3Qgd3JpdGFibGU6ICR3cml0YWJsZSIgPiYyCiAgICBleGl0IDQzCiAgfQogIHByb2JlPSIkd3JpdGFibGUvLnIxNDItb3duZXItcHJvYmUuJCQiCiAgKHVtYXNrIDA3NzsgOiA+IiRwcm9iZSIpCiAgW1sgIiQoc3RhdCAtYyAnJXU6JWcnICIkcHJvYmUiKSIgPT0gIjIyNTQ6MjI1NCIgXV0gfHwgZXhpdCA0NAogIHJtIC1mIC0tICIkcHJvYmUiCmRvbmUKCmV4cG9ydCBIT01FPSRVU0VSX1JPT1QKZXhwb3J0IFVTRVI9bGVvbgpleHBvcnQgTE9HTkFNRT1sZW9uCmV4cG9ydCBYREdfQ0FDSEVfSE9NRT0kQ0FDSEVfRElSL3hkZwpleHBvcnQgTVBMQ09ORklHRElSPSRDQUNIRV9ESVIvbWF0cGxvdGxpYgpta2RpciAtcCAiJFhER19DQUNIRV9IT01FIiAiJE1QTENPTkZJR0RJUiIKCmNkICIkUFJPSkVDVF9ESVIiCiIkUFlUSE9OX0JJTiIgc2NyaXB0cy92ZXJpZnlfcnVudGltZV9tYW5pZmVzdC5weSAtLW1hbmlmZXN0IGV2aWRlbmNlL3J1bnRpbWVfbWFuaWZlc3QuanNvbgpleGVjICIkUFlUSE9OX0JJTiIgc2NyaXB0cy9wYWlfZW50cnkucHkgXAogIC0tb3V0cHV0LXJvb3QgIiRPVVRQVVRfUk9PVCIgXAogIC0tcnVuLWlkICIkUlVOX0lEIiBcCiAgLS13b3JrZXJzIDggXAogIC0tZXBpc29kZXMgNDAwIFwKICAtLXB5dGhvbi1iaW4gIiRQWVRIT05fQklOIiBcCiAgLS1jb25maWcgY29uZmlncy9zdGFnZTEuanNvbgo=\n(umask 022; printf '\"'\"'%s'\"'\"' \"$payload_b64\" | base64 -d >\"$payload_path\")\nunset payload_b64\nchmod 0555 \"$payload_path\"\n[[ \"$(sha256sum \"$payload_path\" | awk '\"'\"'{print $1}'\"'\"')\" == \"$PAYLOAD_SHA256\" ]] || {\n  echo \"BOOTSTRAP_REFUSED payload hash mismatch\" >&2; exit 68;\n}\nHOME_DIR=/mnt/cpfs/zbl-cpfs-new/USERS/leon\nXDG_DIR=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_fp11_stage1_evaluation/r142-fp11-stage1-eval-20260823-1412-r3/xdg-cache\nsafe_env=(\n  HOME=\"$HOME_DIR\" USER=leon LOGNAME=leon XDG_CACHE_HOME=\"$XDG_DIR\"\n  PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"\n  PAI_CANARY_RUN_ID=\"$RUN_ID\" PAI_CANARY_NONCE=\"$NONCE\"\n  PAI_CANARY_RUN_DIR=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_fp11_stage1_evaluation/r142-fp11-stage1-eval-20260823-1412-r3\n  PAI_CANARY_EXPECTED_GPUS=\"$EXPECTED_GPUS\"\n  PAI_MOUNT_SENTINEL=\"$SENTINEL\"\n  PAI_MOUNT_SENTINEL_SHA256=\"$SENTINEL_SHA256\"\n)\nwhile IFS= read -r env_name; do\n  case \"$env_name\" in\n    CUDA_*|NVIDIA_*|NCCL_*|OMPI_*|PMI_*|PMIX_*|MASTER_ADDR|MASTER_PORT|WORLD_SIZE|RANK|LOCAL_RANK|NODE_RANK|GROUP_RANK|ROLE_RANK|TORCHELASTIC_*|LD_LIBRARY_PATH|HTTP_PROXY|HTTPS_PROXY|NO_PROXY|http_proxy|https_proxy|no_proxy|WANDB_*|HF_*|TRANSFORMERS_*|XLA_*|JAX_*|TORCH_*|OMP_*|MKL_*|PAI_TASK_*)\n      safe_env+=(\"$env_name=${!env_name}\") ;;\n  esac\ndone < <(compgen -e)\nif [[ \"$CURRENT_UID\" == 0 ]]; then\n  exec setpriv --reuid=\"$LEON_UID\" --regid=\"$LEON_GID\" --clear-groups -- \\\n    env -i \"${safe_env[@]}\" bash --noprofile --norc \"$payload_path\"\nfi\n[[ \"$CURRENT_UID:$CURRENT_GID\" == \"$LEON_UID:$LEON_GID\" ]] || exit 69\nexec env -i \"${safe_env[@]}\" bash --noprofile --norc \"$payload_path\"\n'",
+        "UserId": "204304175653577039",
+        "UserScript": "",
+        "UserVpc": {
+          "ExtendedCidrs": [
+            "192.168.251.0/24",
+            "192.168.1.32/27",
+            "192.168.1.8/29",
+            "192.168.252.0/24",
+            "192.168.253.0/24",
+            "192.168.254.0/24",
+            "192.168.1.0/29"
+          ],
+          "SecurityGroupId": "sg-0jlflpwmnysurjbu2u7c",
+          "SwitchId": "vsw-0jldmhv2n24pofrzyu8ev,vsw-0jln9swvd0eqcrd9f1o2q",
+          "VpcId": "vpc-0jl4fvc8iyfr3mwlfqssj"
+        },
+        "Username": "陈健",
+        "WorkingDir": "",
+        "WorkspaceId": "179169",
+        "WorkspaceName": "pai_52fx2u56uu44ih8p7z"
+      }
+    ],
+    "RequestId": "01A02D41-4CDA-520F-9423-65BA5087ECAC",
+    "TotalCount": 1
+  },
+  "schema_version": 1,
+  "source": "pai_openapi_listjobs_exact_job_readback"
+}

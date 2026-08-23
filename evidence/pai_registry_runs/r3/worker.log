@@ -1,0 +1,44 @@
+[OK] Using config file from [/workspace/leon/.dlc/config]
+[OK] Pod logs for [dlc1e1wg0af86rlq]-[dlc1e1wg0af86rlq-master-0]
+RUNTIME_MANIFEST_OK files=13
+{
+  "accepted": true,
+  "benchmark_valid": true,
+  "collapse_valid_fraction": 0.9725,
+  "comparison_passes": {
+    "B1_uniform_split": true,
+    "B2_random_split": true
+  },
+  "comparisons": {
+    "B1_uniform_split": {
+      "ci95_high": 0.6075,
+      "ci95_low": 0.51,
+      "mean_difference": 0.56,
+      "total_blocks": 10,
+      "winning_blocks": 10
+    },
+    "B2_random_split": {
+      "ci95_high": 0.695,
+      "ci95_low": 0.6025,
+      "mean_difference": 0.65,
+      "total_blocks": 10,
+      "winning_blocks": 10
+    }
+  },
+  "decision": "SUPPORTED_STAGE1_NO_VLA_CLAIM",
+  "evidence_boundary": "synthetic 2D mechanism validation only; no VLA or learned-policy claim",
+  "localization_pass": true,
+  "stable_gain": true,
+  "thresholds": {
+    "base_seed": 14211,
+    "block_size": 40,
+    "bootstrap_replicates": 10000,
+    "evaluation_seeds": 400,
+    "maximum_localization_median_error": 1.0,
+    "maximum_mode_discovery_drop": 0.02,
+    "minimum_localization_within_one": 0.8,
+    "minimum_success_gain": 0.05,
+    "minimum_valid_collapse_fraction": 0.8,
+    "minimum_winning_blocks": 7
+  }
+}

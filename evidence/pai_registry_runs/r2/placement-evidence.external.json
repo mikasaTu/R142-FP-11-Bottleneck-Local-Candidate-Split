@@ -1,0 +1,19 @@
+{
+  "complete": true,
+  "display_name": "r142-fp11-stag-r142-fp11-stage1-eval-20260823-1323-r2-nbad4c7c1",
+  "job_id": "dlc1yavs3uab0cm0",
+  "note": "The pinned DLC CLI omits UseOversoldResource. This immutable attestation records an exact-JobId read-only PAI openapi/ListJobs response and binds it to the registry run.",
+  "observed_at_utc": "2026-08-23T05:59:20Z",
+  "oversold_type": "AcceptQuotaOverSold",
+  "raw_response_sha256": "74cbbbd822fdf41f227c990adfd8080d2b461351f229425a292c93c1a09c87ef",
+  "recorded_at_utc": "2026-08-23T05:59:20Z",
+  "recorded_by_gid": 2254,
+  "recorded_by_uid": 2254,
+  "resource_id": "quotaewyznuc7b9l",
+  "run_id": "r142-fp11-stage1-eval-20260823-1323-r2",
+  "schema_version": 1,
+  "sealed_source_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/pai-job-registry/runs/r142-fp11-stage1-eval-20260823-1323-r2/placement-source.openapi.sealed.json",
+  "sealed_source_sha256": "34f8423368478fee187724de96281529b717d1ec8f6c30821b9e0f91f107a59b",
+  "source": "pai_openapi_listjobs_exact_job_readback",
+  "use_oversold_resource": true
+}

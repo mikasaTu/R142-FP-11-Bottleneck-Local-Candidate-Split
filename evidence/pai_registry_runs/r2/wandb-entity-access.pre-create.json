@@ -1,0 +1,11 @@
+{
+  "complete": true,
+  "endpoint": "https://api.wandb.ai/graphql",
+  "entity": "chen_jian-cj-workspace",
+  "identity_inference_used": false,
+  "membership_role": "admin",
+  "pending": false,
+  "verified_at_utc": "2026-08-23T05:51:56Z",
+  "viewer_username": "chen_jian",
+  "write_probe_created": false
+}

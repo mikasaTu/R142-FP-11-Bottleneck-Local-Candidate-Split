@@ -1,0 +1,38 @@
+{
+  "action": "DeleteJob",
+  "api_path": "/api/v1/jobs/dlc1yavs3uab0cm0",
+  "api_version": "2020-12-03",
+  "expected_purpose": "formal-evaluation",
+  "expected_status": "Stopped",
+  "intent_at_utc": "2026-08-23T06:14:37Z",
+  "job_id": "dlc1yavs3uab0cm0",
+  "performed_by_gid": 2254,
+  "performed_by_uid": 2254,
+  "phase": "prepared",
+  "preflight_getjob_sha256": "59ea93a474cbc4ae78f3ffd10fa11f1bdbc52ed2ccd13c1eebe9b23ac5ebe1ba",
+  "preflight_listjobs_sha256": "1e3094bf75ffdd7200025c52f6751baf8cc0adad92f4882f8ebf0f552872ee0d",
+  "preflight_summary": {
+    "DisplayName": "r142-fp11-stag-r142-fp11-stage1-eval-20260823-1323-r2-nbad4c7c1",
+    "JobId": "dlc1yavs3uab0cm0",
+    "ResourceId": "quotaewyznuc7b9l",
+    "Status": "Stopped",
+    "Tags": {
+      "contract_source_job_id": "dlct3tq8a7z5lsdd",
+      "dataset": "synthetic-forkpush2d-seeds-0-399",
+      "hardware": "8xa800-idle",
+      "managed_by": "pai-job-registry",
+      "model": "forkpush2d-v1-correlated-candidate-generator",
+      "nonce": "bad4c7c1363b856763ad01414cb92f1f",
+      "purpose": "formal-evaluation",
+      "resource_pool": "idle-a800",
+      "run_id": "r142-fp11-stage1-eval-20260823-1323-r2",
+      "task": "r142-fp11-stage1-candidate-split-20260823"
+    },
+    "UserId": "204304175653577039",
+    "WorkspaceId": "179169"
+  },
+  "preserve_cpfs_and_registry_evidence": true,
+  "run_id": "r142-fp11-stage1-eval-20260823-1323-r2",
+  "schema_version": 1,
+  "workspace_id": "179169"
+}

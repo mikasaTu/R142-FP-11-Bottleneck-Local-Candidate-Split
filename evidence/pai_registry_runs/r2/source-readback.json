@@ -1,0 +1,126 @@
+{
+  "checked_at_utc": "2026-08-23T05:51:55Z",
+  "complete": true,
+  "roles": {
+    "contract": {
+      "checks": {
+        "data_sources": true,
+        "empty_driver": true,
+        "exact_job_object": true,
+        "job_id": true,
+        "no_user_vpc": true,
+        "single_worker_spec": true,
+        "worker_count": true,
+        "worker_cpu": true,
+        "worker_gpu": true,
+        "worker_image": true,
+        "worker_memory": true,
+        "worker_shared_memory": true,
+        "workspace_id": true
+      },
+      "complete": true,
+      "data_sources": [
+        [
+          "d-36p023eg0f2vuqny8y",
+          "v1",
+          "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          ""
+        ],
+        [
+          "d-ejgj2ej7io1t2t32uc",
+          "v1",
+          "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          ""
+        ],
+        [
+          "d-mkixtohdn75dp8x9tb",
+          "v1",
+          "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          ""
+        ]
+      ],
+      "job_id": "dlct3tq8a7z5lsdd",
+      "job_spec_count": 1,
+      "resource_id": "quotaewyznuc7b9l",
+      "settings": {
+        "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=10 --fault-tolerant-policy=OnFailure",
+        "aimaster_enabled": true,
+        "driver": "",
+        "oversold_type": "AcceptQuotaOverSold"
+      },
+      "status": "Succeeded",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "3115f3087e679cd246bae9af0ad901edde7733c27657cbd43fa07b309aeb11be",
+      "worker": {
+        "cpu": "92",
+        "gpu": "8",
+        "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+        "memory": "1600Gi",
+        "pod_count": 1,
+        "shared_memory": "1600Gi"
+      },
+      "worker_spec_count": 1
+    },
+    "resource": {
+      "checks": {
+        "aimaster_reference_args": true,
+        "aimaster_reference_enabled": true,
+        "exact_job_object": true,
+        "job_id": true,
+        "oversold_type": true,
+        "resource_id": true,
+        "single_worker_spec": true,
+        "succeeded_reference": true,
+        "worker_count": true,
+        "worker_cpu": true,
+        "worker_gpu": true,
+        "worker_image": true,
+        "worker_memory": true,
+        "worker_shared_memory": true,
+        "workspace_id": true
+      },
+      "complete": true,
+      "data_sources": [
+        [
+          "d-36p023eg0f2vuqny8y",
+          "v1",
+          "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+          ""
+        ],
+        [
+          "d-ejgj2ej7io1t2t32uc",
+          "v1",
+          "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+          ""
+        ],
+        [
+          "d-mkixtohdn75dp8x9tb",
+          "v1",
+          "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+          ""
+        ]
+      ],
+      "job_id": "dlct3tq8a7z5lsdd",
+      "job_spec_count": 1,
+      "resource_id": "quotaewyznuc7b9l",
+      "settings": {
+        "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=10 --fault-tolerant-policy=OnFailure",
+        "aimaster_enabled": true,
+        "driver": "",
+        "oversold_type": "AcceptQuotaOverSold"
+      },
+      "status": "Succeeded",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "23c2db2b791f8217fec126b0a1362d91c01c0c286015325d3f74ca1f30ff035d",
+      "worker": {
+        "cpu": "92",
+        "gpu": "8",
+        "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+        "memory": "1600Gi",
+        "pod_count": 1,
+        "shared_memory": "1600Gi"
+      },
+      "worker_spec_count": 1
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "accepted": true,
+  "artifacts": {
+    "results/failure_cases.json": "c5afd6cb1c00b212f842d33c16a54eb1eb9038b0c951e6ab512b790c567f55e3",
+    "results/gate_decision.json": "e7baf8cba38a87de2c44f1369dd507a8a82a7b036a50510209a4eb8d4b064993",
+    "results/mechanism_diagnostics.json": "d88defaadd7db4bd40ff1e79c7b72919b48020df9df6dbd4ef1170dfa82d4318",
+    "results/quantitative_table.csv": "086e19fb25ce7b323d0c19af2e13d913d36b617ac972d205bad593e44b6d5c5a"
+  },
+  "completed": true,
+  "decision": "SUPPORTED_STAGE1_NO_VLA_CLAIM",
+  "episode_count": 400,
+  "gid": 2254,
+  "pai_probe_created": false,
+  "policy_count": 10,
+  "run_id": "r142-fp11-stage1-eval-20260823-1412-r3",
+  "shard_count": 8,
+  "timestamp_unix": 1787465617.249575,
+  "uid": 2254,
+  "workload_type": "evaluation"
+}

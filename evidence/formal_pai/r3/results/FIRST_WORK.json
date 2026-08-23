@@ -1,0 +1,10 @@
+{
+  "completed_shard": "shard-07",
+  "gid": 2254,
+  "metrics_sha256": "a13087d94a49bce230de965ac7715a5f67251518e73da925d51a5e4e75f4d743",
+  "persisted_completed_evaluation_result": true,
+  "run_id": "r142-fp11-stage1-eval-20260823-1412-r3",
+  "timestamp_unix": 1787465616.2609782,
+  "uid": 2254,
+  "workload_type": "evaluation"
+}

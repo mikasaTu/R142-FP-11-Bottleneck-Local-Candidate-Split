@@ -1,0 +1,96 @@
+{
+  "checks": {
+    "aimaster_args": true,
+    "aimaster_enabled": true,
+    "data_sources": true,
+    "disable_ecs_stock_check": true,
+    "display_name": true,
+    "empty_driver": true,
+    "empty_network": true,
+    "job_max_running_time_minutes": true,
+    "job_reserved_minutes": true,
+    "job_reserved_policy": true,
+    "job_type": true,
+    "oversold_type": true,
+    "pod_env": true,
+    "priority": true,
+    "resource_id": true,
+    "single_worker_spec": true,
+    "tags": true,
+    "user_command": true,
+    "worker_count": true,
+    "worker_cpu": true,
+    "worker_gpu": true,
+    "worker_image": true,
+    "worker_memory": true,
+    "worker_shared_memory": true,
+    "workspace_id": true
+  },
+  "complete": true,
+  "observed": {
+    "data_sources": [
+      [
+        "d-36p023eg0f2vuqny8y",
+        "v1",
+        "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+        ""
+      ],
+      [
+        "d-ejgj2ej7io1t2t32uc",
+        "v1",
+        "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+        ""
+      ],
+      [
+        "d-mkixtohdn75dp8x9tb",
+        "v1",
+        "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+        ""
+      ]
+    ],
+    "display_name": "r142-fp11-stag-r142-fp11-stage1-eval-20260823-1412-r3-nd478358d",
+    "job_max_running_time_minutes": 0,
+    "pod_env": {
+      "WANDB_API_KEY": "<redacted>",
+      "WANDB_ENTITY": "<redacted>"
+    },
+    "priority": 9,
+    "resource_id": "quotaewyznuc7b9l",
+    "settings": {
+      "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure",
+      "aimaster_enabled": true,
+      "disable_ecs_stock_check": true,
+      "driver": "",
+      "job_reserved_minutes": null,
+      "job_reserved_policy": null,
+      "oversold_type": "AcceptQuotaOverSold",
+      "tags": {
+        "contract_source_job_id": "dlct3tq8a7z5lsdd",
+        "dataset": "synthetic-forkpush2d-seeds-0-399",
+        "hardware": "8xa800-idle",
+        "managed_by": "pai-job-registry",
+        "model": "forkpush2d-v1-correlated-candidate-generator",
+        "nonce": "d478358d8595582599341a9fa88a1054",
+        "purpose": "formal-evaluation",
+        "resource_pool": "idle-a800",
+        "run_id": "r142-fp11-stage1-eval-20260823-1412-r3",
+        "task": "r142-fp11-stage1-candidate-split-20260823"
+      }
+    },
+    "user_command_sha256": "de208908810284e419490eb5e5605424b8892391007420623d803bd7d1cbe250",
+    "worker_spec": {
+      "EcsSpec": "",
+      "Image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+      "PodCount": 1,
+      "ResourceConfig": {
+        "CPU": "92",
+        "GPU": "8",
+        "GPUType": "",
+        "Memory": "1600Gi",
+        "SharedMemory": "1600Gi"
+      },
+      "Type": "Worker"
+    },
+    "workspace_id": "179169"
+  }
+}

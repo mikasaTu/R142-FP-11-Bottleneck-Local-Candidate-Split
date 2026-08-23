@@ -1,0 +1,150 @@
+{
+  "comparisons": {
+    "B1_uniform_split": {
+      "ci95_high": 0.6075,
+      "ci95_low": 0.51,
+      "mean_difference": 0.56,
+      "total_blocks": 10,
+      "winning_blocks": 10
+    },
+    "B2_random_split": {
+      "ci95_high": 0.695,
+      "ci95_low": 0.6025,
+      "mean_difference": 0.65,
+      "total_blocks": 10,
+      "winning_blocks": 10
+    }
+  },
+  "table": [
+    {
+      "any_success_at_n": 0.155,
+      "both_modes_discovered": 0.0,
+      "candidate_budget": 32,
+      "candidate_success_rate": 0.155,
+      "localization_mae": null,
+      "localization_median": null,
+      "localization_within_one": null,
+      "mode_discovery_rate": 0.0775,
+      "policy": "B0_best_of_n",
+      "success_at_n": 0.155,
+      "successful_modes_per_sample": 0.00484375
+    },
+    {
+      "any_success_at_n": 0.44,
+      "both_modes_discovered": 0.1475,
+      "candidate_budget": 32,
+      "candidate_success_rate": 0.169609375,
+      "localization_mae": null,
+      "localization_median": null,
+      "localization_within_one": null,
+      "mode_discovery_rate": 0.29375,
+      "policy": "B1_uniform_split",
+      "success_at_n": 0.44,
+      "successful_modes_per_sample": 0.018359375
+    },
+    {
+      "any_success_at_n": 0.35,
+      "both_modes_discovered": 0.105,
+      "candidate_budget": 32,
+      "candidate_success_rate": 0.169140625,
+      "localization_mae": null,
+      "localization_median": null,
+      "localization_within_one": null,
+      "mode_discovery_rate": 0.2275,
+      "policy": "B2_random_split",
+      "success_at_n": 0.35,
+      "successful_modes_per_sample": 0.01421875
+    },
+    {
+      "any_success_at_n": 1.0,
+      "both_modes_discovered": 0.845,
+      "candidate_budget": 32,
+      "candidate_success_rate": 0.429453125,
+      "localization_mae": 0.0,
+      "localization_median": 0.0,
+      "localization_within_one": 1.0,
+      "mode_discovery_rate": 0.9225,
+      "policy": "proposed_bottleneck_local",
+      "success_at_n": 1.0,
+      "successful_modes_per_sample": 0.05765625
+    },
+    {
+      "any_success_at_n": 0.44,
+      "both_modes_discovered": 0.285,
+      "candidate_budget": 32,
+      "candidate_success_rate": 0.171953125,
+      "localization_mae": 0.97,
+      "localization_median": 1.0,
+      "localization_within_one": 0.6875,
+      "mode_discovery_rate": 0.3625,
+      "policy": "A_no_detection",
+      "success_at_n": 0.44,
+      "successful_modes_per_sample": 0.02265625
+    },
+    {
+      "any_success_at_n": 0.155,
+      "both_modes_discovered": 0.0,
+      "candidate_budget": 32,
+      "candidate_success_rate": 0.155,
+      "localization_mae": 2.0,
+      "localization_median": 2.0,
+      "localization_within_one": 0.0,
+      "mode_discovery_rate": 0.0775,
+      "policy": "A_wrong_early",
+      "success_at_n": 0.155,
+      "successful_modes_per_sample": 0.00484375
+    },
+    {
+      "any_success_at_n": 0.155,
+      "both_modes_discovered": 0.0,
+      "candidate_budget": 32,
+      "candidate_success_rate": 0.03875,
+      "localization_mae": 2.0,
+      "localization_median": 2.0,
+      "localization_within_one": 0.0,
+      "mode_discovery_rate": 0.0775,
+      "policy": "A_wrong_late",
+      "success_at_n": 0.155,
+      "successful_modes_per_sample": 0.00484375
+    },
+    {
+      "any_success_at_n": 1.0,
+      "both_modes_discovered": 0.9775,
+      "candidate_budget": 32,
+      "candidate_success_rate": 0.453828125,
+      "localization_mae": 0.0,
+      "localization_median": 0.0,
+      "localization_within_one": 1.0,
+      "mode_discovery_rate": 0.98875,
+      "policy": "A_correct_random_operator",
+      "success_at_n": 1.0,
+      "successful_modes_per_sample": 0.061796875
+    },
+    {
+      "any_success_at_n": 1.0,
+      "both_modes_discovered": 1.0,
+      "candidate_budget": 32,
+      "candidate_success_rate": 0.4928125,
+      "localization_mae": 0.0,
+      "localization_median": 0.0,
+      "localization_within_one": 1.0,
+      "mode_discovery_rate": 1.0,
+      "policy": "A_full_resampling",
+      "success_at_n": 1.0,
+      "successful_modes_per_sample": 0.0625
+    },
+    {
+      "any_success_at_n": 0.155,
+      "both_modes_discovered": 0.0,
+      "candidate_budget": 64,
+      "candidate_success_rate": 0.1549609375,
+      "localization_mae": null,
+      "localization_median": null,
+      "localization_within_one": null,
+      "mode_discovery_rate": 0.0775,
+      "policy": "A_more_samples",
+      "success_at_n": 0.155,
+      "successful_modes_per_sample": 0.002421875
+    }
+  ]
+}

@@ -1,0 +1,222 @@
+{
+  "Accessibility": "PRIVATE",
+  "ClusterId": "asi_cn-wulanchabu_pai-serverless_prd01.1294336768262632",
+  "CodeSource": {
+    "CodeSourceId": "",
+    "MountPath": ""
+  },
+  "CredentialConfig": {
+    "AliyunEnvRoleKey": "",
+    "EnableCredentialInject": false
+  },
+  "DataSources": [
+    {
+      "DataSourceId": "d-ejgj2ej7io1t2t32uc",
+      "DataSourceVersion": "v1",
+      "MountPath": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+      "Options": "",
+      "Uri": ""
+    },
+    {
+      "DataSourceId": "d-36p023eg0f2vuqny8y",
+      "DataSourceVersion": "v1",
+      "MountPath": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+      "Options": "",
+      "Uri": ""
+    },
+    {
+      "DataSourceId": "d-mkixtohdn75dp8x9tb",
+      "DataSourceVersion": "v1",
+      "MountPath": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+      "Options": "",
+      "Uri": ""
+    }
+  ],
+  "DisplayName": "qpilots_pi05_critic_panelA_shard1_8a800_idle_autoresume_v3",
+  "Duration": 44996,
+  "ElasticSpec": {
+    "AIMasterDockerImage": "",
+    "AIMasterType": "",
+    "ElasticStrategy": "",
+    "EnableAIMaster": false,
+    "EnableElasticInference": false,
+    "EnableElasticTraining": false,
+    "EnablePsJobElasticPS": false,
+    "EnablePsJobElasticWorker": false,
+    "EnablePsResourceEstimate": false,
+    "MaxParallelism": 0,
+    "MinParallelism": 0,
+    "PSMaxParallelism": 0,
+    "PSMinParallelism": 0
+  },
+  "EnabledDebugger": false,
+  "GmtCreateTime": "2026-07-29T14:40:42Z",
+  "GmtFinishTime": "2026-07-30T03:10:38Z",
+  "GmtRunningTime": "2026-07-29T14:42:07Z",
+  "GmtSubmittedTime": "2026-07-29T14:40:47Z",
+  "GmtSuccessedTime": "2026-07-30T03:10:38Z",
+  "JobId": "dlct3tq8a7z5lsdd",
+  "JobSpecs": [
+    {
+      "AssignNodeSpec": {
+        "AntiAffinityNodeNames": "",
+        "EnableAssignNode": false,
+        "NodeNames": ""
+      },
+      "EcsSpec": "",
+      "Image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+      "ImageConfig": {
+        "Auth": "",
+        "DockerRegistry": "",
+        "Password": "",
+        "Username": ""
+      },
+      "PodCount": 1,
+      "ResourceConfig": {
+        "CPU": "92",
+        "GPU": "8",
+        "GPUType": "",
+        "Memory": "1600Gi",
+        "SharedMemory": "1600Gi"
+      },
+      "Type": "Worker"
+    }
+  ],
+  "JobType": "PyTorchJob",
+  "Pods": [
+    {
+      "GmtCreateTime": "2026-07-29T14:40:47Z",
+      "GmtFinishTime": "2026-07-30T03:11:11Z",
+      "GmtStartTime": "2026-07-29T14:40:52Z",
+      "Ip": "26.41.145.228",
+      "PodId": "dlct3tq8a7z5lsdd-aimaster-0",
+      "PodUid": "e5631513-31a2-4990-8de1-0e946b998119",
+      "Status": "Stopped",
+      "Type": "aimaster"
+    },
+    {
+      "GmtCreateTime": "2026-07-29T19:03:09Z",
+      "GmtFinishTime": "2026-07-30T03:10:32Z",
+      "GmtStartTime": "2026-07-29T19:04:29Z",
+      "HistoryPods": [
+        {
+          "GmtCreateTime": "2026-07-29T17:31:50Z",
+          "GmtFinishTime": "2026-07-29T18:41:04Z",
+          "GmtStartTime": "2026-07-29T17:33:09Z",
+          "Ip": "26.15.247.167",
+          "PodId": "dlct3tq8a7z5lsdd-master-0",
+          "PodUid": "d6a5248f-dc60-414d-b347-b1e9404c361b",
+          "Status": "Failed",
+          "Type": "master"
+        },
+        {
+          "GmtCreateTime": "2026-07-29T17:20:10Z",
+          "GmtFinishTime": "2026-07-29T17:21:45Z",
+          "GmtStartTime": "2026-07-29T17:21:24Z",
+          "Ip": "26.40.188.89",
+          "PodId": "dlct3tq8a7z5lsdd-master-0",
+          "PodUid": "82e034c5-50f4-4a68-9012-7c03dd30b33c",
+          "Status": "Failed",
+          "Type": "master"
+        },
+        {
+          "GmtCreateTime": "2026-07-29T16:19:20Z",
+          "GmtFinishTime": "2026-07-29T16:57:03Z",
+          "GmtStartTime": "2026-07-29T16:20:36Z",
+          "Ip": "26.40.192.228",
+          "PodId": "dlct3tq8a7z5lsdd-master-0",
+          "PodUid": "70bfab3b-e376-49a0-b140-d738d02c2559",
+          "Status": "Failed",
+          "Type": "master"
+        },
+        {
+          "GmtCreateTime": "2026-07-29T15:52:40Z",
+          "GmtFinishTime": "2026-07-29T15:54:33Z",
+          "GmtStartTime": "2026-07-29T15:53:54Z",
+          "Ip": "26.15.249.213",
+          "PodId": "dlct3tq8a7z5lsdd-master-0",
+          "PodUid": "dc2d208b-ed73-4647-aaaf-8f4a20cfef21",
+          "Status": "Failed",
+          "Type": "master"
+        },
+        {
+          "GmtCreateTime": "2026-07-29T15:24:02Z",
+          "GmtFinishTime": "2026-07-29T15:29:13Z",
+          "GmtStartTime": "2026-07-29T15:25:19Z",
+          "Ip": "26.41.130.100",
+          "PodId": "dlct3tq8a7z5lsdd-master-0",
+          "PodUid": "964db748-4efe-4273-8e43-f1c95bbc5ad2",
+          "Status": "Failed",
+          "Type": "master"
+        },
+        {
+          "GmtCreateTime": "2026-07-29T14:52:26Z",
+          "GmtFinishTime": "2026-07-29T15:04:58Z",
+          "GmtStartTime": "2026-07-29T14:53:38Z",
+          "Ip": "26.14.220.148",
+          "PodId": "dlct3tq8a7z5lsdd-master-0",
+          "PodUid": "596503a9-8684-45d0-8f8a-a27c9a75ac9a",
+          "Status": "Failed",
+          "Type": "master"
+        },
+        {
+          "GmtCreateTime": "2026-07-29T14:47:50Z",
+          "GmtFinishTime": "2026-07-29T14:49:45Z",
+          "GmtStartTime": "2026-07-29T14:49:01Z",
+          "Ip": "26.32.195.232",
+          "PodId": "dlct3tq8a7z5lsdd-master-0",
+          "PodUid": "5afadc66-0500-4f66-afb1-79dce32fed84",
+          "Status": "Failed",
+          "Type": "master"
+        },
+        {
+          "GmtCreateTime": "2026-07-29T14:40:47Z",
+          "GmtFinishTime": "2026-07-29T14:47:09Z",
+          "GmtStartTime": "2026-07-29T14:42:06Z",
+          "Ip": "26.40.187.27",
+          "PodId": "dlct3tq8a7z5lsdd-master-0",
+          "PodUid": "b8bcd8ac-4e3c-4d31-8f94-d485b3d12543",
+          "Status": "Failed",
+          "Type": "master"
+        }
+      ],
+      "Ip": "26.40.181.25",
+      "PodId": "dlct3tq8a7z5lsdd-master-0",
+      "PodUid": "bdc31f3f-7bfe-4771-af65-9e784028a07b",
+      "Status": "Succeeded",
+      "Type": "master"
+    }
+  ],
+  "Priority": 9,
+  "ReasonCode": "JobSucceeded",
+  "ReasonMessage": "PyTorchJob dlct3tq8a7z5lsdd is successfully completed.",
+  "RequestId": "01A02D2C-F2B8-5BE5-9F39-619FC3CBE69B",
+  "ResourceId": "quotaewyznuc7b9l",
+  "Settings": {
+    "BusinessUserId": "",
+    "Caller": "",
+    "DisableEcsStockCheck": false,
+    "Driver": "",
+    "EnableDistributedTaskAssigment": false,
+    "EnableErrorMonitoringInAIMaster": true,
+    "EnableOssAppend": false,
+    "EnablePreemptibleJob": false,
+    "EnableRDMA": true,
+    "EnableTideResource": false,
+    "ErrorMonitoringArgs": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=10 --fault-tolerant-policy=OnFailure",
+    "JobReservedMinutes": 0,
+    "JobReservedPolicy": "",
+    "OversoldType": "AcceptQuotaOverSold",
+    "PipelineId": "",
+    "QueueId": "",
+    "Tags": {
+      "CloneFromJobID": "dlc1x090y2x4camx"
+    }
+  },
+  "Status": "Succeeded",
+  "ThirdpartyLibDir": "",
+  "UserCommand": "QPILOTS_ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-pi05-critic-reward-experiments-v3-f1de062 QPILOTS_EXPECTED_COMMIT=f1de062ad966b4f3e34977449bf347a3593595c2 DATASET_ID=qpilots_simple_pi05_balanced_s300_f300_v1 EXPECTED_DATASET_DIGEST=8302137ad292368e68130a6cbc7257f1901eda51488ceb7778487fab3c0a57f9 MATRIX_SHARD_INDEX=1 MATRIX_NUM_SHARDS=2 SEEDS_CSV=17,29,43 NUM_GPUS=8 PER_GPU_BATCH=32 MAX_UPDATES=50000 EVAL_INTERVAL=1000 SAVE_INTERVAL=1000 LR=3e-4 WEIGHT_DECAY=0 GAMMA=0.99 RHO=0.5 TAU=0.005 GRAD_CLIP=1.0 SMOKE=0 DRY_RUN=0 DIRECT_RUNTIME=1 PAI_AUTO_FAULT_TOLERANCE=1 bash /mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-pi05-critic-reward-experiments-v3-f1de062/pi05_simple_integration/pai/run_critic_ablation_matrix_8a800_newroot.sh",
+  "UserId": "204304175653577039",
+  "WorkspaceId": "179169",
+  "WorkspaceName": "pai_52fx2u56uu44ih8p7z"
+}
