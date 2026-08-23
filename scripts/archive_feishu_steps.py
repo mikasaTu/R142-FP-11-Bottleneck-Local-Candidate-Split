@@ -20,6 +20,19 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE_ROOT = REPO_ROOT / "docs" / "steps"
 
+CONTEXT_DOCUMENTS = {
+    "ORIGINAL_IDEA": {
+        "wiki_node_token": "P0kPwfHZZiLz6kkrs4VcL97anfg",
+        "document_token": "S7EFdFgY7ojcZCxTGZkcUHdBnHh",
+        "wiki_url": "https://icnbwz7kd1ui.feishu.cn/wiki/P0kPwfHZZiLz6kkrs4VcL97anfg",
+    },
+    "EXPERIMENT_PLAN": {
+        "wiki_node_token": "URanwq45MiXLYUk9DzAcxhqjnbg",
+        "document_token": "LLTWdt0AGoiJUOxOnyccuMUtn4c",
+        "wiki_url": "https://icnbwz7kd1ui.feishu.cn/wiki/URanwq45MiXLYUk9DzAcxhqjnbg",
+    },
+}
+
 STEPS = {
     "step1": {
         "plan": {
@@ -54,7 +67,7 @@ STEPS = {
 }
 
 
-def fetch_document(document_token: str) -> dict:
+def fetch_document(document_token: str, doc_format: str = "xml") -> dict:
     completed = subprocess.run(
         [
             "lark-cli",
@@ -64,6 +77,10 @@ def fetch_document(document_token: str) -> dict:
             document_token,
             "--api-version",
             "v2",
+            "--doc-format",
+            doc_format,
+            "--detail",
+            "simple",
             "--format",
             "json",
         ],
@@ -92,6 +109,11 @@ def write_text(path: Path, value: str) -> None:
     temporary.replace(path)
 
 
+def normalize_markdown(value: str) -> str:
+    """Remove Feishu export padding while preserving document text/structure."""
+    return "\n".join(line.rstrip() for line in value.splitlines()) + "\n"
+
+
 def main() -> None:
     fetched_at = datetime.now(timezone.utc).isoformat()
     manifest = {
@@ -100,6 +122,49 @@ def main() -> None:
         "source": "Feishu docs v2 readback plus canonical repository artifacts",
         "files": [],
     }
+
+    context_target = ARCHIVE_ROOT / "context"
+    context_target.mkdir(parents=True, exist_ok=True)
+    context_source = {
+        "schema_version": 1,
+        "fetched_at_utc": fetched_at,
+        "documents": {},
+    }
+    for name, spec in CONTEXT_DOCUMENTS.items():
+        xml_doc = fetch_document(spec["document_token"], "xml")
+        markdown_doc = fetch_document(spec["document_token"], "markdown")
+        if xml_doc["revision_id"] != markdown_doc["revision_id"]:
+            raise RuntimeError(f"Feishu revision changed during export for {name}")
+        write_text(context_target / f"{name}.xml", xml_doc["content"] + "\n")
+        write_text(
+            context_target / f"{name}.md",
+            normalize_markdown(markdown_doc["content"]),
+        )
+        context_source["documents"][name] = {
+            **spec,
+            "revision_id": xml_doc["revision_id"],
+            "markdown_file": f"{name}.md",
+            "xml_file": f"{name}.xml",
+        }
+    write_text(
+        context_target / "SOURCE.json",
+        json.dumps(context_source, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    )
+    for filename in (
+        "ORIGINAL_IDEA.md",
+        "ORIGINAL_IDEA.xml",
+        "EXPERIMENT_PLAN.md",
+        "EXPERIMENT_PLAN.xml",
+        "SOURCE.json",
+    ):
+        path = context_target / filename
+        manifest["files"].append(
+            {
+                "path": path.relative_to(REPO_ROOT).as_posix(),
+                "bytes": path.stat().st_size,
+                "sha256": sha256(path),
+            }
+        )
 
     for step_name, spec in STEPS.items():
         target = ARCHIVE_ROOT / step_name

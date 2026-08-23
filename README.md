@@ -49,9 +49,10 @@ authorized.
 
 ## Step plans and reports
 
-The Feishu plan snapshots, frozen executable protocols, corresponding reports,
-publication XML, source revisions, and SHA-256 manifest for Step 1 and Step 2
-are grouped under [`docs/steps/`](docs/steps/README.md).
+The original Feishu idea/hypothesis, top-level experiment plan, step snapshots,
+frozen executable protocols, corresponding reports, publication XML, source
+revisions, and SHA-256 manifest for Step 1 and Step 2 are grouped under
+[`docs/steps/`](docs/steps/README.md).
 
 ## Local CPU smoke
 

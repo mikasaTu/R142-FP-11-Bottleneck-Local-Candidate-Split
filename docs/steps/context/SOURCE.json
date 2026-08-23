@@ -1,0 +1,22 @@
+{
+  "documents": {
+    "EXPERIMENT_PLAN": {
+      "document_token": "LLTWdt0AGoiJUOxOnyccuMUtn4c",
+      "markdown_file": "EXPERIMENT_PLAN.md",
+      "revision_id": 5,
+      "wiki_node_token": "URanwq45MiXLYUk9DzAcxhqjnbg",
+      "wiki_url": "https://icnbwz7kd1ui.feishu.cn/wiki/URanwq45MiXLYUk9DzAcxhqjnbg",
+      "xml_file": "EXPERIMENT_PLAN.xml"
+    },
+    "ORIGINAL_IDEA": {
+      "document_token": "S7EFdFgY7ojcZCxTGZkcUHdBnHh",
+      "markdown_file": "ORIGINAL_IDEA.md",
+      "revision_id": 3,
+      "wiki_node_token": "P0kPwfHZZiLz6kkrs4VcL97anfg",
+      "wiki_url": "https://icnbwz7kd1ui.feishu.cn/wiki/P0kPwfHZZiLz6kkrs4VcL97anfg",
+      "xml_file": "ORIGINAL_IDEA.xml"
+    }
+  },
+  "fetched_at_utc": "2026-08-23T18:36:42.431165+00:00",
+  "schema_version": 1
+}

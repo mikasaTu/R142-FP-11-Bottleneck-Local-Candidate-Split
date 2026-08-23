@@ -1,6 +1,31 @@
 {
   "files": [
     {
+      "bytes": 677,
+      "path": "docs/steps/context/ORIGINAL_IDEA.md",
+      "sha256": "a38f152e4209780a3a2d0f9630ca7af590c268f9ce8535233c0ed07695e6741a"
+    },
+    {
+      "bytes": 865,
+      "path": "docs/steps/context/ORIGINAL_IDEA.xml",
+      "sha256": "740ea5e88f96aab9ae64b10e49ed7107ae37d58b6414a9e0f6b9b350f633ec66"
+    },
+    {
+      "bytes": 653,
+      "path": "docs/steps/context/EXPERIMENT_PLAN.md",
+      "sha256": "af2c80372c0b5f20ce7f7b88d98f2b79ee50df00a922f0507ee3ddbb1f631da4"
+    },
+    {
+      "bytes": 867,
+      "path": "docs/steps/context/EXPERIMENT_PLAN.xml",
+      "sha256": "ef8037a4e9eee476cb82a474ee89f707c81ad30b968c1566a16af16c24196a73"
+    },
+    {
+      "bytes": 771,
+      "path": "docs/steps/context/SOURCE.json",
+      "sha256": "330dde0bdb962b62be2a8dc79d039975d1c5800360df51fd206b6f3fc93eecac"
+    },
+    {
       "bytes": 4053,
       "path": "docs/steps/step1/PLAN.md",
       "sha256": "9dffd2b645479a0716dcf595ada85664858a759a60ebd2110b551e813c5072d8"
@@ -23,7 +48,7 @@
     {
       "bytes": 903,
       "path": "docs/steps/step1/SOURCE.json",
-      "sha256": "a800a2c1c1cb1b74fefe373ce1ac6f9d648f8e5293d23c552785ff1d10e2e2de"
+      "sha256": "d2dcc46613389575c46464fe42905498bc0ec5dad192079af0470c135a04bc0f"
     },
     {
       "bytes": 5762,
@@ -48,10 +73,10 @@
     {
       "bytes": 903,
       "path": "docs/steps/step2/SOURCE.json",
-      "sha256": "a6d8e915aa732022faf0abdc73ab45de37ec1118bf562b734e564e50bbe5f9c1"
+      "sha256": "e500ab61abdb37a43b524edb5dbcc1f78cf8ba99992cee9e6a9c705f3bd7562e"
     }
   ],
-  "generated_at_utc": "2026-08-23T18:31:28.043987+00:00",
+  "generated_at_utc": "2026-08-23T18:36:42.431165+00:00",
   "schema_version": 1,
   "source": "Feishu docs v2 readback plus canonical repository artifacts"
 }
