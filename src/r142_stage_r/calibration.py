@@ -74,12 +74,16 @@ def calibrate_thresholds(shuffles: int = 1000) -> dict[str, Any]:
     null_samples = []
     groups = group_controls(null_traces)
     for _ in range(int(shuffles)):
-        permuted = []
         for state in sorted(groups):
             values = list(groups[state])
             order = rng.permutation(len(values))
-            permuted.extend([values[index] for index in order])
-        null_samples.append(_control_statistics(permuted))
+            if sorted(order.tolist()) != list(range(len(values))):
+                raise RuntimeError("invalid candidate-label permutation")
+        # All three registered statistics are functions of the unordered
+        # candidate set. Candidate-identity permutations therefore leave them
+        # exactly invariant. Persisting this degenerate null is preferable to
+        # silently substituting a different shuffle after preregistration.
+        null_samples.append(null_stats)
     thresholds = {
         "divergence_rms": float(np.quantile([row["divergence_max"] for row in null_samples], 0.95)),
         "action_split_silhouette": float(
