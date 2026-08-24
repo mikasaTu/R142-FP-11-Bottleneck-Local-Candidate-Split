@@ -1,0 +1,9 @@
+{
+  "bit_identical": true,
+  "max_abs_error": 0.0,
+  "pass": true,
+  "shape": [
+    10,
+    7
+  ]
+}

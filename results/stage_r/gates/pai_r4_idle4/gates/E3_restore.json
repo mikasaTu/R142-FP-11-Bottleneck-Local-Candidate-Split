@@ -1,0 +1,8 @@
+{
+  "done_equal": true,
+  "next_state_max_abs_error": 0.0,
+  "pass": true,
+  "raw_observation_equal": true,
+  "reward_equal": true,
+  "success_equal": true
+}

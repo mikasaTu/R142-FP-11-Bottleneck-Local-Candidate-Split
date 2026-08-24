@@ -1,0 +1,9 @@
+{
+  "action_a_sha256": "88ee9cbbae19ef7ecd574df74bb64e8c78523f993527fc9f816ac15b0e579bcd",
+  "action_b_sha256": "d38ccb5e1d8425f9d9244d2a0b6f52fff7b6cbaaf6208bda6501f1732988cf30",
+  "action_max_abs_difference": 0.0888042002916336,
+  "noise_a_sha256": "11ec96c0891681c44fe5f56c70539aab3da6cb649aeeacff474ce2403abf17e2",
+  "noise_b_sha256": "0e2303f20e9398bd033fcb8b93812ba24b0dc5b731dde43b3d546d0a3adb2d68",
+  "noise_max_abs_difference": 4.112393021583557,
+  "pass": true
+}

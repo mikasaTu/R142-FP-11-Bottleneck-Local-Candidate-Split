@@ -1,0 +1,68 @@
+{
+  "decision": "ENGINEERING_GATES_PASSED",
+  "gates": {
+    "E1": {
+      "checkpoint_tree_sha256": "42d571bd87f05f1182810f5a8bfa6d084c0d0dd277aff739bcf8f69868e6fb99",
+      "expected_checkpoint_tree_sha256": "42d571bd87f05f1182810f5a8bfa6d084c0d0dd277aff739bcf8f69868e6fb99",
+      "pass": true
+    },
+    "E2": {
+      "bit_identical": true,
+      "max_abs_error": 0.0,
+      "pass": true,
+      "shape": [
+        10,
+        7
+      ]
+    },
+    "E3": {
+      "done_equal": true,
+      "next_state_max_abs_error": 0.0,
+      "pass": true,
+      "raw_observation_equal": true,
+      "reward_equal": true,
+      "success_equal": true
+    },
+    "E4": {
+      "captured_history_semantics": "runner current-policy-input buffer; pi0.5 consumes latest frame only",
+      "full_restore_next_state_error": 0.0,
+      "pass": true,
+      "policy_input_buffer_ablation_action_error": 1.9995705485343933,
+      "policy_native_recurrent_history": false,
+      "queue_ablation_action_error": 0.038533490151166916,
+      "queue_ablation_next_state_error": 0.46321599830119764,
+      "rng_ablation_action_error": 0.35042984038591385,
+      "simulator_ablation_next_state_error": 0.5817056057888728
+    },
+    "E5": {
+      "action_a_sha256": "88ee9cbbae19ef7ecd574df74bb64e8c78523f993527fc9f816ac15b0e579bcd",
+      "action_b_sha256": "d38ccb5e1d8425f9d9244d2a0b6f52fff7b6cbaaf6208bda6501f1732988cf30",
+      "action_max_abs_difference": 0.0888042002916336,
+      "noise_a_sha256": "11ec96c0891681c44fe5f56c70539aab3da6cb649aeeacff474ce2403abf17e2",
+      "noise_b_sha256": "0e2303f20e9398bd033fcb8b93812ba24b0dc5b731dde43b3d546d0a3adb2d68",
+      "noise_max_abs_difference": 4.112393021583557,
+      "pass": true
+    },
+    "E6": {
+      "final_progress_median": 0.5,
+      "final_progress_q25": 0.5,
+      "final_progress_q75": 1.0,
+      "pass": true,
+      "progress_ceiling_pile": false,
+      "resumed_from_valid_cache": false,
+      "rollouts": 64,
+      "success_rate": 0.46875,
+      "task_data_sha256": "727ade3dedd21976afd247382230dbadde51492448cfaa1a371652751393b9b6"
+    },
+    "positive_control": {
+      "observed_modes": [
+        -1,
+        1
+      ],
+      "pass": true,
+      "rollouts": 512,
+      "successes": 210
+    }
+  },
+  "protocol_id": "r142-stage-r-phase0r-v1"
+}

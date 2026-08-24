@@ -1,0 +1,11 @@
+{
+  "captured_history_semantics": "runner current-policy-input buffer; pi0.5 consumes latest frame only",
+  "full_restore_next_state_error": 0.0,
+  "pass": true,
+  "policy_input_buffer_ablation_action_error": 1.9995705485343933,
+  "policy_native_recurrent_history": false,
+  "queue_ablation_action_error": 0.038533490151166916,
+  "queue_ablation_next_state_error": 0.46321599830119764,
+  "rng_ablation_action_error": 0.35042984038591385,
+  "simulator_ablation_next_state_error": 0.5817056057888728
+}

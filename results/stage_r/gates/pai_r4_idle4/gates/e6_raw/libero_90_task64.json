@@ -1,0 +1,27 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 4507,
+  "data_file": "libero_90_task64.npz",
+  "data_sha256": "727ade3dedd21976afd247382230dbadde51492448cfaa1a371652751393b9b6",
+  "elapsed_seconds": 2913.9281198978424,
+  "environment_steps": 22476,
+  "physical_batched_policy_calls": 1250,
+  "pose_keys": [
+    "akita_black_bowl_1_pos",
+    "akita_black_bowl_1_quat",
+    "akita_black_bowl_2_pos",
+    "akita_black_bowl_2_quat",
+    "chocolate_pudding_1_pos",
+    "chocolate_pudding_1_quat",
+    "new_salad_dressing_1_pos",
+    "new_salad_dressing_1_quat",
+    "wooden_tray_1_pos",
+    "wooden_tray_1_quat"
+  ],
+  "prompt": "stack the right bowl on the left bowl and place them in the tray",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 64,
+  "suite": "libero_90",
+  "task_id": 64
+}

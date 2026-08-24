@@ -1,0 +1,11 @@
+{
+  "final_progress_median": 0.5,
+  "final_progress_q25": 0.5,
+  "final_progress_q75": 1.0,
+  "pass": true,
+  "progress_ceiling_pile": false,
+  "resumed_from_valid_cache": false,
+  "rollouts": 64,
+  "success_rate": 0.46875,
+  "task_data_sha256": "727ade3dedd21976afd247382230dbadde51492448cfaa1a371652751393b9b6"
+}

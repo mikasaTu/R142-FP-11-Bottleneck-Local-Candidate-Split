@@ -1,0 +1,45 @@
+{
+  "decision": "ENGINEERING_GATES_PASSED",
+  "engineering_gates": {
+    "artifacts": [
+      {
+        "path": "E1_manifest.json",
+        "sha256": "19f82fafa26d3ff429b3b47dcfa5c4eacc8c8813f701f095ebc35206cc9b6cf8"
+      },
+      {
+        "path": "E2_bit_identity.json",
+        "sha256": "794743ceb1b06bd4b1ba2ff8151b0eda94ca22083dd8161b15e09c2f9197946c"
+      },
+      {
+        "path": "E3_restore.json",
+        "sha256": "8bd6d917cf169b0bd591ee860255b226ab44aa4fee7e27c1ecc3eeb4c8cd84fe"
+      },
+      {
+        "path": "E4_component_ablations.json",
+        "sha256": "87278879ef99abc241ab949e3eaa9132996288f97949287820adbd70fdef286c"
+      },
+      {
+        "path": "E5_branch_rng.json",
+        "sha256": "2d94b747a1722dc54e5fe8d1e04e108bb00573ae17c8623620803e88df797461"
+      },
+      {
+        "path": "E6_baseline.json",
+        "sha256": "9af94ec53fb01f586f7645a79139e63cbcb53420522380973470c3740562fd1a"
+      },
+      {
+        "path": "POSITIVE_CONTROL.json",
+        "sha256": "e520215178b84186482032f4d696a92cf1860cd77323c6bde46170675ce4e2ba"
+      },
+      {
+        "path": "engineering_gate_summary.json",
+        "sha256": "2da26cb30290fcfc961baf306e676d4822425af76071cd1741a1e972a86b86b2"
+      }
+    ],
+    "decision": "ENGINEERING_GATES_PASSED",
+    "protocol_id": "r142-stage-r-phase0r-v1"
+  },
+  "gid": 2254,
+  "schema_version": 1,
+  "success_gate": "persisted_complete_engineering_gate_evaluation",
+  "uid": 2254
+}

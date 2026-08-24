@@ -1,0 +1,9 @@
+{
+  "observed_modes": [
+    -1,
+    1
+  ],
+  "pass": true,
+  "rollouts": 512,
+  "successes": 210
+}
