@@ -7,8 +7,11 @@
 - `controlled intervention`: The replacement contract allocates one worker with
   4 A800 GPUs, 46 CPUs, 800 GiB memory and 800 GiB shared memory from resource
   `quotaewyznuc7b9l`, with `AcceptQuotaOverSold` required at live readback.
+- `observed fact`: The first replacement validation was refused before job
+  creation because the formal-idle controller requires the exact synchronous
+  OnFailure max-50 AIMaster contract.
 - `controlled intervention`: AIMaster synchronous restart is enabled with at
-  most 10 platform restarts. E1-E5 replay deterministically; a completed E6
+  most 50 platform restarts. E1-E5 replay deterministically; a completed E6
   shard is reused only when its metadata contract and data SHA-256 validate.
 - `interpretation`: Queueing, `Running`, platform restart, and first work remain
   operational milestones only. Scientific completion still requires persisted
