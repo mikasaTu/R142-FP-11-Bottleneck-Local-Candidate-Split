@@ -59,3 +59,20 @@
   process-local EGL ids to 0. This is an execution binding fix; it does not
   change seeds, tasks, candidate budgets, policy outputs, thresholds, or the
   analysis protocol.
+
+## Phase-0R r3 legacy robosuite namespace conflict
+
+- `observed fact`: In `dlc19yc0eikbyb17`, ranks 1-3 exited before any task
+  shard because robosuite 1.4 asserted that local id 0 must literally appear in
+  `CUDA_VISIBLE_DEVICES=<rank>`. Rank 0 remained active; the incomplete job was
+  stopped and read back as `StoppedByUser`.
+- `interpretation`: This robosuite version conflates two namespaces: its import
+  guard compares the raw physical-id list, while EGL later indexes the filtered
+  process-local list. The earlier one-visible-device mapping satisfies only one
+  side at a time.
+- `controlled intervention`: For ranks 1-3, the launcher now exposes
+  `<rank>,0` in that order and selects local EGL id 0. JAX default device 0 is
+  therefore still the rank's target physical GPU, while literal 0 exists for
+  the legacy guard. Rank 0 exposes only `0`. GPU isolation and absence of
+  unintended device-1 allocation must be verified from live rank logs and
+  device telemetry before accepting first work.
