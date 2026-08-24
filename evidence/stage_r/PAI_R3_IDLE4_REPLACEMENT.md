@@ -43,3 +43,19 @@
 - `observed fact`: Phase-0R PAI job `dlcj19s0anqjw4mo` was accepted on the same
   four-card idle contract. Its completion status is tracked separately and must
   not be inferred from submission or `Running`.
+
+## Phase-0R r2 multi-GPU binding failure
+
+- `observed fact`: In `dlcj19s0anqjw4mo`, ranks 1-3 exited before any task
+  shard with `MUJOCO_EGL_DEVICE_ID ... between 0 and 0 ... got 1/2/3`; rank 0
+  remained active. No complete task metadata, rank marker, or final result was
+  produced.
+- `controlled intervention`: The exact incomplete job was stopped and read back
+  as `StoppedByUser`; its partial artifact remains preserved.
+- `interpretation`: `CUDA_VISIBLE_DEVICES=<rank>` exposes one physical GPU and
+  renumbers that process-local CUDA/EGL device to 0. Passing the physical rank
+  again as the process-local EGL id double-indexed the device namespace. The
+  corrected launcher keeps physical CUDA isolation by rank while setting both
+  process-local EGL ids to 0. This is an execution binding fix; it does not
+  change seeds, tasks, candidate budgets, policy outputs, thresholds, or the
+  analysis protocol.

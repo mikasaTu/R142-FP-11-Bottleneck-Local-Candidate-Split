@@ -61,7 +61,7 @@
     "success_gate": "persisted_completed_evaluation_result",
     "validation_method": "static",
     "validation_status": "passed",
-    "validated_payload_sha256": "e071baa0b9d5f627e1b2f1a6d07a1c5ec353920042cc84a95f4878ee4954e697",
+    "validated_payload_sha256": "288dedb9f3b3087bad3e69dc433b635f4ee54b199f766a10981be0d8aeffc2e4",
     "pai_probe_created": false,
     "first_work_evidence_path": "{{ARTIFACT_DIR}}/FIRST_WORK.json",
     "completed_evidence_path": "{{ARTIFACT_DIR}}/COMPLETED_EVALUATION_RESULT.json",
@@ -82,7 +82,8 @@
     "engineering_gate_job_id": "dlcm2n1u21b258la",
     "engineering_gate_completion_sha256": "da15e15ba56daa74a399316c91cea3e3dd0017433b533b930cd2298ae14748f1",
     "application_resume": "per_task_atomic_npz_plus_metadata_sha256",
-    "mount_contract": "exact_five_from_generic_idle_source_two_unused"
+    "mount_contract": "exact_five_from_generic_idle_source_two_unused",
+    "replacement_lineage": "supersedes:r142-stage-r-phase0r-20260824-r2-idle4:dlcj19s0anqjw4mo"
   },
   "submission": {
     "priority": 9,

@@ -75,7 +75,7 @@ export XLA_PYTHON_CLIENT_MEM_FRACTION=0.70
 
 pids=()
 for rank in 0 1 2 3; do
-  CUDA_VISIBLE_DEVICES="$rank" EGL_DEVICE_ID="$rank" MUJOCO_EGL_DEVICE_ID="$rank" \
+  CUDA_VISIBLE_DEVICES="$rank" EGL_DEVICE_ID=0 MUJOCO_EGL_DEVICE_ID=0 \
     "$PYTHON" frozen_source/scripts/stage_r_phase0r.py \
     --qpilots-root "$QPILOTS" \
     --libero-root "$LIBERO" \
