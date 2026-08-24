@@ -1,0 +1,15 @@
+# Stage-R PAI replacement audit: 8-GPU Efficiency to 4-GPU idle
+
+- `observed fact`: The superseded gate job was `dlc1r0r956yc0m7r`, run
+  `r142-stage-r-gates-20260824-r3`, on the 8-GPU Efficiency carrier.
+- `observed fact`: The exact PAI stop readback returned `Status=Stopped`,
+  `ReasonCode=StoppedByUser`, before the job ever left `JobEnqueued`.
+- `controlled intervention`: The replacement contract allocates one worker with
+  4 A800 GPUs, 46 CPUs, 800 GiB memory and 800 GiB shared memory from resource
+  `quotaewyznuc7b9l`, with `AcceptQuotaOverSold` required at live readback.
+- `controlled intervention`: AIMaster synchronous restart is enabled with at
+  most 10 platform restarts. E1-E5 replay deterministically; a completed E6
+  shard is reused only when its metadata contract and data SHA-256 validate.
+- `interpretation`: Queueing, `Running`, platform restart, and first work remain
+  operational milestones only. Scientific completion still requires persisted
+  `COMPLETED_EVALUATION_RESULT.json` and a valid `SHA256SUMS` manifest.
