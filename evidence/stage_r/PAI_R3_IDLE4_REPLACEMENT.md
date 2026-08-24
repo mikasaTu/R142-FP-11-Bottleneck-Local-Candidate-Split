@@ -13,6 +13,11 @@
 - `observed fact`: A second pre-create validation rejected the semantically
   invalid `expected_platform_restarts` field; idle preemption is possible, not
   an event count that can be promised in advance. The field was removed.
+- `observed fact`: A third pre-create validation showed that the WRC-named
+  four-card alias is workload-restricted. The controller-authorized generic
+  four-card formal alias is `idle-a800-wallx-plug-native5-4gpu`; its name comes
+  from its source contract, while its generic evidence profile permits this
+  formal evaluation and still resolves to the same idle A800 quota.
 - `controlled intervention`: AIMaster synchronous restart is enabled with at
   most 50 platform restarts. E1-E5 replay deterministically; a completed E6
   shard is reused only when its metadata contract and data SHA-256 validate.
