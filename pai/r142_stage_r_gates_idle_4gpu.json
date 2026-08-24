@@ -45,7 +45,6 @@
   "fault_tolerance": {
     "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure",
     "maximum_platform_restarts": 50,
-    "expected_platform_restarts": 50,
     "launcher_attempts": 1,
     "retry_sleep_seconds": 30,
     "pai_automatic_fault_tolerance": true

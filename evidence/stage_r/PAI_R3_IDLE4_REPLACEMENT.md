@@ -10,6 +10,9 @@
 - `observed fact`: The first replacement validation was refused before job
   creation because the formal-idle controller requires the exact synchronous
   OnFailure max-50 AIMaster contract.
+- `observed fact`: A second pre-create validation rejected the semantically
+  invalid `expected_platform_restarts` field; idle preemption is possible, not
+  an event count that can be promised in advance. The field was removed.
 - `controlled intervention`: AIMaster synchronous restart is enabled with at
   most 50 platform restarts. E1-E5 replay deterministically; a completed E6
   shard is reused only when its metadata contract and data SHA-256 validate.
