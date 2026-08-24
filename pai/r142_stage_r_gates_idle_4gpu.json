@@ -17,7 +17,9 @@
     "data_sources": [
       {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
       {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
-      {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""}
+      {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+      {"id": "d-wf28n33a829hb5kvne", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/x2robot_data/", "options": ""},
+      {"id": "d-n0h4g9qcnu9i4acnya", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/share/", "options": ""}
     ],
     "output_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/gates"
   },
@@ -71,7 +73,7 @@
     "expected_first_work_gid": 2254,
     "wandb_mode": "disabled_by_user_contract",
     "require_actual_idle": true,
-    "mount_contract": "minimal_required_three_from_live_idle_source",
+    "mount_contract": "exact_five_from_generic_idle_source_two_unused",
     "application_resume": "E1-E5_replay_plus_SHA_validated_E6_reuse",
     "replacement_lineage": "supersedes:r142-stage-r-gates-20260824-r3:dlc1r0r956yc0m7r"
   },

@@ -18,6 +18,9 @@
   four-card formal alias is `idle-a800-wallx-plug-native5-4gpu`; its name comes
   from its source contract, while its generic evidence profile permits this
   formal evaluation and still resolves to the same idle A800 quota.
+- `observed fact`: A fourth pre-create validation required the alias's exact
+  five-mount source contract. The added `x2robot_data` and `share` mounts are
+  carrier-contract mounts only and are not read by the Stage-R launcher.
 - `controlled intervention`: AIMaster synchronous restart is enabled with at
   most 50 platform restarts. E1-E5 replay deterministically; a completed E6
   shard is reused only when its metadata contract and data SHA-256 validate.
