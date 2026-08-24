@@ -24,6 +24,35 @@ EXPECTED_CHECKPOINT_TREE_SHA256 = "42d571bd87f05f1182810f5a8bfa6d084c0d0dd277aff
 TASK64_PROMPT = "stack the right bowl on the left bowl and place them in the tray"
 
 
+def _validated_task_cache(
+    output_root: Path,
+    *,
+    suite_name: str,
+    task_id: int,
+    expected_rollouts: int,
+) -> dict[str, Any] | None:
+    stem = f"{suite_name}_task{int(task_id):02d}"
+    data_path = output_root / f"{stem}.npz"
+    metadata_path = output_root / f"{stem}.json"
+    if not data_path.is_file() or not metadata_path.is_file():
+        return None
+    try:
+        metadata = json.loads(metadata_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    expected = {
+        "protocol_id": PROTOCOL_ID,
+        "suite": suite_name,
+        "task_id": int(task_id),
+        "rollout_count": int(expected_rollouts),
+        "data_file": data_path.name,
+        "data_sha256": sha256_file(data_path),
+    }
+    if any(metadata.get(key) != value for key, value in expected.items()):
+        return None
+    return metadata
+
+
 def checkpoint_tree_sha256(root: str | Path) -> str:
     base = Path(root)
     aggregate = hashlib.sha256()
@@ -226,7 +255,18 @@ def run_engineering_gates(
         )
         e6_runtime.policy = policy
         e6_raw = output_root / "e6_raw"
-        e6_runtime.run_task("libero_90", 64, e6_raw, candidates=4)
+        cached = _validated_task_cache(
+            e6_raw,
+            suite_name="libero_90",
+            task_id=64,
+            expected_rollouts=64,
+        )
+        if cached is None:
+            task_metadata = e6_runtime.run_task("libero_90", 64, e6_raw, candidates=4)
+            resumed_from_valid_cache = False
+        else:
+            task_metadata = cached
+            resumed_from_valid_cache = True
         rollouts = load_task_rollouts(e6_raw / "libero_90_task64.npz")
         success_rate = float(np.mean([row["success"] for row in rollouts]))
         progress = np.asarray([row["final_progress"] for row in rollouts], dtype=np.float64)
@@ -239,6 +279,8 @@ def run_engineering_gates(
             "final_progress_median": float(median),
             "final_progress_q75": float(q75),
             "progress_ceiling_pile": ceiling,
+            "resumed_from_valid_cache": resumed_from_valid_cache,
+            "task_data_sha256": task_metadata["data_sha256"],
             "pass": bool(0.25 <= success_rate <= 0.75 and not ceiling),
         }
     else:

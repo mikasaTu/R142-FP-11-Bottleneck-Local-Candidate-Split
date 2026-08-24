@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import hashlib
 
 import numpy as np
 
 from r142_stage_r.controls import GeometricControl2D
+from r142_stage_r.gates import _validated_task_cache
 from r142_stage_r.metrics import divergence_curve, overdispersion
-from r142_stage_r.protocol import atomic_json, ranked_initial_states, rollout_seed
+from r142_stage_r.protocol import PROTOCOL_ID, atomic_json, ranked_initial_states, rollout_seed
 
 
 def test_deterministic_selection_and_seed() -> None:
@@ -46,3 +48,26 @@ def test_metrics_shapes() -> None:
     result = overdispersion(success, states, n=4)
     assert result["p_bar"] == 0.25
     assert result["rho"] is not None
+
+
+def test_validated_task_cache_is_fail_closed(tmp_path) -> None:
+    stem = "libero_90_task64"
+    data = tmp_path / f"{stem}.npz"
+    data.write_bytes(b"complete-atomic-test-payload")
+    digest = hashlib.sha256(data.read_bytes()).hexdigest()
+    metadata = {
+        "protocol_id": PROTOCOL_ID,
+        "suite": "libero_90",
+        "task_id": 64,
+        "rollout_count": 64,
+        "data_file": data.name,
+        "data_sha256": digest,
+    }
+    atomic_json(tmp_path / f"{stem}.json", metadata)
+    assert _validated_task_cache(
+        tmp_path, suite_name="libero_90", task_id=64, expected_rollouts=64
+    ) == metadata
+    data.write_bytes(b"corrupt")
+    assert _validated_task_cache(
+        tmp_path, suite_name="libero_90", task_id=64, expected_rollouts=64
+    ) is None
