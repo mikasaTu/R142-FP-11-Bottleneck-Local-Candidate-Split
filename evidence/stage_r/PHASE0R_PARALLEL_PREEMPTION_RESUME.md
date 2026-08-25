@@ -66,3 +66,14 @@ metadata SHA256 f347560d2f5de3ec9a752e4b19763bdc2e9ede567f4f88792f9258f004e00072
 
 Shard A is therefore 2/4 target pairs at this checkpoint. It still has no
 subset completion marker or SHA256SUMS and remains `Running`.
+
+At the 2026-08-25T21:03Z checkpoint, shard A completed and passed the same
+full outcome-blind audit for `libero_10_task03`:
+
+```text
+NPZ SHA256      9a680aa8ef70bd560d73481bad320a833f05c769f2cf4fe3a1db317c595d99ca
+metadata SHA256 e9b62b1bf0938a3da9c523afb31928ad9034e9e071cf775f34f6a00065fb187f
+```
+
+Shard A is now 3/4 target pairs. `Running`, a partial target set, and valid
+individual hashes remain insufficient for subset completion.
