@@ -77,3 +77,16 @@ metadata SHA256 e9b62b1bf0938a3da9c523afb31928ad9034e9e071cf775f34f6a00065fb187f
 
 Shard A is now 3/4 target pairs. `Running`, a partial target set, and valid
 individual hashes remain insufficient for subset completion.
+
+At the 2026-08-25T23:09Z checkpoint, the resumed shard B completed its first
+authoritative target, `libero_10_task06`. The full outcome-blind audit verified
+protocol/task identity, 512 rollouts, exact 16-by-32 coverage, rollout seeds,
+offsets, finite arrays, and owner `2254:2254`:
+
+```text
+NPZ SHA256      8448a6abcb09c1b83895c720b2801b9e0125e56f091760da87146c06a47aaee8
+metadata SHA256 41b63046ce941e536721b4dc48b414771cd78cacd78df2226affa14e93e79643
+```
+
+This supplies persisted first-target evidence after the rollback, but shard B
+is only 1/4 and has no subset completion marker or SHA256SUMS.
