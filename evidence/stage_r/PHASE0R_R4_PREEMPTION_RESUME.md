@@ -28,3 +28,33 @@
   The job remains incomplete until all 40 tasks, four rank-complete markers,
   `COMPLETED_EVALUATION_RESULT.json`, root `SHA256SUMS`, and PAI `Succeeded`
   agree.
+
+## Second preemption sequence (2026-08-25)
+
+- `observed fact`: Replacement master pod UID
+  `51314019-b159-41e4-9280-805dace31a36` ran until
+  `2026-08-25T13:47:46Z` and is recorded by PAI as `Failed`; the AIMaster UID
+  `ef751241-4569-4882-9de3-a4f9c4e458ef` remained `Running`.
+- `observed fact`: AIMaster then created master pod UID
+  `61a87db3-953e-487b-937c-79d4ee61deef`, which ran from
+  `2026-08-25T13:49:20Z` until `2026-08-25T13:56:42Z` and is also recorded as
+  `Failed`.
+- `observed fact`: AIMaster created the current replacement master pod UID
+  `46574d95-e00d-414d-b046-99e79404a16d`, created at
+  `2026-08-25T13:57:00Z` and `Running` from `2026-08-25T13:58:05Z` at the
+  evidence checkpoint.
+- `observed fact`: All 32 task artifacts completed before this sequence remain
+  in the same persistent directory. They contain 16,384 rollouts in total;
+  every NPZ SHA-256 still matches `data_sha256` in its task metadata, with no
+  incomplete or mismatched pair observed.
+- `observed fact`: The current replacement recreated all four rank logs and
+  all four contain no `Traceback`, `fatal`, segmentation-fault, OOM, CUDA-error,
+  or uncaught-exception marker at the evidence checkpoint.
+- `controlled intervention`: No scientific task, seed, candidate budget,
+  threshold, metric protocol, source snapshot, or completed artifact was
+  changed. PAI automatic fault tolerance resumed the unchanged foreground
+  payload in the same artifact directory.
+- `interpretation`: The consecutive eviction sequence is additional positive
+  operational evidence for same-directory application resume. It is not a
+  completed evaluation and not evidence for or against the scientific
+  mechanism. Analysis remains sealed until all completion gates agree.
