@@ -58,3 +58,23 @@
   operational evidence for same-directory application resume. It is not a
   completed evaluation and not evidence for or against the scientific
   mechanism. Analysis remains sealed until all completion gates agree.
+
+## Third rollback sequence (2026-08-25)
+
+- `observed fact`: At the 2026-08-25T19:27Z checkpoint, exact GetJob returned
+  `Queuing`, reason `JobEnqueued`, message `Rollback to queue`, for the same
+  JobId `dlcyuv28a0djtgxd`.
+- `observed fact`: The persistent artifact directory retained inode
+  `1183269075169`, owner `2254:2254`, the 32 pre-registered authoritative task
+  pairs, and three later redundant pairs (`libero_10_task03`--`task05`) with no
+  observed SHA mismatch.
+- `observed fact`: Exact-JobId OpenAPI evidence for the parent had already
+  sealed `UseOversoldResource=true`; this rollback is therefore consistent
+  with idle-resource reclamation.
+- `controlled intervention`: No replacement job was submitted and no
+  scientific or authoritative-source mapping changed. AIMaster remains
+  responsible for restoring the same run and directory.
+- `interpretation`: The parent indices 32--39 are pre-registered redundancy,
+  so this rollback does not change the authoritative Phase-0R merge. `Queuing`
+  is not recovery completion; a subsequent `Running` readback and persisted
+  work are still required.
