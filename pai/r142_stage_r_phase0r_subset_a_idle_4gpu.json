@@ -1,0 +1,108 @@
+{
+  "schema_version": 2,
+  "kind": "pytorchjob",
+  "name_prefix": "r142-fp11-stage-r-phase0r-supp-a",
+  "description": "Pre-registered Stage-R Phase-0R raw subset A (indices 32-35), no unblinding; parallel supplement to dlcyuv28a0djtgxd",
+  "resource_alias": "idle-a800-wallx-plug-native5-4gpu",
+  "workspace_id": "179169",
+  "provenance": {
+    "contract_source_job_id": "dlc1o0zea2lzqf9o",
+    "resource_source_job_id": "dlc1x35e210yt1lg",
+    "submission_method": "cli_create",
+    "pai_clone_performed": false,
+    "source_role": "readback_reference"
+  },
+  "network": {},
+  "storage": {
+    "data_sources": [
+      {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+      {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+      {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""},
+      {"id": "d-wf28n33a829hb5kvne", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/x2robot_data/", "options": ""},
+      {"id": "d-n0h4g9qcnu9i4acnya", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/share/", "options": ""}
+    ],
+    "output_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase0r_parallel"
+  },
+  "worker": {
+    "count": 1,
+    "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+    "gpu": 4,
+    "cpu": 46,
+    "memory": "800Gi",
+    "shared_memory": "800Gi"
+  },
+  "runtime": {
+    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split/pai/run_stage_r_phase0r_parallel_subset_idle_4gpu.sh",
+    "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
+    "uid": 2254,
+    "gid": 2254,
+    "pod_env": {"PAI_TASK_SHARD": "A"},
+    "secret_env_names": [],
+    "write_paths": ["{{ARTIFACT_DIR}}"],
+    "output_mode": "resume",
+    "create_artifact_dir": true,
+    "recursive_repair": false,
+    "payload_transport": "base64"
+  },
+  "fault_tolerance": {
+    "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure",
+    "maximum_platform_restarts": 50,
+    "launcher_attempts": 1,
+    "retry_sleep_seconds": 30,
+    "pai_automatic_fault_tolerance": true
+  },
+  "evidence": {
+    "kind": "r142_fp11_stage_r_phase0r_parallel_subset",
+    "idle_4gpu_contract": "generic_formal_idle_4gpu_v1",
+    "resource_contract": "idle_a800_4gpu_autoresume_v1",
+    "workload_type": "evaluation",
+    "task_id": "r142-fp11-stage-r-phase0r-supp-a-20260825",
+    "model_id": "openpi-pi05-libero",
+    "success_gate": "persisted_complete_phase0r_raw_subset",
+    "validation_method": "static_plus_live_parent_artifact_validation",
+    "validation_status": "passed",
+    "validated_payload_sha256": "03663dbdc38de54f244952573e1b6ee86c10736ffdf33671df06b493c27e9106",
+    "pai_probe_created": false,
+    "first_work_evidence_path": "{{ARTIFACT_DIR}}/FIRST_WORK.json",
+    "completed_evidence_path": "{{ARTIFACT_DIR}}/COMPLETED_EVALUATION_RESULT.json",
+    "contract_ready": true,
+    "require_actual_idle": true,
+    "source_commit": "24423e8114ace80e6a76f22bee29992cea420cfc",
+    "checkpoint_tree_sha256": "42d571bd87f05f1182810f5a8bfa6d084c0d0dd277aff739bcf8f69868e6fb99",
+    "threshold_sha256": "694c3b715f9faa1718a73ed1af21034e6e6b027b3b53fb90f3006418b99b9c89",
+    "parallel_parent_job_id": "dlcyuv28a0djtgxd",
+    "parallel_parent_run_id": "r142-stage-r-phase0r-20260824-r4-idle4",
+    "parallel_shard": "A",
+    "parallel_shard_contract_sha256": "c9ab70c12fd226381f622d279dd6e5a884f03ada7d88b9446ab62eee3a168da0",
+    "authoritative_target_tasks": ["libero_10_task02", "libero_10_task03", "libero_10_task04", "libero_10_task05"],
+    "candidate_task_count": 4,
+    "initial_states_per_task": 16,
+    "rollouts_per_initial_state": 32,
+    "total_rollouts": 2048,
+    "checkpoint_stop": "CHECKPOINT_1_PENDING_GLOBAL_MERGE",
+    "phase1_authorized": false,
+    "expected_first_work_uid": 2254,
+    "expected_first_work_gid": 2254,
+    "wandb_mode": "disabled_by_user_contract",
+    "application_resume": "per_task_atomic_npz_plus_metadata_sha256_in_isolated_staging",
+    "mount_contract": "exact_five_from_generic_idle_source_two_unused",
+    "replacement_lineage": "supplements:r142-stage-r-phase0r-20260824-r4-idle4:dlcyuv28a0djtgxd"
+  },
+  "submission": {
+    "priority": 9,
+    "disable_ecs_stock_check": true,
+    "job_reserved_policy": "",
+    "job_reserved_minutes": 0,
+    "job_max_running_time_minutes": 0,
+    "tags": {
+      "managed_by": "pai-job-registry",
+      "purpose": "formal-evaluation",
+      "task": "r142-fp11-stage-r-phase0r-supp-a-20260825",
+      "model": "openpi-pi05-libero",
+      "dataset": "libero-10-task02-05-e16-n32",
+      "hardware": "4xa800-idle",
+      "resource_pool": "idle-a800",
+      "experiment_role": "stage-r-phase0r-parallel-raw-subset-a"
+    }
+  }
+}
