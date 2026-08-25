@@ -50,8 +50,10 @@ most 50 platform restarts.
 ## Actual idle placement
 
 Exact-JobId PAI OpenAPI/ListJobs evidence sealed
-`UseOversoldResource=true` for both jobs:
+`UseOversoldResource=true` for the parent and both supplemental jobs:
 
+- parent placement evidence SHA256:
+  `3c1171e275558060d8062ffbf71f0f6c40679604662a7dff837d941e937229b5`;
 - shard A placement evidence SHA256:
   `ba89a568e485b4072eca2d4792698ea50fbe7ec94b1dbb474c705629d79e3b71`;
 - shard B placement evidence SHA256:
