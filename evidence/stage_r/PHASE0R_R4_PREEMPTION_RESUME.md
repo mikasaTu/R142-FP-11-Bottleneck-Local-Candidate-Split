@@ -78,3 +78,13 @@
   so this rollback does not change the authoritative Phase-0R merge. `Queuing`
   is not recovery completion; a subsequent `Running` readback and persisted
   work are still required.
+
+### Third same-Job recovery checkpoint
+
+At the 2026-08-25T20:00Z checkpoint, exact GetJob returned `Running` for the
+same parent JobId. The artifact directory retained inode `1183269075169`, and
+all four rank logs were recreated with newer mtimes and no detected traceback,
+assertion, CUDA-OOM, or launcher-fatal marker. This verifies operational
+rescheduling only. The parent still has no global completion marker or root
+SHA256SUMS, and its post-index-31 task pairs remain non-authoritative
+redundancy.

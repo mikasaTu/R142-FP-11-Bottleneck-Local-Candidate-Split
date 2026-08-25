@@ -55,3 +55,14 @@ metadata SHA256 96055a9879e726d0ae8a2d03a8e5452b867146893ad49807923ec48668e164e9
 
 This is one of four shard-A targets. It is partial work, not a subset or
 Phase-0R completion claim.
+
+At the 2026-08-25T20:00Z checkpoint, shard A completed a second authoritative
+target, `libero_10_task04`. The same full outcome-blind audit passed:
+
+```text
+NPZ SHA256      e105c61b7b360b45ff09c4f5adf6aa0a4b76c7ccb7f5cda0157c3b48becd5e97
+metadata SHA256 f347560d2f5de3ec9a752e4b19763bdc2e9ede567f4f88792f9258f004e00072
+```
+
+Shard A is therefore 2/4 target pairs at this checkpoint. It still has no
+subset completion marker or SHA256SUMS and remains `Running`.
