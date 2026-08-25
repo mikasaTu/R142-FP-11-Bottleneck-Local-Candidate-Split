@@ -90,3 +90,31 @@ metadata SHA256 41b63046ce941e536721b4dc48b414771cd78cacd78df2226affa14e93e79643
 
 This supplies persisted first-target evidence after the rollback, but shard B
 is only 1/4 and has no subset completion marker or SHA256SUMS.
+
+## Shard A terminal completion
+
+At the 2026-08-25T23:41Z checkpoint, exact GetJob reported terminal
+`Succeeded` for shard A. All four authoritative targets passed the full
+outcome-blind schema, seed, coverage, owner, and SHA audit. The missing final
+target was `libero_10_task02`:
+
+```text
+NPZ SHA256      888401afd0c4597e9f665358d31dabff3aa10a833417ecf107b9c959ec7a6ff8
+metadata SHA256 072021805fa0ba6ec965599ff6f5caa0378363c00e0b12cc07b409e9ca805fc5
+```
+
+The four exact rank markers matched the frozen global-rank assignments, all 16
+imported prerequisite records were present, and the subset manifests stated
+4 targets, 2,048 rollouts, no outcome unblinding, no global Phase-0R
+completion, and no Phase-1 authorization. The immutable completion hashes are:
+
+```text
+COMPLETED_SUBSET_RAW.json         416d655d3520c04019fb7ea285db23c91f31d783c8e441e6facd7b4b13ada03c
+COMPLETED_EVALUATION_RESULT.json  c65b70daf07634f8c54b5ab92a41c8480fb41f68abed14c6253cc777de562410
+SHA256SUMS                        e127d911b436a010fe8fa70671d64f8fb68049369f7e0a0dd93ef3e3ed2b429b
+```
+
+`sha256sum --check` passed and every immutable file was owned by
+`2254:2254`. This completes shard A only. Global merge and analysis remain
+blocked until shard B independently reaches the same gates and terminal
+`Succeeded`.
