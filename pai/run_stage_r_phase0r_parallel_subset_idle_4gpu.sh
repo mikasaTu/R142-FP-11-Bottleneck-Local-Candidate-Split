@@ -19,13 +19,16 @@ SHARD_CONTRACT="$REPO/configs/stage_r_phase0r_parallel_shards.json"
 SHARD_CONTRACT_SHA256=c9ab70c12fd226381f622d279dd6e5a884f03ada7d88b9446ab62eee3a168da0
 ARTIFACT_DIR=${PAI_CANARY_RUN_DIR:?PAI_CANARY_RUN_DIR is required}
 RUN_ID=${PAI_CANARY_RUN_ID:?PAI_CANARY_RUN_ID is required}
-SHARD=${PAI_TASK_SHARD:?PAI_TASK_SHARD is required}
+case "$RUN_ID" in
+  r142-stage-r-phase0r-supp-a-*) SHARD=A ;;
+  r142-stage-r-phase0r-supp-b-*) SHARD=B ;;
+  *) echo "run id does not identify an approved Phase-0R supplemental shard" >&2; exit 70 ;;
+esac
 
 trap 'code=$?; printf "STAGE_R_PHASE0R_SUBSET_FAILED line=%s exit_code=%s command=%q\n" "${BASH_LINENO[0]:-unknown}" "$code" "$BASH_COMMAND" >&2; exit "$code"' ERR
 
 test "$(id -u):$(id -g)" = 2254:2254
 test "${PAI_CANARY_EXPECTED_GPUS:-}" = 4
-test "$SHARD" = A || test "$SHARD" = B
 test -x "$PYTHON"
 test "$(git -C "$REPO" rev-parse "$SOURCE_COMMIT^{commit}")" = "$SOURCE_COMMIT"
 test "$(git -C "$QPILOTS" rev-parse HEAD)" = "$QPILOTS_COMMIT"
