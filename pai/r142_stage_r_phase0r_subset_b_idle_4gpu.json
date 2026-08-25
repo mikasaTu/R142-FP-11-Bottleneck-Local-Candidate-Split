@@ -52,7 +52,7 @@
     "pai_automatic_fault_tolerance": true
   },
   "evidence": {
-    "kind": "r142_fp11_stage_r_phase0r_parallel_subset",
+    "kind": "r142_fp11_stage_r_phase0r_parallel_subset_evaluation",
     "idle_4gpu_contract": "generic_formal_idle_4gpu_v1",
     "resource_contract": "idle_a800_4gpu_autoresume_v1",
     "workload_type": "evaluation",
