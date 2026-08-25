@@ -59,7 +59,7 @@
     "task_id": "r142-fp11-stage-r-phase0r-supp-a-20260825",
     "model_id": "openpi-pi05-libero",
     "success_gate": "persisted_completed_evaluation_result",
-    "validation_method": "static_plus_live_parent_artifact_validation",
+    "validation_method": "static",
     "validation_status": "passed",
     "validated_payload_sha256": "35bfcf683f7c70225fce23bbef1ca2745eb0b691b66d1c39af85bf90a3ecd694",
     "pai_probe_created": false,
