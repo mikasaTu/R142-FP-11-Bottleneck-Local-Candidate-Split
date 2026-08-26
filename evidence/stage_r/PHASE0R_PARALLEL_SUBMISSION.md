@@ -100,3 +100,13 @@ Thus every exact job is below both ceilings (`46 < 88`; `800Gi < 1.49T`,
 whether T is interpreted as decimal TB or TiB). No Job was stopped or
 resubmitted, and the frozen task, seed, candidate-budget, threshold,
 statistics, authority, and artifact-directory contracts remain unchanged.
+
+## Concurrent GPU ceiling (2026-08-26)
+
+After network recovery, the user set a hard ceiling of 16 concurrently used
+GPUs for the remaining plan. Exact GetJob showed the only active Phase-0R
+workers were the 4-GPU parent and 4-GPU shard B; shard A was terminal
+`Succeeded`. Effective active use was therefore 8 GPUs, below the 16-GPU
+ceiling. The recurring monitor was updated to enforce this cap for any later
+recovery or supplemental submission. No new job was created and the frozen
+authority map was not changed.
