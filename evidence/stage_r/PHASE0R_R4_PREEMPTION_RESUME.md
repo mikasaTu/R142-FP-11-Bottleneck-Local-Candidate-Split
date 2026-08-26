@@ -167,3 +167,13 @@ inode `1183269075169`, owner `2254:2254`, and mode `0700`, with no detected
 fatal marker in current rank logs. Resource shape remained 4 GPUs, 46 CPU,
 and 800Gi memory, so active Phase-0R usage stayed below the 16-GPU and
 88-CPU/1.49T ceilings. This remains operational recovery only.
+
+At the 2026-08-26T19:06Z checkpoint, parent master UID
+`4c1eae09-6b92-424f-9187-0981f4b3708b` was recorded `Failed` after running
+from `2026-08-26T15:20:05Z` to `2026-08-26T18:42:45Z`. AIMaster created
+master UID `f5fd3975-13aa-45c2-bdfa-bde6740bb7b9`, which exact GetJob
+reported `Running` from `2026-08-26T18:44:14Z`. The exact JobId, run ID,
+resource shape, and artifact directory inode `1183269075169` were unchanged;
+no fatal marker was detected in current rank logs. The parent authority remains
+indices 0--31 only, so this restart supplies operational lineage rather than a
+new scientific source or completion result.
