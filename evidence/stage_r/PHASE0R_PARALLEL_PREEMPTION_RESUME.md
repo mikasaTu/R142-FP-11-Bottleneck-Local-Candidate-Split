@@ -158,3 +158,14 @@ appeared. No replacement Job was submitted and the frozen target, seed,
 candidate-budget, threshold, statistical, and authority contracts were not
 changed. This is same-directory recovery progress only; shard B remains 3/4
 and global analysis stays sealed.
+
+At the 2026-08-26T07:58Z checkpoint, shard-B replacement master UID
+`c1508148-e71f-4d63-b59c-378b21d40262` had failed after running from
+`2026-08-26T06:16:38Z` to `2026-08-26T07:31:35Z`. AIMaster created master
+UID `43be3a75-1b1d-4c37-84dd-a03d7be39eca`, which exact GetJob reported
+`Running` from `2026-08-26T07:32:58Z`. The exact JobId, run ID, and artifact
+directory inode `1183268080862` were unchanged; no fatal marker was detected
+in the recreated rank logs. The three sealed target pairs remained intact,
+while `task08`, rank 6, subset markers, and terminal `Succeeded` were still
+missing. This additional same-directory restart is not completion and does
+not authorize a source substitution or global analysis.
