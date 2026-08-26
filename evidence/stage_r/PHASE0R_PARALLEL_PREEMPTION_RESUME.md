@@ -118,3 +118,26 @@ SHA256SUMS                        e127d911b436a010fe8fa70671d64f8fb68049369f7e0a
 `2254:2254`. This completes shard A only. Global merge and analysis remain
 blocked until shard B independently reaches the same gates and terminal
 `Succeeded`.
+
+## Shard B progress after same-directory recovery
+
+At the 2026-08-26T00:45Z checkpoint, exact GetJob still reported `Running`
+for shard B under the same JobId, run ID, and CPFS artifact directory. Two
+additional authoritative targets, `libero_10_task07` and
+`libero_10_task09`, passed the full outcome-blind protocol/task identity,
+512-rollout, exact 16-by-32 state/candidate coverage, rollout-seed, offsets,
+finite-array, owner `2254:2254`, and metadata/data SHA audit:
+
+```text
+libero_10_task07 NPZ SHA256      d61278b60f15a617fb29c6fdfae91695dbe6b2fa64ea3bcc24822e6e03f4500a
+libero_10_task07 metadata SHA256 8a55a7147ab1561b558d54be4230b99d0fc36212891cc018a2aeb307a0fcb9f1
+libero_10_task09 NPZ SHA256      725d8bca12eeeb7e54fe0df75c536a6b8b6081c08a180c9228a43596983dd8e8
+libero_10_task09 metadata SHA256 937f404a15e75ad6d90b137cd4e73613148ef04d3fa3715f7ca77d6a63919841
+```
+
+Together with the previously validated `libero_10_task06`, shard B is now
+3/4 authoritative targets. Exact rank markers exist for global ranks 4, 5,
+and 7; global rank 6 is still running `libero_10_task08`. There is no shard-B
+`COMPLETED_SUBSET_RAW.json`, `COMPLETED_EVALUATION_RESULT.json`, or
+`SHA256SUMS`, and PAI has not reached terminal `Succeeded`. This checkpoint is
+persisted progress only, not subset or global Phase-0R completion.
