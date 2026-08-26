@@ -113,3 +113,18 @@ redundancy.
   not scientific completion. The parent remains `Running`; shard B is still
   independently missing authoritative `libero_10_task08`, its rank-6 marker,
   subset completion records, and terminal `Succeeded`.
+
+### Fourth rollback-to-queue checkpoint
+
+At the 2026-08-26T06:22Z checkpoint, the short-lived replacement master UID
+`b02400ec-dd85-4243-86eb-2a6fe0e8209b` was recorded `Failed` after running
+from `2026-08-26T05:26:06Z` to `2026-08-26T06:16:40Z`. Exact GetJob then
+returned `Queuing`, reason `JobEnqueued`, message `Rollback to queue`; the
+same AIMaster remained `Running`. The artifact directory still had inode
+`1183269075169`, owner `2254:2254`, and mode `0700`. A fresh outcome-blind
+audit rehashed all 32 frozen authoritative NPZ/metadata pairs and found all
+32 present, owner-correct, and matching their recorded `data_sha256`.
+
+No new parent job was submitted. `Queuing` is not a completed recovery, and
+parent results after index 31 remain non-authoritative redundancy. The
+scientific authority mapping and Phase-0R analysis seal remain unchanged.

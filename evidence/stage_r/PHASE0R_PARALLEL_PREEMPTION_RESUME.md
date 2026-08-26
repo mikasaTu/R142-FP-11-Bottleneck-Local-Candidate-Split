@@ -141,3 +141,20 @@ and 7; global rank 6 is still running `libero_10_task08`. There is no shard-B
 `COMPLETED_SUBSET_RAW.json`, `COMPLETED_EVALUATION_RESULT.json`, or
 `SHA256SUMS`, and PAI has not reached terminal `Succeeded`. This checkpoint is
 persisted progress only, not subset or global Phase-0R completion.
+
+### Shard B second preemption and same-Job recovery
+
+At the 2026-08-26T06:22Z checkpoint, exact GetJob showed that shard-B master
+UID `1a6121bc-fe5d-4961-bf80-489f24da15dc` failed after running from
+`2026-08-25T19:08:09Z` to `2026-08-26T06:15:15Z`. AIMaster retained the exact
+Job and created replacement master UID `c1508148-e71f-4d63-b59c-378b21d40262`,
+which was `Running` from `2026-08-26T06:16:38Z`.
+
+The shard directory retained inode `1183268080862`, owner `2254:2254`, and
+mode `0700`. The three authoritative targets `libero_10_task06`, `task07`,
+and `task09` retained their previously sealed SHA values and owner; no
+`task08` pair, rank-6 marker, subset completion record, or root SHA256SUMS had
+appeared. No replacement Job was submitted and the frozen target, seed,
+candidate-budget, threshold, statistical, and authority contracts were not
+changed. This is same-directory recovery progress only; shard B remains 3/4
+and global analysis stays sealed.
