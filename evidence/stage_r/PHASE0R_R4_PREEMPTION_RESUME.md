@@ -128,3 +128,11 @@ audit rehashed all 32 frozen authoritative NPZ/metadata pairs and found all
 No new parent job was submitted. `Queuing` is not a completed recovery, and
 parent results after index 31 remain non-authoritative redundancy. The
 scientific authority mapping and Phase-0R analysis seal remain unchanged.
+
+At the 2026-08-26T06:54Z checkpoint, PAI had attempted another same-Job
+restart with master UID `e13ea8b2-f3b6-4875-81cf-cca170ef35cd`. It ran from
+`2026-08-26T06:27:31Z` until `2026-08-26T06:40:54Z`, was recorded `Failed`,
+and exact GetJob again returned `Queuing` / `Rollback to queue`. The AIMaster
+remained live, no replacement Job was submitted, and no authority or
+scientific contract changed. This short failed restart is preserved as
+additional idle-resource lineage, not counted as recovery or completion.
