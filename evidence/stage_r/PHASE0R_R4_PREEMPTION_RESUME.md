@@ -157,3 +157,13 @@ logs had no detected fatal marker. Active Phase-0R use remained 8 GPUs in
 total, below the user ceiling of 16. This is same-directory recovery only;
 parent outputs after index 31 remain redundancy and no completion gate was
 promoted.
+
+At the 2026-08-26T15:29Z checkpoint, parent master UID
+`34b95a06-56cf-4f47-9568-88e7a1e51b60` was recorded `Failed` after running
+from `2026-08-26T14:41:59Z` to `2026-08-26T15:18:39Z`. AIMaster created
+master UID `4c1eae09-6b92-424f-9187-0981f4b3708b`, which exact GetJob
+reported `Running` from `2026-08-26T15:20:05Z`. The artifact directory kept
+inode `1183269075169`, owner `2254:2254`, and mode `0700`, with no detected
+fatal marker in current rank logs. Resource shape remained 4 GPUs, 46 CPU,
+and 800Gi memory, so active Phase-0R usage stayed below the 16-GPU and
+88-CPU/1.49T ceilings. This remains operational recovery only.
