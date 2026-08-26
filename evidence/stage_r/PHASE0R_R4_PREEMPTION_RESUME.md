@@ -146,3 +146,14 @@ recorded `Failed`. AIMaster then created master UID
 `1183269075169`, owner `2254:2254`, and mode `0700`; current rank logs had no
 detected fatal marker. This is a recovery checkpoint only and does not alter
 the frozen authority mapping or satisfy any completion gate.
+
+At the 2026-08-26T14:57Z checkpoint, parent master UID
+`c57af39a-e69f-4028-9ded-ad3ea2247196` was recorded `Failed` after running
+from `2026-08-26T07:24:23Z` to `2026-08-26T14:40:27Z`. AIMaster created
+master UID `34b95a06-56cf-4f47-9568-88e7a1e51b60`, which exact GetJob
+reported `Running` from `2026-08-26T14:41:59Z`. The exact JobId, run ID, and
+artifact directory inode `1183269075169` remained unchanged; current rank
+logs had no detected fatal marker. Active Phase-0R use remained 8 GPUs in
+total, below the user ceiling of 16. This is same-directory recovery only;
+parent outputs after index 31 remain redundancy and no completion gate was
+promoted.
