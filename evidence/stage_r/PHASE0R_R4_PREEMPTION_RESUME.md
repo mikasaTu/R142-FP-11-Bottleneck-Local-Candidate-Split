@@ -136,3 +136,13 @@ and exact GetJob again returned `Queuing` / `Rollback to queue`. The AIMaster
 remained live, no replacement Job was submitted, and no authority or
 scientific contract changed. This short failed restart is preserved as
 additional idle-resource lineage, not counted as recovery or completion.
+
+At the 2026-08-26T07:26Z checkpoint, AIMaster had made a further short
+same-Job attempt with master UID `622226ba-3111-4987-8820-22160cd31326`.
+It ran from `2026-08-26T07:20:21Z` until `2026-08-26T07:23:02Z` and was
+recorded `Failed`. AIMaster then created master UID
+`c57af39a-e69f-4028-9ded-ad3ea2247196`, which exact GetJob reported
+`Running` from `2026-08-26T07:24:23Z`. The artifact directory retained inode
+`1183269075169`, owner `2254:2254`, and mode `0700`; current rank logs had no
+detected fatal marker. This is a recovery checkpoint only and does not alter
+the frozen authority mapping or satisfy any completion gate.
