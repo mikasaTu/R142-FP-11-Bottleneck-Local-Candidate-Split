@@ -169,3 +169,15 @@ in the recreated rank logs. The three sealed target pairs remained intact,
 while `task08`, rank 6, subset markers, and terminal `Succeeded` were still
 missing. This additional same-directory restart is not completion and does
 not authorize a source substitution or global analysis.
+
+At the 2026-08-26T12:56Z checkpoint, shard-B master UID
+`43be3a75-1b1d-4c37-84dd-a03d7be39eca` was recorded `Failed` after running
+from `2026-08-26T07:32:58Z` to `2026-08-26T12:39:25Z`. AIMaster created
+master UID `191d01f2-887a-4af8-a91a-a26e9dc44801`, which exact GetJob
+reported `Running` from `2026-08-26T12:40:49Z`. The same artifact directory
+retained inode `1183268080862`, owner `2254:2254`, and mode `0700`; no fatal
+marker was detected in current rank logs. Rehashing the three sealed target
+pairs reproduced their recorded NPZ and metadata SHA values. `task08`, rank 6,
+the subset completion records, and terminal `Succeeded` remained absent. This
+is another same-directory recovery checkpoint, not completion or permission
+to change the frozen authority mapping.
