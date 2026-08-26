@@ -84,3 +84,19 @@ completion, analysis, or Checkpoint-1 result is claimed here. Completion still
 requires target NPZ/metadata SHA validation, subset markers and SHA256SUMS,
 terminal PAI `Succeeded`, a fail-closed global merge, frozen analysis, and the
 explicit Checkpoint-1 stop.
+
+## User resource-ceiling audit (2026-08-26)
+
+The user required stopping and resubmitting any current Phase-0R PAI task
+whose single-job specification exceeded either 88 CPU cores or 1.49 T of
+memory. Fresh exact-JobId GetJob readback reported the same shape for the
+parent, shard A, and shard B:
+
+```text
+PodCount=1, GPU=4, CPU=46, Memory=800Gi, SharedMemory=800Gi
+```
+
+Thus every exact job is below both ceilings (`46 < 88`; `800Gi < 1.49T`,
+whether T is interpreted as decimal TB or TiB). No Job was stopped or
+resubmitted, and the frozen task, seed, candidate-budget, threshold,
+statistics, authority, and artifact-directory contracts remain unchanged.
