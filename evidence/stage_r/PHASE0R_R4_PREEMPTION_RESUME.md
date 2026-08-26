@@ -88,3 +88,28 @@ assertion, CUDA-OOM, or launcher-fatal marker. This verifies operational
 rescheduling only. The parent still has no global completion marker or root
 SHA256SUMS, and its post-index-31 task pairs remain non-authoritative
 redundancy.
+
+## Fourth preemption and same-Job recovery (2026-08-26)
+
+- `observed fact`: Parent replacement master pod UID
+  `bb402e17-21ee-49dd-8fb8-d37e007d3d5e` ran from
+  `2026-08-25T19:50:10Z` until `2026-08-26T05:24:42Z` and is recorded by
+  PAI as `Failed`; the same AIMaster remained live.
+- `observed fact`: AIMaster created replacement master pod UID
+  `b02400ec-dd85-4243-86eb-2a6fe0e8209b`, created at
+  `2026-08-26T05:24:59Z` and `Running` from `2026-08-26T05:26:06Z` under the
+  exact same JobId and run ID.
+- `observed fact`: The persistent artifact directory still has inode
+  `1183269075169`, owner `2254:2254`, and mode `0700`. The 32 frozen
+  authoritative pairs remain in place. Parent-side `libero_10_task02`,
+  `task03`--`task05`, `task07`, and `task09` are later redundancy and are not
+  promoted over the pre-registered shard-A/B authority mapping.
+- `observed fact`: The current parent rank logs contain no detected traceback,
+  assertion, CUDA-OOM, or launcher-fatal marker at this checkpoint.
+- `controlled intervention`: No new parent job was submitted and no task,
+  seed, candidate budget, threshold, statistical protocol, or source mapping
+  changed. Resume occurred through AIMaster in the same artifact directory.
+- `interpretation`: This is another idle-resource preemption/recovery event,
+  not scientific completion. The parent remains `Running`; shard B is still
+  independently missing authoritative `libero_10_task08`, its rank-6 marker,
+  subset completion records, and terminal `Succeeded`.
