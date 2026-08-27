@@ -1,0 +1,118 @@
+{
+  "schema_version": 2,
+  "kind": "pytorchjob",
+  "name_prefix": "r142-fp11-phase1r-natural-shard-a-idle8",
+  "description": "R142 Stage-R Phase-1R natural shard A; fixed outcome-blind mapping; calibration and heldout streams; no shard analysis or unblinding",
+  "resource_alias": "idle-a800",
+  "workspace_id": "179169",
+  "provenance": {
+    "contract_source_job_id": "dlct3tq8a7z5lsdd",
+    "resource_source_job_id": "dlct3tq8a7z5lsdd",
+    "submission_method": "cli_create",
+    "pai_clone_performed": false,
+    "source_role": "readback_reference"
+  },
+  "network": {},
+  "storage": {
+    "data_sources": [
+      {
+        "id": "d-mkixtohdn75dp8x9tb",
+        "version": "v1",
+        "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+        "options": ""
+      },
+      {
+        "id": "d-36p023eg0f2vuqny8y",
+        "version": "v1",
+        "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+        "options": ""
+      },
+      {
+        "id": "d-ejgj2ej7io1t2t32uc",
+        "version": "v1",
+        "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+        "options": ""
+      }
+    ],
+    "output_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase1r"
+  },
+  "worker": {
+    "count": 1,
+    "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+    "gpu": 8,
+    "cpu": 88,
+    "memory": "1525Gi",
+    "shared_memory": "1525Gi"
+  },
+  "runtime": {
+    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split/pai/run_stage_r_phase1r_idle_8gpu.sh",
+    "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
+    "uid": 2254,
+    "gid": 2254,
+    "pod_env": {},
+    "secret_env_names": [],
+    "write_paths": [
+      "{{ARTIFACT_DIR}}"
+    ],
+    "output_mode": "resume",
+    "create_artifact_dir": true,
+    "recursive_repair": false
+  },
+  "fault_tolerance": {
+    "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure",
+    "maximum_platform_restarts": 50,
+    "launcher_attempts": 1,
+    "retry_sleep_seconds": 30,
+    "pai_automatic_fault_tolerance": true
+  },
+  "evidence": {
+    "kind": "r142_fp11_stage_r_phase1r_natural_shard_a_formal_evaluation",
+    "idle_8gpu_contract": "generic_formal_idle_8gpu_v1",
+    "resource_contract": "generic_formal_idle_8gpu_v1",
+    "workload_type": "evaluation",
+    "task_id": "r142-fp11-stage-r-phase1r-natural-shard-a-20260827",
+    "model_id": "pi05-libero-phase1r-natural-fixed-policy",
+    "success_gate": "persisted_completed_evaluation_result",
+    "validation_method": "static",
+    "validation_status": "passed",
+    "validated_payload_sha256": "f50711467e83d8fad89231d975b7cee767378fd4a3ccefb6c5838be2a95f1652",
+    "pai_probe_created": false,
+    "contract_ready": true,
+    "require_actual_idle": true,
+    "expected_first_work_uid": 2254,
+    "expected_first_work_gid": 2254,
+    "first_work_evidence_path": "{{ARTIFACT_DIR}}/FIRST_WORK.json",
+    "completed_evidence_path": "{{ARTIFACT_DIR}}/COMPLETED_EVALUATION_RESULT.json",
+    "source_commit_contract": "launcher_runtime_exact_commit_required",
+    "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+    "protocol_sha256": "7e4de68cba5c0fdb288ee25d81f30b72d65483753973f06f44b395e3db0b9cb4",
+    "shards_sha256": "f0e4b137d5f5b39737f671dc273428fdd5b646327863f03a542c2c7c5e2977d6",
+    "selection_manifest_sha256": "082f1f28f6ed8bddb1ed2ef87a3b848ac3daccec5c333f7f2cf1c4ef5d988231",
+    "calibration_sha256": "f8a6486a96b9fc02071c391c4971ac2251d5c5e89dbb405f9d51dcd44fbfad6a",
+    "authority_manifest_sha256": "3d5a37ec8a7e2c0dfd0c808ad59553c43a13c846b90f99c1afaa3529a072469c",
+    "streams": ["calibration", "heldout"],
+    "natural_cells_per_task": 240,
+    "natural_tasks": 17,
+    "no_controls_regeneration": true,
+    "no_calibration_regeneration": true,
+    "no_unblinding": true,
+    "global_rank_range": [0, 7]
+  },
+  "submission": {
+    "priority": 9,
+    "disable_ecs_stock_check": true,
+    "job_reserved_policy": "",
+    "job_reserved_minutes": 0,
+    "job_max_running_time_minutes": 0,
+    "tags": {
+      "managed_by": "pai-job-registry",
+      "purpose": "formal-evaluation",
+      "task": "r142-fp11-stage-r-phase1r-natural-shard-a-20260827",
+      "model": "pi05-libero-phase1r-natural-fixed-policy",
+      "dataset": "libero-phase0r-authoritative-40tasks",
+      "hardware": "8xa800-idle",
+      "resource_pool": "idle-a800",
+      "experiment_role": "phase1r-natural-shard-a"
+    }
+  }
+}
