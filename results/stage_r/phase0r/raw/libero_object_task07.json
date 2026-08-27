@@ -1,0 +1,31 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 13811,
+  "data_file": "libero_object_task07.npz",
+  "data_sha256": "f5b83d2f4d0e47cb158cb54f1722a0d44281fc1b9d218aae8268e24f84d77c42",
+  "elapsed_seconds": 10189.021357059479,
+  "environment_steps": 68080,
+  "physical_batched_policy_calls": 3535,
+  "pose_keys": [
+    "basket_1_pos",
+    "basket_1_quat",
+    "butter_1_pos",
+    "butter_1_quat",
+    "chocolate_pudding_1_pos",
+    "chocolate_pudding_1_quat",
+    "cream_cheese_1_pos",
+    "cream_cheese_1_quat",
+    "milk_1_pos",
+    "milk_1_quat",
+    "orange_juice_1_pos",
+    "orange_juice_1_quat",
+    "tomato_sauce_1_pos",
+    "tomato_sauce_1_quat"
+  ],
+  "prompt": "pick up the milk and place it in the basket",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_object",
+  "task_id": 7
+}

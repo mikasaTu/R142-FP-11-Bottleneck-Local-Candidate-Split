@@ -1,0 +1,31 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 14394,
+  "data_file": "libero_object_task01.npz",
+  "data_sha256": "30c20d60ecc4ec06a48c37c551baaca8ba6ae1521603f82fe04dbbde3458f821",
+  "elapsed_seconds": 10623.914009571075,
+  "environment_steps": 71046,
+  "physical_batched_policy_calls": 3729,
+  "pose_keys": [
+    "alphabet_soup_1_pos",
+    "alphabet_soup_1_quat",
+    "basket_1_pos",
+    "basket_1_quat",
+    "butter_1_pos",
+    "butter_1_quat",
+    "cream_cheese_1_pos",
+    "cream_cheese_1_quat",
+    "milk_1_pos",
+    "milk_1_quat",
+    "orange_juice_1_pos",
+    "orange_juice_1_quat",
+    "tomato_sauce_1_pos",
+    "tomato_sauce_1_quat"
+  ],
+  "prompt": "pick up the cream cheese and place it in the basket",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_object",
+  "task_id": 1
+}

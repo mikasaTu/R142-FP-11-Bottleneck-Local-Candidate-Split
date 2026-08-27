@@ -1,0 +1,31 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 13335,
+  "data_file": "libero_object_task09.npz",
+  "data_sha256": "effe121c04bc1e7f4bf2b3fc9ddb1003ce454a60164837e9c5b6b815910f9e9f",
+  "elapsed_seconds": 9875.257593631744,
+  "environment_steps": 65611,
+  "physical_batched_policy_calls": 3465,
+  "pose_keys": [
+    "basket_1_pos",
+    "basket_1_quat",
+    "bbq_sauce_1_pos",
+    "bbq_sauce_1_quat",
+    "butter_1_pos",
+    "butter_1_quat",
+    "chocolate_pudding_1_pos",
+    "chocolate_pudding_1_quat",
+    "ketchup_1_pos",
+    "ketchup_1_quat",
+    "orange_juice_1_pos",
+    "orange_juice_1_quat",
+    "salad_dressing_1_pos",
+    "salad_dressing_1_quat"
+  ],
+  "prompt": "pick up the orange juice and place it in the basket",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_object",
+  "task_id": 9
+}
