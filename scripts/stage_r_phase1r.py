@@ -79,6 +79,7 @@ def main() -> None:
     verify = sub.add_parser("validate-analysis")
     verify.add_argument("--output", required=True)
 
+    verify.add_argument("--owner", default="none")
     validate_selection = sub.add_parser("validate-selection")
     validate_selection.add_argument("--root", required=True)
 
@@ -110,7 +111,7 @@ def main() -> None:
     elif args.command == "analyze":
         print(json.dumps(analyze_phase1r(args.natural, args.controls, args.calibration, args.output, bootstrap_replicates=args.bootstrap, require_owner=_owner(args.owner)), indent=2))
     elif args.command == "validate-analysis":
-        valid, errors = validate_phase1_analysis(args.output)
+        valid, errors = validate_phase1_analysis(args.output, require_owner=_owner(args.owner))
         print(json.dumps({"valid": valid, "errors": errors}, indent=2))
         if not valid:
             raise SystemExit(1)
