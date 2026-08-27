@@ -1,0 +1,303 @@
+{
+  "authority_rule": "parent[0:32]+shard_A[32:36]+shard_B[36:40]",
+  "outcome_selection_permitted": false,
+  "parent_job_id": "dlcyuv28a0djtgxd",
+  "parent_run_id": "r142-stage-r-phase0r-20260824-r4-idle4",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "records": [
+    {
+      "index": 0,
+      "metadata_sha256": "680d795da4e964d277a275fc9f0ad96e940051c4cfb4e29de717e4887ce91900",
+      "npz_sha256": "2943ac6621e5c1a8c86602da1259c8210537f1409b555b60dcc5c2410887be5b",
+      "source": "parent",
+      "stem": "libero_spatial_task00"
+    },
+    {
+      "index": 1,
+      "metadata_sha256": "133f209b81b620b249f454e5d03f756ee638d443c7b62641e6ee108901bf50bc",
+      "npz_sha256": "c14d94b28a2e365b63963fee9d7da31deb9a170e37a59a40729daf87c03d4036",
+      "source": "parent",
+      "stem": "libero_spatial_task01"
+    },
+    {
+      "index": 2,
+      "metadata_sha256": "388d33626c656c07a9c81a8fbb5320bc9b72b42957f5fcb288c74e0e809d99b0",
+      "npz_sha256": "469bdf48d5d6ddfbc61f5c016e87c4483baa6f722d4c738d86cd5ae87a1cc883",
+      "source": "parent",
+      "stem": "libero_spatial_task02"
+    },
+    {
+      "index": 3,
+      "metadata_sha256": "3e8a2cb7845b73db0549a040b450222cabb3ab7449a5d46599fcf2e6d987480b",
+      "npz_sha256": "c8ff2794e11ac3781a3e2b160318bd037f50dfff2659d90e89886d935f8e4297",
+      "source": "parent",
+      "stem": "libero_spatial_task03"
+    },
+    {
+      "index": 4,
+      "metadata_sha256": "9cf69cffd3dd27a8ca9e9e4e3f4930ce29d3af00bd5217cdc51582046c83b674",
+      "npz_sha256": "6cb851861bc1cc03ba5be529ef52c7ba878dcd35a57e6bfb53590730d0256661",
+      "source": "parent",
+      "stem": "libero_spatial_task04"
+    },
+    {
+      "index": 5,
+      "metadata_sha256": "9f04f6f5209845f752ccf2f8cdd87cffd32b21ec0a8b00fb91f0ff8cd918082f",
+      "npz_sha256": "39041e3de519553b97fa7f193e30748e072d5e3dd35090b155e378e2087cefac",
+      "source": "parent",
+      "stem": "libero_spatial_task05"
+    },
+    {
+      "index": 6,
+      "metadata_sha256": "0a4706338c7de583863f5774236e0cbc4f5f0bba8f993a2e7db7226358b7d67e",
+      "npz_sha256": "b6aea1ee79f0435e3a3c3b98655fd16fe8c928ec0ae9cc5dcc9c56ceedb63331",
+      "source": "parent",
+      "stem": "libero_spatial_task06"
+    },
+    {
+      "index": 7,
+      "metadata_sha256": "34cc3804f6df13e51b1fbcf8ac941a41c9b31b84f75e81c7df2305cd75871938",
+      "npz_sha256": "70bfe3b3b866797c8d47705e7e7cce1a44648902bb7a9ab23d2e94b969d3d1f6",
+      "source": "parent",
+      "stem": "libero_spatial_task07"
+    },
+    {
+      "index": 8,
+      "metadata_sha256": "0cbcd73a08055b3a5004209af25fdf31c12018ee5cd6871a530bcfd17e6e4333",
+      "npz_sha256": "4ee290655c2c28c7edcb2152d9cf0eaaf8e4129e2d9c336e3433b01091296c6b",
+      "source": "parent",
+      "stem": "libero_spatial_task08"
+    },
+    {
+      "index": 9,
+      "metadata_sha256": "1bcbcdb80f28e0bd8c56e6037fe9c021a829f1d95c7f774801fa4580e4031768",
+      "npz_sha256": "485660068194a71b1922ebd45b8465e1a9c67a01042bf6fa406de5cc90cf6a43",
+      "source": "parent",
+      "stem": "libero_spatial_task09"
+    },
+    {
+      "index": 10,
+      "metadata_sha256": "4a4f36616f6ca5fc6599b9335551f0b187ad30e54d3e57aa31424f3ac264df38",
+      "npz_sha256": "a5f2412f88fc9786673fe69c05ba46ef39c477ab89905877e138b7e4cf48214c",
+      "source": "parent",
+      "stem": "libero_object_task00"
+    },
+    {
+      "index": 11,
+      "metadata_sha256": "073ec54cc06b1d7c488b14e68febf6bf77dd3641fafee44877632766cb9d32fc",
+      "npz_sha256": "30c20d60ecc4ec06a48c37c551baaca8ba6ae1521603f82fe04dbbde3458f821",
+      "source": "parent",
+      "stem": "libero_object_task01"
+    },
+    {
+      "index": 12,
+      "metadata_sha256": "46edab5e4a284e78ec7e53a9d8e4fbe8afa7de3038bf39b49ae9d21840a5cd77",
+      "npz_sha256": "8dc2d540e2a9e73a4aac603979d96f29fab4ddaafa5e0a3ba38851e6c62d3d30",
+      "source": "parent",
+      "stem": "libero_object_task02"
+    },
+    {
+      "index": 13,
+      "metadata_sha256": "0f2ba7bd0467accae4d6aa3d557dd2ba9cb9d7c27779108f6b6bee28c83d9010",
+      "npz_sha256": "04c6d5a49e7ce5cc1fd1aeaab4e91e985c7a8a29106123c87ad8c0cd182d4630",
+      "source": "parent",
+      "stem": "libero_object_task03"
+    },
+    {
+      "index": 14,
+      "metadata_sha256": "54ecc7ab4472bae981ab82116a35c6b088931d84da9c836171b0038561a7ea7a",
+      "npz_sha256": "cf4abebad3ea384b79fa5c5ca52cb9edb1b5135080db0bd4449e8310624af7a3",
+      "source": "parent",
+      "stem": "libero_object_task04"
+    },
+    {
+      "index": 15,
+      "metadata_sha256": "663b66b372c1a16bb633adaf95a0e9b72ad063507b756bdcd3e66a690f5a87de",
+      "npz_sha256": "36907641b69e83cfd357db77215101a5487ee290270865b3d1e6042ac3ad7bf0",
+      "source": "parent",
+      "stem": "libero_object_task05"
+    },
+    {
+      "index": 16,
+      "metadata_sha256": "03433356b5c792e92a142a7764ba2a995d3e77400d1046921ca15bb5158f3a9d",
+      "npz_sha256": "154775ccf1a6c4f95c42b5c9115b177f4db456cdbb98edf41a9e6120cf0c6af5",
+      "source": "parent",
+      "stem": "libero_object_task06"
+    },
+    {
+      "index": 17,
+      "metadata_sha256": "dae307495d24ff341a3edfcc6bf0d5701ae19a2b5a436a99c40d7da9d7a128ff",
+      "npz_sha256": "f5b83d2f4d0e47cb158cb54f1722a0d44281fc1b9d218aae8268e24f84d77c42",
+      "source": "parent",
+      "stem": "libero_object_task07"
+    },
+    {
+      "index": 18,
+      "metadata_sha256": "93ffd7a27df98b488f6a3efbfa667bfa10b4e71f331764d3e2a0252f8652f0fd",
+      "npz_sha256": "9ec1a5fd778d724f6aeee2fdd826bd328b03b217518cb4869a26a6b0b440ba86",
+      "source": "parent",
+      "stem": "libero_object_task08"
+    },
+    {
+      "index": 19,
+      "metadata_sha256": "b1a8878def74f0efb01b383e89e87d424a4ef4dda17977f6f6583725985be347",
+      "npz_sha256": "effe121c04bc1e7f4bf2b3fc9ddb1003ce454a60164837e9c5b6b815910f9e9f",
+      "source": "parent",
+      "stem": "libero_object_task09"
+    },
+    {
+      "index": 20,
+      "metadata_sha256": "6f23350d83b2b8578f07394b924f7355663f8303c47407ef7706f80b6e0561f0",
+      "npz_sha256": "f7e3db70698a64e242cf0cc658f74500a2b25b3841ffdcdf878baa4f32e01d8d",
+      "source": "parent",
+      "stem": "libero_goal_task00"
+    },
+    {
+      "index": 21,
+      "metadata_sha256": "9367127904c87789a69501cddff04ebfaf941539f5548d2cf0bff8e063d9176b",
+      "npz_sha256": "09d6eeca1311b957e45e86df55c75248b4cdcb35b2da73f9ac4d94094a967372",
+      "source": "parent",
+      "stem": "libero_goal_task01"
+    },
+    {
+      "index": 22,
+      "metadata_sha256": "940eade859660b726e2c9cffdf3e0c6718c7042904550bc0ceee517a3c211a31",
+      "npz_sha256": "fe35afb26481c582df804ecf4e4c1ed9d5011eee97b2d4d7d6b6b1936ffc38fb",
+      "source": "parent",
+      "stem": "libero_goal_task02"
+    },
+    {
+      "index": 23,
+      "metadata_sha256": "95559e78814d8e098536426defb659ac7b87100ed2cb31f1814567163de2060a",
+      "npz_sha256": "c00ef7c8eb579378ce352380a8d276bf44d47ce10c551818179c6d4535153a44",
+      "source": "parent",
+      "stem": "libero_goal_task03"
+    },
+    {
+      "index": 24,
+      "metadata_sha256": "ebeb169713334cc4af2cf33594f15aeebb616eda531933c248ff48dbab5868a1",
+      "npz_sha256": "4b42aced7f56f3f13f5eaedfce288aead2cb9e8a71b59461d83d7d9710b39a0f",
+      "source": "parent",
+      "stem": "libero_goal_task04"
+    },
+    {
+      "index": 25,
+      "metadata_sha256": "f681e637334792782deb24469ac0d2ac89202b0b053ab29d98c35285edb39bd6",
+      "npz_sha256": "1214925658d1393bb7ef44c6173077c62db5335df8ce16eb4f565eb43bf9a95d",
+      "source": "parent",
+      "stem": "libero_goal_task05"
+    },
+    {
+      "index": 26,
+      "metadata_sha256": "ad003cdcc2760e0af51cd4994c0c8cedb48a66a1f5bf8b0a16bd6faa5e3a437e",
+      "npz_sha256": "a36970e47cf25e24b41acbfeae1564ad5c950f322ff2c6db70c13eb8076703f3",
+      "source": "parent",
+      "stem": "libero_goal_task06"
+    },
+    {
+      "index": 27,
+      "metadata_sha256": "ad2261d0c5234c61365abe3ffd5c5ba62e16ef1fd0b6a08d55102b22816994de",
+      "npz_sha256": "8e4821f35dcc29dd3203e6670acfb2abef04354578453de229df3f5dfb500df5",
+      "source": "parent",
+      "stem": "libero_goal_task07"
+    },
+    {
+      "index": 28,
+      "metadata_sha256": "7ffc774f557cd4a0d42eac415887010c0f115cc5a766222c33bda4719d8577e4",
+      "npz_sha256": "8e0b858157d07c00d3cf2656cb02d734512f3947c67ffc0fc7875bdc902a5799",
+      "source": "parent",
+      "stem": "libero_goal_task08"
+    },
+    {
+      "index": 29,
+      "metadata_sha256": "a903573dad9905ce0f76c06d6cceaaf87eccb1e525e8e4153b39150aea59f456",
+      "npz_sha256": "18c80fbbf7eca3110f1ab8e49c691d213db82f97cd17855a08cf4ac8c5010bb7",
+      "source": "parent",
+      "stem": "libero_goal_task09"
+    },
+    {
+      "index": 30,
+      "metadata_sha256": "5d244af5c6125ff526dab1099d168f343c628d5284291408ab4d083a430fbdf0",
+      "npz_sha256": "8952499c4917d8b573987f618535b23b43e899037f54202d6c6a13ba4d79aadb",
+      "source": "parent",
+      "stem": "libero_10_task00"
+    },
+    {
+      "index": 31,
+      "metadata_sha256": "072ba6f129b109c6ffdaaf16ef4ce255f39da78156438a6529c250fd1a4ad050",
+      "npz_sha256": "ea6f47136f908c3a029b5462f961d9a9c5e4c658b84fe5ec7446fad63bc5c851",
+      "source": "parent",
+      "stem": "libero_10_task01"
+    },
+    {
+      "index": 32,
+      "metadata_sha256": "072021805fa0ba6ec965599ff6f5caa0378363c00e0b12cc07b409e9ca805fc5",
+      "npz_sha256": "888401afd0c4597e9f665358d31dabff3aa10a833417ecf107b9c959ec7a6ff8",
+      "source": "shard_a",
+      "stem": "libero_10_task02"
+    },
+    {
+      "index": 33,
+      "metadata_sha256": "e9b62b1bf0938a3da9c523afb31928ad9034e9e071cf775f34f6a00065fb187f",
+      "npz_sha256": "9a680aa8ef70bd560d73481bad320a833f05c769f2cf4fe3a1db317c595d99ca",
+      "source": "shard_a",
+      "stem": "libero_10_task03"
+    },
+    {
+      "index": 34,
+      "metadata_sha256": "f347560d2f5de3ec9a752e4b19763bdc2e9ede567f4f88792f9258f004e00072",
+      "npz_sha256": "e105c61b7b360b45ff09c4f5adf6aa0a4b76c7ccb7f5cda0157c3b48becd5e97",
+      "source": "shard_a",
+      "stem": "libero_10_task04"
+    },
+    {
+      "index": 35,
+      "metadata_sha256": "96055a9879e726d0ae8a2d03a8e5452b867146893ad49807923ec48668e164e9",
+      "npz_sha256": "2e78dda37b3e0ec5ae1099e1ff1b80e25d63f7803a90fc764f70c5699a1094f1",
+      "source": "shard_a",
+      "stem": "libero_10_task05"
+    },
+    {
+      "index": 36,
+      "metadata_sha256": "41b63046ce941e536721b4dc48b414771cd78cacd78df2226affa14e93e79643",
+      "npz_sha256": "8448a6abcb09c1b83895c720b2801b9e0125e56f091760da87146c06a47aaee8",
+      "source": "shard_b",
+      "stem": "libero_10_task06"
+    },
+    {
+      "index": 37,
+      "metadata_sha256": "8a55a7147ab1561b558d54be4230b99d0fc36212891cc018a2aeb307a0fcb9f1",
+      "npz_sha256": "d61278b60f15a617fb29c6fdfae91695dbe6b2fa64ea3bcc24822e6e03f4500a",
+      "source": "shard_b",
+      "stem": "libero_10_task07"
+    },
+    {
+      "index": 38,
+      "metadata_sha256": "2bddf2851ce846b880ffb0689d56390e6baff9bc7637e496bfe7949da9c0a123",
+      "npz_sha256": "b975fd6325d1ea79785b7bf258395b31648725008f61c3f65f3759e66d5b4576",
+      "source": "shard_b",
+      "stem": "libero_10_task08"
+    },
+    {
+      "index": 39,
+      "metadata_sha256": "937f404a15e75ad6d90b137cd4e73613148ef04d3fa3715f7ca77d6a63919841",
+      "npz_sha256": "725d8bca12eeeb7e54fe0df75c536a6b8b6081c08a180c9228a43596983dd8e8",
+      "source": "shard_b",
+      "stem": "libero_10_task09"
+    }
+  ],
+  "schema_version": 1,
+  "scientific_source_commit": "24423e8114ace80e6a76f22bee29992cea420cfc",
+  "subset_evidence": {
+    "A": {
+      "completed_result_sha256": "c65b70daf07634f8c54b5ab92a41c8480fb41f68abed14c6253cc777de562410",
+      "completed_subset_sha256": "416d655d3520c04019fb7ea285db23c91f31d783c8e441e6facd7b4b13ada03c",
+      "sha256sums_sha256": "e127d911b436a010fe8fa70671d64f8fb68049369f7e0a0dd93ef3e3ed2b429b"
+    },
+    "B": {
+      "completed_result_sha256": "581e0baf5d2c0f42b58b9e5e2e98dba7a608e7a2ce058457f70c0d8bdcfed48b",
+      "completed_subset_sha256": "0b715a07ed08ac4b6aa9ed4c6b4ee84591566829db360ae0317163b1a4e81671",
+      "sha256sums_sha256": "1043c0ea3d4c5b4b285e2b4c033275f8b42ebafbcf489f7ad9b9fcc993c90633"
+    }
+  }
+}

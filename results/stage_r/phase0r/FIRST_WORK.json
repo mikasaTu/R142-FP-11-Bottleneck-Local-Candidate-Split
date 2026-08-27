@@ -1,0 +1,10 @@
+{
+  "authority_manifest_sha256": "3d5a37ec8a7e2c0dfd0c808ad59553c43a13c846b90f99c1afaa3529a072469c",
+  "gid": 2254,
+  "milestone": "all_authoritative_raw_complete_before_frozen_analysis",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "raw_rollout_count": 20480,
+  "raw_task_count": 40,
+  "schema_version": 1,
+  "uid": 2254
+}

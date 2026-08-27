@@ -1,0 +1,16 @@
+{
+  "analysis_completion_sha256": "61f926ad2408e314b8cbd41dcc23a4f59cfe48c5102f8847df1074733fe168eb",
+  "analysis_summary_sha256": "7da6f4751f64f08bdfa50e7f37ac1dd1a2f80b7f3f36862f12e7e95ef475c299",
+  "authority_manifest_sha256": "3d5a37ec8a7e2c0dfd0c808ad59553c43a13c846b90f99c1afaa3529a072469c",
+  "checkpoint": "CHECKPOINT_1_STOP",
+  "decision": "NO_STAGE_R_PRECONDITION_ON_PINNED_PI05_LIBERO",
+  "gid": 2254,
+  "phase1_authorized": false,
+  "positive_control_pass": true,
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "raw_completion_sha256": "9255838afefec38d76f9de6bbac962ffc2a8538d283e30949eb4c67e5b8d4675",
+  "retained_tasks": [],
+  "schema_version": 1,
+  "success_gate": "persisted_complete_phase0r_evaluation",
+  "uid": 2254
+}

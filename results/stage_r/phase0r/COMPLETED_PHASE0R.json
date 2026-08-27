@@ -1,0 +1,7 @@
+{
+  "checkpoint": "CHECKPOINT_1_STOP",
+  "decision": "NO_STAGE_R_PRECONDITION_ON_PINNED_PI05_LIBERO",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "summary": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase0r_merged/r142-stage-r-phase0r-authoritative-20260827/analysis/phase0r_summary.json",
+  "summary_sha256": "7da6f4751f64f08bdfa50e7f37ac1dd1a2f80b7f3f36862f12e7e95ef475c299"
+}
