@@ -54,6 +54,24 @@ frozen executable protocols, corresponding reports, publication XML, source
 revisions, and SHA-256 manifest for Step 1 and Step 2 are grouped under
 [`docs/steps/`](docs/steps/README.md).
 
+## Stage-R trajectory-axis revalidation
+
+Stage-R re-tested the hypothesis on trajectory control steps with eventual
+episode success. The frozen plan is
+[`docs/steps/step3/PLAN.md`](docs/steps/step3/PLAN.md), the complete result is
+[`reports/stage_r/PHASE0R_REPORT.md`](reports/stage_r/PHASE0R_REPORT.md), and
+the plan-by-plan closure audit is
+[`reports/stage_r/PLAN_COMPLETION_AUDIT.md`](reports/stage_r/PLAN_COMPLETION_AUDIT.md).
+
+Phase E passed all engineering gates. Phase-0R completed 20,480 LIBERO
+rollouts and retained zero tasks; RoboTwin is explicitly reported as
+`SOURCE_LIMITATION_UNVERIFIABLE`. The frozen stopping rule therefore produced
+`CHECKPOINT_1_STOP` and `phase1_authorized=false`. Phase-1R was conditional on
+an approved retained task, so starting it would violate the preregistered
+protocol. All 40 NPZ files, all 40 metadata files, manifests, reports, negative
+controls, failure records, and mechanism analysis are archived under
+[`results/stage_r/`](results/stage_r/) and [`reports/stage_r/`](reports/stage_r/).
+
 ## Local CPU smoke
 
 ```bash

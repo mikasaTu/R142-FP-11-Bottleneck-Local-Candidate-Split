@@ -74,9 +74,34 @@
       "bytes": 903,
       "path": "docs/steps/step2/SOURCE.json",
       "sha256": "e500ab61abdb37a43b524edb5dbcc1f78cf8ba99992cee9e6a9c705f3bd7562e"
+    },
+    {
+      "bytes": 7681,
+      "path": "docs/steps/step3/PLAN.md",
+      "sha256": "211559f072027fa7f8cba39a34eb09781cd29afab96acb23d467460add0aed65"
+    },
+    {
+      "bytes": 8651,
+      "path": "docs/steps/step3/PLAN_FEISHU_SNAPSHOT.xml",
+      "sha256": "9be8396dc31da65387fea178cef28ecd6c07ce193c4f58e8e80b8039a1d15abc"
+    },
+    {
+      "bytes": 10775,
+      "path": "docs/steps/step3/REPORT.md",
+      "sha256": "efeaaaa3f6773bc64ae44a6924c499cc10138f6d41acd6ab0259d6a89cdf1118"
+    },
+    {
+      "bytes": 16402,
+      "path": "docs/steps/step3/REPORT_FEISHU_SOURCE.xml",
+      "sha256": "bb61312a1c43d722216a741584bcefc9fd1c50af1c47e40f9251a3c1e19139d9"
+    },
+    {
+      "bytes": 773,
+      "path": "docs/steps/step3/SOURCE.json",
+      "sha256": "1847db1d4c6ba25f40b16d95fb1707a9f899b58b218977471194b189bc94fe01"
     }
   ],
-  "generated_at_utc": "2026-08-23T18:36:42.431165+00:00",
+  "generated_at_utc": "2026-08-27T09:53:34.752593+00:00",
   "schema_version": 1,
   "source": "Feishu docs v2 readback plus canonical repository artifacts"
 }

@@ -64,6 +64,21 @@ STEPS = {
         "canonical_report": "reports/STAGE2A_EXPERIMENT_REPORT.md",
         "report_feishu_source": "reports/FEISHU_STAGE2A_EXPERIMENT_REPORT.xml",
     },
+    "step3": {
+        "plan": {
+            "wiki_node_token": "DSMtwE7Yziosoqk5KFwcEYzmnWe",
+            "document_token": "D6NVdaX3xowB9wxTcE8cirT4n9f",
+            "wiki_url": "https://icnbwz7kd1ui.feishu.cn/wiki/DSMtwE7Yziosoqk5KFwcEYzmnWe",
+        },
+        "report": {
+            "wiki_node_token": "EKjTwvfl8i9ssnkCmyEc7RuJnSW",
+            "document_token": "UNtUdgZYfoCMhGxZ3CQcOo3RnAg",
+            "wiki_url": "https://icnbwz7kd1ui.feishu.cn/wiki/EKjTwvfl8i9ssnkCmyEc7RuJnSW",
+        },
+        "canonical_plan": "docs/steps/step3/PLAN.md",
+        "canonical_report": "reports/stage_r/PHASE0R_REPORT.md",
+        "report_feishu_source": "reports/stage_r/FEISHU_STEP3_EXPERIMENT_REPORT.xml",
+    },
 }
 
 
@@ -174,7 +189,10 @@ def main() -> None:
         report_doc = fetch_document(spec["report"]["document_token"])
 
         write_text(target / "PLAN_FEISHU_SNAPSHOT.xml", plan_doc["content"] + "\n")
-        shutil.copyfile(REPO_ROOT / spec["canonical_plan"], target / "PLAN.md")
+        canonical_plan = REPO_ROOT / spec["canonical_plan"]
+        archived_plan = target / "PLAN.md"
+        if canonical_plan.resolve() != archived_plan.resolve():
+            shutil.copyfile(canonical_plan, archived_plan)
         shutil.copyfile(REPO_ROOT / spec["canonical_report"], target / "REPORT.md")
         shutil.copyfile(
             REPO_ROOT / spec["report_feishu_source"],

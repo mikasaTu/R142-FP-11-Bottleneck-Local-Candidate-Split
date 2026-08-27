@@ -41,6 +41,8 @@ not start. Fixing a defect requires a new implementation commit and complete
 gate rerun. Changing checkpoint requires an explicit lineage revision; no
 outcome-based silent substitution is allowed.
 
-Completion requires `results/stage_r/gates/COMPLETED_ENGINEERING_GATES.json`
-and SHA-256 verification. A smoke, first-work marker or a passing subset is not
-gate completion.
+Completion requires the run-specific
+`results/stage_r/gates/pai_r4_idle4/gates/COMPLETED_ENGINEERING_GATES.json`
+and verification of
+`results/stage_r/gates/pai_r4_idle4/BUNDLE_SHA256SUMS`. A smoke, first-work
+marker or a passing subset is not gate completion.
