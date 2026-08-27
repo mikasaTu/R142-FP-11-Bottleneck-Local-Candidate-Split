@@ -3,11 +3,11 @@
   "kind": "pytorchjob",
   "name_prefix": "r142-fp11-phase1r-natural-shard-a0-idle4",
   "description": "R142 Stage-R Phase-1R natural execution shard A0; fixed outcome-blind rank subset; calibration and heldout streams; no shard analysis or unblinding",
-  "resource_alias": "idle-a800-wrc-4gpu",
+  "resource_alias": "idle-a800-wallx-plug-native5-4gpu",
   "workspace_id": "179169",
   "provenance": {
-    "contract_source_job_id": "dlct3tq8a7z5lsdd",
-    "resource_source_job_id": "dlct3tq8a7z5lsdd",
+    "contract_source_job_id": "dlc1o0zea2lzqf9o",
+    "resource_source_job_id": "dlc1x35e210yt1lg",
     "submission_method": "cli_create",
     "pai_clone_performed": false,
     "source_role": "readback_reference"
@@ -31,6 +31,18 @@
         "id": "d-ejgj2ej7io1t2t32uc",
         "version": "v1",
         "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+        "options": ""
+      },
+      {
+        "id": "d-wf28n33a829hb5kvne",
+        "version": "v1",
+        "mount_path": "/mnt/cpfs/zbl-cpfs-new/x2robot_data/",
+        "options": ""
+      },
+      {
+        "id": "d-n0h4g9qcnu9i4acnya",
+        "version": "v1",
+        "mount_path": "/mnt/cpfs/zbl-cpfs-new/share/",
         "options": ""
       }
     ],

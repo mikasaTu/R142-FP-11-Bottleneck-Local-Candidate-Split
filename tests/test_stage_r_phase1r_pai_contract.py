@@ -24,6 +24,8 @@ EXPECTED_MOUNTS = (
     ("d-mkixtohdn75dp8x9tb", "/mnt/cpfs/zbl-cpfs-new/USERS/leon"),
     ("d-36p023eg0f2vuqny8y", "/mnt/cpfs/zbl-cpfs-new/CKPT/leon"),
     ("d-ejgj2ej7io1t2t32uc", "/mnt/cpfs/zbl-cpfs-new/dataset/leon"),
+    ("d-wf28n33a829hb5kvne", "/mnt/cpfs/zbl-cpfs-new/x2robot_data/"),
+    ("d-n0h4g9qcnu9i4acnya", "/mnt/cpfs/zbl-cpfs-new/share/"),
 )
 EXPECTED_AIMASTER = (
     "--job-execution-mode=Sync --enable-job-restart=True "
@@ -69,7 +71,7 @@ class Phase1RPAIContractTest(unittest.TestCase):
                 manifest = json.loads(path.read_text(encoding="utf-8"))
                 self.assertEqual(manifest["schema_version"], 2)
                 self.assertEqual(manifest["kind"], "pytorchjob")
-                self.assertEqual(manifest["resource_alias"], "idle-a800-wrc-4gpu")
+                self.assertEqual(manifest["resource_alias"], "idle-a800-wallx-plug-native5-4gpu")
                 self.assertEqual(manifest["workspace_id"], "179169")
                 self.assertEqual(manifest["network"], {})
                 self.assertEqual(
