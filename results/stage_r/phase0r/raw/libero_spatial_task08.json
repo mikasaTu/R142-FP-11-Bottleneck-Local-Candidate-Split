@@ -1,0 +1,27 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 10222,
+  "data_file": "libero_spatial_task08.npz",
+  "data_sha256": "4ee290655c2c28c7edcb2152d9cf0eaaf8e4129e2d9c336e3433b01091296c6b",
+  "elapsed_seconds": 12970.282433509827,
+  "environment_steps": 50079,
+  "physical_batched_policy_calls": 2619,
+  "pose_keys": [
+    "akita_black_bowl_1_pos",
+    "akita_black_bowl_1_quat",
+    "akita_black_bowl_2_pos",
+    "akita_black_bowl_2_quat",
+    "cookies_1_pos",
+    "cookies_1_quat",
+    "glazed_rim_porcelain_ramekin_1_pos",
+    "glazed_rim_porcelain_ramekin_1_quat",
+    "plate_1_pos",
+    "plate_1_quat"
+  ],
+  "prompt": "pick up the black bowl next to the plate and place it on the plate",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_spatial",
+  "task_id": 8
+}

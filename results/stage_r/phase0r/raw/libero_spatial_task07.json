@@ -1,0 +1,27 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 12391,
+  "data_file": "libero_spatial_task07.npz",
+  "data_sha256": "70bfe3b3b866797c8d47705e7e7cce1a44648902bb7a9ab23d2e94b969d3d1f6",
+  "elapsed_seconds": 16464.526730537415,
+  "environment_steps": 60908,
+  "physical_batched_policy_calls": 3144,
+  "pose_keys": [
+    "akita_black_bowl_1_pos",
+    "akita_black_bowl_1_quat",
+    "akita_black_bowl_2_pos",
+    "akita_black_bowl_2_quat",
+    "cookies_1_pos",
+    "cookies_1_quat",
+    "glazed_rim_porcelain_ramekin_1_pos",
+    "glazed_rim_porcelain_ramekin_1_quat",
+    "plate_1_pos",
+    "plate_1_quat"
+  ],
+  "prompt": "pick up the black bowl on the stove and place it on the plate",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_spatial",
+  "task_id": 7
+}
