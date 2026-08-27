@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Outcome-blind, fail-closed merge of the two Phase-1R natural shards.
+"""Outcome-blind, fail-closed merge of four Phase-1R execution shards.
 
 This utility is deliberately independent of the natural-run collector.  It
 only consumes terminally sealed shard directories, the frozen rank mapping,
@@ -33,6 +33,7 @@ from typing import Any, Iterable
 PROTOCOL_ID = "r142-stage-r-phase1r-human-override-v1"
 PROTOCOL_SHA256 = "7e4de68cba5c0fdb288ee25d81f30b72d65483753973f06f44b395e3db0b9cb4"
 SHARDS_SHA256 = "f0e4b137d5f5b39737f671dc273428fdd5b646327863f03a542c2c7c5e2977d6"
+EXECUTION_CONFIG_SHA256 = "0279da07d96f243a71503230903a55aa2027997ed3b422f379a040523ba63dd3"
 SELECTION_MANIFEST_SHA256 = "082f1f28f6ed8bddb1ed2ef87a3b848ac3daccec5c333f7f2cf1c4ef5d988231"
 AUTHORITY_MANIFEST_SHA256 = "3d5a37ec8a7e2c0dfd0c808ad59553c43a13c846b90f99c1afaa3529a072469c"
 CALIBRATION_SHA256 = "f8a6486a96b9fc02071c391c4971ac2251d5c5e89dbb405f9d51dcd44fbfad6a"
@@ -40,6 +41,12 @@ SHARD_A_RANKS = tuple(range(0, 8))
 SHARD_B_RANKS = tuple(range(8, 16))
 SHARD_A_NAME = "A"
 SHARD_B_NAME = "B"
+EXECUTION_SHARDS = {
+    "A0": ("A", tuple(range(0, 4))),
+    "A1": ("A", tuple(range(4, 8))),
+    "B0": ("B", tuple(range(8, 12))),
+    "B1": ("B", tuple(range(12, 16))),
+}
 EXPECTED_OWNER = (2254, 2254)
 STREAMS = ("calibration", "heldout")
 TASK_RE = re.compile(r"^(libero_(?:spatial|object|goal|10)_task(?:0[0-9]))$")
@@ -214,6 +221,43 @@ def validate_config(shards_path: Path) -> dict[str, Any]:
     return config
 
 
+def validate_execution_config(path: Path) -> dict[str, Any]:
+    require_sha(path, EXECUTION_CONFIG_SHA256)
+    config = read_json(path)
+    expected = {
+        "schema_version": 1,
+        "protocol_id": PROTOCOL_ID,
+        "amendment_kind": "outcome_blind_resource_compatibility_execution_split",
+        "scientific_contract_unchanged": True,
+        "frozen_shards_sha256": SHARDS_SHA256,
+        "phase0r_authority_manifest_sha256": AUTHORITY_MANIFEST_SHA256,
+        "active_job_limit": 4,
+        "gpu_per_job": 4,
+        "cpu_per_job": 46,
+        "memory_per_job": "800Gi",
+        "shared_memory_per_job": "800Gi",
+        "total_gpu_limit": 16,
+        "resource_id": "quotaewyznuc7b9l",
+        "oversold_type": "AcceptQuotaOverSold",
+        "outcomes_inspected": False,
+        "thresholds_changed": False,
+        "seeds_changed": False,
+        "candidate_budget_changed": False,
+        "selection_changed": False,
+        "analysis_protocol_changed": False,
+    }
+    for key, value in expected.items():
+        if config.get(key) != value:
+            fail(f"execution config mismatch {key}")
+    entries = config.get("execution_shards")
+    if not isinstance(entries, dict) or set(entries) != set(EXECUTION_SHARDS):
+        fail("execution config must contain exactly A0/A1/B0/B1")
+    for name, (logical, ranks) in EXECUTION_SHARDS.items():
+        if entries[name] != {"logical_shard": logical, "global_ranks": list(ranks)}:
+            fail(f"execution config mapping mismatch {name}")
+    return config
+
+
 def validate_selection(selection_root: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     manifest_path = selection_root / "SELECTION_MANIFEST.json"
     require_sha(manifest_path, SELECTION_MANIFEST_SHA256)
@@ -269,9 +313,10 @@ def validate_selection(selection_root: Path) -> tuple[dict[str, Any], dict[str, 
 
 def validate_terminal_sidecar(
     run_root: Path,
-    shard: str,
+    execution_shard: str,
+    logical_shard: str,
     source_commit: str,
-    expected_job_id: str | None,
+    expected_job_id: str,
 ) -> dict[str, Any]:
     path = run_root / "PAI_TERMINAL_COMPLETION.json"
     terminal = read_json(path)
@@ -279,6 +324,7 @@ def validate_terminal_sidecar(
         "schema_version",
         "marker_type",
         "shard",
+        "execution_shard",
         "run_id",
         "job_id",
         "terminal_status",
@@ -293,15 +339,15 @@ def validate_terminal_sidecar(
         fail(f"terminal completion fields missing: {path}")
     if terminal.get("schema_version") != 1 or terminal.get("marker_type") != "pai_terminal_completion":
         fail(f"terminal completion schema mismatch: {path}")
-    if terminal.get("shard") != shard or terminal.get("run_id") != run_root.name:
+    if terminal.get("shard") != logical_shard or terminal.get("execution_shard") != execution_shard or terminal.get("run_id") != run_root.name:
         fail(f"terminal completion identity mismatch: {path}")
     job_id = terminal.get("job_id")
     if not isinstance(job_id, str) or not job_id or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{2,127}", job_id):
         fail(f"invalid PAI job id: {path}")
-    if expected_job_id is not None and job_id != expected_job_id:
-        fail(f"unexpected PAI job id for {shard}: {job_id} != {expected_job_id}")
+    if job_id != expected_job_id:
+        fail(f"unexpected PAI job id for {execution_shard}: {job_id} != {expected_job_id}")
     if terminal.get("terminal_status") != "Succeeded":
-        fail(f"PAI terminal status is not Succeeded for {shard}: {terminal.get('terminal_status')!r}")
+        fail(f"PAI terminal status is not Succeeded for {execution_shard}: {terminal.get('terminal_status')!r}")
     if terminal.get("completion_marker") != "COMPLETED_EVALUATION_RESULT.json" or terminal.get("sha256sums") != "SHA256SUMS":
         fail(f"terminal completion file names mismatch: {path}")
     if terminal.get("source_commit") != source_commit:
@@ -313,7 +359,8 @@ def validate_terminal_sidecar(
         fail(f"terminal completion marker SHA mismatch: {path}")
     require_owner(path)
     return {
-        "shard": shard,
+        "shard": logical_shard,
+        "execution_shard": execution_shard,
         "run_id": run_root.name,
         "job_id": job_id,
         "terminal_status": "Succeeded",
@@ -472,67 +519,96 @@ def validate_task(
 
 def validate_shard(
     run_root: Path,
-    shard: str,
+    execution_shard: str,
+    logical_shard: str,
+    expected_ranks: tuple[int, ...],
     mapping_names: list[str],
+    global_rank_for_task: dict[str, int],
     selection_index: dict[str, dict[str, Any]],
     source_commit: str,
-    expected_job_id: str | None,
+    expected_job_id: str,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]], dict[str, str]]:
-    run_root = require_safe_dir(run_root, f"shard {shard} run")
-    prefix = f"r142-stage-r-phase1r-shard-{shard.lower()}-"
+    run_root = require_safe_dir(run_root, f"execution shard {execution_shard} run")
+    prefix = f"r142-stage-r-phase1r-shard-{execution_shard.lower()}-"
     if not run_root.name.startswith(prefix):
-        fail(f"shard {shard} run id is not frozen-prefix: {run_root.name}")
+        fail(f"execution shard {execution_shard} run id is not frozen-prefix: {run_root.name}")
     if owner(run_root) != EXPECTED_OWNER:
-        fail(f"shard {shard} run owner mismatch: {run_root}")
+        fail(f"execution shard {execution_shard} run owner mismatch: {run_root}")
     sums = validate_exhaustive_sums(run_root)
-    terminal = validate_terminal_sidecar(run_root, shard, source_commit, expected_job_id)
+    terminal = validate_terminal_sidecar(run_root, execution_shard, logical_shard, source_commit, expected_job_id)
     complete_path = run_root / "COMPLETED_EVALUATION_RESULT.json"
     complete = read_json(complete_path)
+    expected_task_count = len(mapping_names)
     if complete.get("success_gate") != "persisted_completed_evaluation_result":
-        fail(f"shard {shard} completion gate mismatch")
+        fail(f"execution shard {execution_shard} completion gate mismatch")
     for key, value in {
+        "schema_version": 1,
         "protocol_id": PROTOCOL_ID,
         "source_commit": source_commit,
         "protocol_sha256": PROTOCOL_SHA256,
         "shards_sha256": SHARDS_SHA256,
+        "execution_config_sha256": EXECUTION_CONFIG_SHA256,
         "selection_manifest_sha256": SELECTION_MANIFEST_SHA256,
         "calibration_sha256": CALIBRATION_SHA256,
         "authority_manifest_sha256": AUTHORITY_MANIFEST_SHA256,
-        "shard": shard,
+        "shard": logical_shard,
+        "execution_shard": execution_shard,
         "phase1_authorized": False,
         "analysis_performed": False,
         "checkpoint": "CHECKPOINT_1_PENDING_GLOBAL_MERGE",
-        "decision": "NATURAL_SHARD_COMPLETE_NO_UNBLINDING",
-        "streams": list(STREAMS),
-    }.items():
-        if complete.get(key) != value:
-            fail(f"shard {shard} completion mismatch {key}")
-    if (complete.get("uid"), complete.get("gid")) != EXPECTED_OWNER:
-        fail(f"shard {shard} completion owner mismatch")
-    shard_marker_path = run_root / "SHARD_NATURAL_COMPLETE.json"
-    shard_marker = read_json(shard_marker_path)
-    expected_task_count = len(mapping_names)
-    if shard_marker.get("marker_type") != "natural_phase1r_shard" or shard_marker.get("protocol_id") != PROTOCOL_ID:
-        fail(f"shard {shard} marker type/protocol mismatch")
-    for key, value in {
-        "source_commit": source_commit,
-        "protocol_sha256": PROTOCOL_SHA256,
-        "shards_sha256": SHARDS_SHA256,
-        "selection_manifest_sha256": SELECTION_MANIFEST_SHA256,
-        "calibration_sha256": CALIBRATION_SHA256,
-        "authority_manifest_sha256": AUTHORITY_MANIFEST_SHA256,
-        "shard": shard,
+        "decision": "NATURAL_EXECUTION_SHARD_COMPLETE_NO_UNBLINDING",
         "task_names": mapping_names,
         "task_count": expected_task_count,
         "natural_cells": expected_task_count * 240,
         "natural_descendants_per_stream": expected_task_count * 12 * 10 * 16,
         "streams": list(STREAMS),
-        "checkpoint": "SHARD_NATURAL_COMPLETE",
+    }.items():
+        if complete.get(key) != value:
+            fail(f"execution shard {execution_shard} completion mismatch {key}")
+    if (complete.get("uid"), complete.get("gid")) != EXPECTED_OWNER:
+        fail(f"execution shard {execution_shard} completion owner mismatch")
+    shard_marker_path = run_root / "SHARD_NATURAL_COMPLETE.json"
+    shard_marker = read_json(shard_marker_path)
+    if shard_marker.get("marker_type") != "natural_phase1r_execution_shard" or shard_marker.get("protocol_id") != PROTOCOL_ID:
+        fail(f"execution shard {execution_shard} marker type/protocol mismatch")
+    for key, value in {
+        "source_commit": source_commit,
+        "protocol_sha256": PROTOCOL_SHA256,
+        "shards_sha256": SHARDS_SHA256,
+        "execution_config_sha256": EXECUTION_CONFIG_SHA256,
+        "selection_manifest_sha256": SELECTION_MANIFEST_SHA256,
+        "calibration_sha256": CALIBRATION_SHA256,
+        "authority_manifest_sha256": AUTHORITY_MANIFEST_SHA256,
+        "shard": logical_shard,
+        "execution_shard": execution_shard,
+        "global_ranks": list(expected_ranks),
+        "task_names": mapping_names,
+        "natural_cells": expected_task_count * 240,
+        "natural_descendants_per_stream": expected_task_count * 12 * 10 * 16,
+        "streams": list(STREAMS),
+        "checkpoint": "EXECUTION_SHARD_NATURAL_COMPLETE",
     }.items():
         if shard_marker.get(key) != value:
-            fail(f"shard {shard} marker mismatch {key}")
+            fail(f"execution shard {execution_shard} marker mismatch {key}")
+    expected_marker_mapping = []
+    for task_name in mapping_names:
+        suite, task_id = parse_task_name(task_name)
+        global_rank = global_rank_for_task[task_name]
+        expected_marker_mapping.append(
+            {
+                "local_rank": expected_ranks.index(global_rank),
+                "global_rank": global_rank,
+                "task_name": task_name,
+                "suite": suite,
+                "task_id": task_id,
+                "selection": f"{task_name}.json",
+                "completed_cells": 240,
+            }
+        )
+    if shard_marker.get("mapping") != expected_marker_mapping:
+        fail(f"execution shard {execution_shard} marker mapping mismatch")
     if (shard_marker.get("uid"), shard_marker.get("gid")) != EXPECTED_OWNER:
-        fail(f"shard {shard} marker owner mismatch")
+        fail(f"execution shard {execution_shard} marker owner mismatch")
     tasks: dict[str, dict[str, Any]] = {}
     for task_name in mapping_names:
         selection_name = f"{task_name}.json"
@@ -544,7 +620,7 @@ def validate_shard(
     # its inventory check after all reads to catch any file appearing mid-run.
     sums_after = validate_exhaustive_sums(run_root)
     if sums_after != sums:
-        fail(f"shard {shard} checksum inventory changed during validation")
+        fail(f"execution shard {execution_shard} checksum inventory changed during validation")
     return terminal, tasks, sums_after
 
 
@@ -611,9 +687,11 @@ def merge(args: argparse.Namespace) -> dict[str, Any]:
     if not re.fullmatch(r"[0-9a-f]{40}", source_commit) or not set(source_commit) - {"0"}:
         fail("--source-commit must be one exact nonzero 40-hex commit")
     shards_path = args.shards_config.resolve()
+    execution_path = args.execution_config.resolve()
     selection_root = require_safe_dir(args.selection_root, "selection root")
     manifest, selection_index = validate_selection(selection_root)
     config = validate_config(shards_path)
+    validate_execution_config(execution_path)
     mapping: dict[str, list[str]] = {}
     global_rank_for_task: dict[str, int] = {}
     for shard in (SHARD_A_NAME, SHARD_B_NAME):
@@ -633,28 +711,52 @@ def merge(args: argparse.Namespace) -> dict[str, Any]:
     for name in mapping[SHARD_A_NAME] + mapping[SHARD_B_NAME]:
         if f"{name}.json" not in selection_index:
             fail(f"frozen mapping task lacks selection: {name}")
+    execution_mapping: dict[str, list[str]] = {}
+    for execution_shard, (logical_shard, ranks) in EXECUTION_SHARDS.items():
+        rank_tasks = config["shards"][logical_shard]["rank_tasks"]
+        execution_mapping[execution_shard] = [
+            name for rank in ranks for name in rank_tasks[str(rank)]
+        ]
+    flattened_execution = [name for key in EXECUTION_SHARDS for name in execution_mapping[key]]
+    if flattened_execution != mapping["A"] + mapping["B"] or len(set(flattened_execution)) != 40:
+        fail("execution shard mapping does not exactly preserve frozen A/B order")
     output = args.output
     if output.exists() or output.is_symlink():
         fail(f"output must be a fresh non-existing path: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
     output.mkdir(mode=0o750)
     require_owner(output)
-    terminal_a, tasks_a, _ = validate_shard(args.shard_a, SHARD_A_NAME, mapping[SHARD_A_NAME], selection_index, source_commit, args.expected_job_id_a)
-    terminal_b, tasks_b, _ = validate_shard(args.shard_b, SHARD_B_NAME, mapping[SHARD_B_NAME], selection_index, source_commit, args.expected_job_id_b)
-    tasks = {**tasks_a, **tasks_b}
+    run_roots = {name: getattr(args, f"shard_{name.lower()}") for name in EXECUTION_SHARDS}
+    job_ids = {name: getattr(args, f"expected_job_id_{name.lower()}") for name in EXECUTION_SHARDS}
+    terminals: list[dict[str, Any]] = []
+    task_groups: dict[str, dict[str, dict[str, Any]]] = {}
+    for execution_shard, (logical_shard, ranks) in EXECUTION_SHARDS.items():
+        terminal, shard_tasks, _ = validate_shard(
+            run_roots[execution_shard],
+            execution_shard,
+            logical_shard,
+            ranks,
+            execution_mapping[execution_shard],
+            global_rank_for_task,
+            selection_index,
+            source_commit,
+            job_ids[execution_shard],
+        )
+        terminals.append(terminal)
+        task_groups[execution_shard] = shard_tasks
+    tasks = {name: row for group in task_groups.values() for name, row in group.items()}
     if len(tasks) != 40:
         fail(f"validated task count is not 40: {len(tasks)}")
-    for shard, source, names in (
-        (SHARD_A_NAME, args.shard_a, mapping[SHARD_A_NAME]),
-        (SHARD_B_NAME, args.shard_b, mapping[SHARD_B_NAME]),
-    ):
+    for execution_shard, (logical_shard, _ranks) in EXECUTION_SHARDS.items():
+        source = run_roots[execution_shard]
+        names = execution_mapping[execution_shard]
         for name in names:
             suite, task_id = parse_task_name(name)
             link_or_copy_tree(
                 source / "natural" / suite / f"task{task_id:02d}",
                 output / "natural" / suite / f"task{task_id:02d}",
             )
-        copy_provenance(source, output / "provenance" / f"shard_{shard.lower()}")
+        copy_provenance(source, output / "provenance" / f"execution_shard_{execution_shard.lower()}")
     authority = {
         "schema_version": 1,
         "marker_type": "phase1r_natural_authority",
@@ -662,19 +764,21 @@ def merge(args: argparse.Namespace) -> dict[str, Any]:
         "source_commit": source_commit,
         "protocol_sha256": PROTOCOL_SHA256,
         "shards_sha256": SHARDS_SHA256,
+        "execution_config_sha256": EXECUTION_CONFIG_SHA256,
         "selection_manifest_sha256": SELECTION_MANIFEST_SHA256,
         "selection_total_selected": manifest["total_selected"],
         "calibration_sha256": CALIBRATION_SHA256,
         "phase0r_authority_manifest_sha256": AUTHORITY_MANIFEST_SHA256,
         "outcome_blind": True,
         "selection_by_outcome": False,
-        "authority_rule": {"A": "global_ranks_0_7", "B": "global_ranks_8_15"},
-        "terminal_completions": [terminal_a, terminal_b],
+        "authority_rule": {name: f"global_ranks_{ranks[0]}_{ranks[-1]}" for name, (_logical, ranks) in EXECUTION_SHARDS.items()},
+        "terminal_completions": terminals,
         "tasks": [
             tasks[name]
             | {
                 "frozen_index": index,
                 "shard": "A" if index < len(mapping["A"]) else "B",
+                "execution_shard": next(key for key, names in execution_mapping.items() if name in names),
                 "global_rank": global_rank_for_task[name],
             }
             for index, name in enumerate(mapping["A"] + mapping["B"])
@@ -699,6 +803,7 @@ def merge(args: argparse.Namespace) -> dict[str, Any]:
         "source_commit": source_commit,
         "protocol_sha256": PROTOCOL_SHA256,
         "shards_sha256": SHARDS_SHA256,
+        "execution_config_sha256": EXECUTION_CONFIG_SHA256,
         "selection_manifest_sha256": SELECTION_MANIFEST_SHA256,
         "calibration_sha256": CALIBRATION_SHA256,
         "phase0r_authority_manifest_sha256": AUTHORITY_MANIFEST_SHA256,
@@ -708,7 +813,7 @@ def merge(args: argparse.Namespace) -> dict[str, Any]:
         "natural_cells": 40 * 240,
         "natural_descendants_per_stream": 40 * 12 * 10 * 16,
         "streams": list(STREAMS),
-        "shards": [terminal_a, terminal_b],
+        "shards": terminals,
         "owner_required": [2254, 2254],
     }
     write_json(output / "COMPLETED_NATURAL_MERGE.json", completion)
@@ -728,14 +833,19 @@ def merge(args: argparse.Namespace) -> dict[str, Any]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--shard-a", type=Path, required=True, help="exact completed shard A run directory")
-    parser.add_argument("--shard-b", type=Path, required=True, help="exact completed shard B run directory")
+    parser.add_argument("--shard-a0", type=Path, required=True, help="exact completed execution shard A0 run directory")
+    parser.add_argument("--shard-a1", type=Path, required=True, help="exact completed execution shard A1 run directory")
+    parser.add_argument("--shard-b0", type=Path, required=True, help="exact completed execution shard B0 run directory")
+    parser.add_argument("--shard-b1", type=Path, required=True, help="exact completed execution shard B1 run directory")
     parser.add_argument("--shards-config", type=Path, required=True, help="frozen stage_r_phase1r_shards.json")
+    parser.add_argument("--execution-config", type=Path, required=True, help="frozen outcome-blind idle4 execution amendment")
     parser.add_argument("--selection-root", type=Path, required=True, help="frozen selection directory")
     parser.add_argument("--source-commit", required=True, help="exact source commit used by both natural shards")
     parser.add_argument("--output", type=Path, required=True, help="fresh merged output directory")
-    parser.add_argument("--expected-job-id-a", required=True, help="exact PAI job id for shard A")
-    parser.add_argument("--expected-job-id-b", required=True, help="exact PAI job id for shard B")
+    parser.add_argument("--expected-job-id-a0", required=True, help="exact PAI job id for execution shard A0")
+    parser.add_argument("--expected-job-id-a1", required=True, help="exact PAI job id for execution shard A1")
+    parser.add_argument("--expected-job-id-b0", required=True, help="exact PAI job id for execution shard B0")
+    parser.add_argument("--expected-job-id-b1", required=True, help="exact PAI job id for execution shard B1")
     return parser
 
 

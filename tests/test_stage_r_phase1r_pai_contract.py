@@ -20,6 +20,7 @@ TEMPLATES = (
     PAI / "r142_stage_r_phase1r_natural_shard_b1_idle4.json",
 )
 EXECUTION = ROOT / "configs" / "stage_r_phase1r_execution_idle4.json"
+SCIENTIFIC_SHARDS = ROOT / "configs" / "stage_r_phase1r_shards.json"
 EXPECTED_MOUNTS = (
     ("d-mkixtohdn75dp8x9tb", "/mnt/cpfs/zbl-cpfs-new/USERS/leon"),
     ("d-36p023eg0f2vuqny8y", "/mnt/cpfs/zbl-cpfs-new/CKPT/leon"),
@@ -149,6 +150,34 @@ class Phase1RPAIContractTest(unittest.TestCase):
                 self.assertEqual(manifest["submission"]["job_reserved_minutes"], 0)
                 self.assertEqual(manifest["submission"]["job_max_running_time_minutes"], 0)
 
+    def test_execution_split_exactly_preserves_frozen_scientific_mapping(self) -> None:
+        execution = json.loads(EXECUTION.read_text(encoding="utf-8"))
+        scientific = json.loads(SCIENTIFIC_SHARDS.read_text(encoding="utf-8"))
+        expected = {
+            "A0": ("A", list(range(0, 4)), 7),
+            "A1": ("A", list(range(4, 8)), 10),
+            "B0": ("B", list(range(8, 12)), 11),
+            "B1": ("B", list(range(12, 16)), 12),
+        }
+        execution_names = []
+        scientific_names = []
+        for logical in ("A", "B"):
+            rank_tasks = scientific["shards"][logical]["rank_tasks"]
+            for rank in scientific["shards"][logical]["global_ranks"]:
+                scientific_names.extend(rank_tasks[str(rank)])
+        for name, (logical, ranks, task_count) in expected.items():
+            self.assertEqual(
+                execution["execution_shards"][name],
+                {"logical_shard": logical, "global_ranks": ranks},
+            )
+            rank_tasks = scientific["shards"][logical]["rank_tasks"]
+            names = [task for rank in ranks for task in rank_tasks[str(rank)]]
+            self.assertEqual(len(names), task_count)
+            execution_names.extend(names)
+        self.assertEqual(execution_names, scientific_names)
+        self.assertEqual(len(execution_names), 40)
+        self.assertEqual(len(set(execution_names)), 40)
+
     def test_merge_utility_is_outcome_blind_and_fail_closed(self) -> None:
         utility = PAI / "merge_stage_r_phase1r_natural_shards.py"
         self.assertTrue(utility.is_file())
@@ -158,10 +187,28 @@ class Phase1RPAIContractTest(unittest.TestCase):
         self.assertIn("outcome_blind", text)
         self.assertNotIn("os.link", text)
         self.assertIn("shutil.copy2", text)
-        self.assertIn("--expected-job-id-a", text)
-        self.assertIn('"--expected-job-id-a", required=True', text)
+        for shard in ("a0", "a1", "b0", "b1"):
+            self.assertIn(f"--expected-job-id-{shard}", text)
+            self.assertIn(f'"--expected-job-id-{shard}", required=True', text)
         self.assertNotIn("baseline_success", text)
         self.assertNotIn("success]", text)
+        self.assertIn("execution shard {execution_shard} marker mapping mismatch", text)
+        self.assertIn('"task_count": expected_task_count', text)
+        subprocess.run(["python3", "-m", "py_compile", str(utility)], check=True)
+
+    def test_terminal_sealer_requires_exact_succeeded_idle_readback(self) -> None:
+        utility = PAI / "seal_stage_r_phase1r_terminal.py"
+        self.assertTrue(utility.is_file())
+        text = utility.read_text(encoding="utf-8")
+        self.assertIn('job.get("Status") != "Succeeded"', text)
+        self.assertIn('"GPU": "4"', text)
+        self.assertIn('"CPU": "46"', text)
+        self.assertIn('"Memory": "800Gi"', text)
+        self.assertIn('"SharedMemory": "800Gi"', text)
+        self.assertIn('"AcceptQuotaOverSold"', text)
+        self.assertIn('"PAI_JOB_TERMINAL_READBACK.json"', text)
+        self.assertIn('"completion_marker_sha256"', text)
+        self.assertIn("write_exhaustive_sums(root)", text)
         subprocess.run(["python3", "-m", "py_compile", str(utility)], check=True)
 
 
