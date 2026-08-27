@@ -21,6 +21,7 @@ TEMPLATES = (
 )
 EXECUTION = ROOT / "configs" / "stage_r_phase1r_execution_idle4.json"
 SCIENTIFIC_SHARDS = ROOT / "configs" / "stage_r_phase1r_shards.json"
+CHECKPOINT_ATTESTATION = ROOT / "configs" / "stage_r_pi05_libero_checkpoint_attestation.json"
 EXPECTED_MOUNTS = (
     ("d-mkixtohdn75dp8x9tb", "/mnt/cpfs/zbl-cpfs-new/USERS/leon"),
     ("d-36p023eg0f2vuqny8y", "/mnt/cpfs/zbl-cpfs-new/CKPT/leon"),
@@ -54,6 +55,10 @@ class Phase1RPAIContractTest(unittest.TestCase):
         self.assertIn("EXECUTION_SHARD=B1", text)
         self.assertIn("git -C \"$REPO\" archive \"$SOURCE_COMMIT\"", text)
         self.assertIn("collect-natural", text)
+        self.assertIn("CHECKPOINT_ATTESTATION_SHA256=d050805b0c1e9e8d8e879c7443bb10504859c654d0ba031bbbc6ce3635b02fca", text)
+        self.assertIn("frozen_full_content_attestation_plus_exact_metadata_and_content_probes", text)
+        self.assertIn("checkpoint file inventory drifted from full-content attestation", text)
+        self.assertNotIn("digest = hashlib.sha256(path.read_bytes()).hexdigest()", text)
         self.assertIn("COMPLETED_EVALUATION_RESULT.json", text)
         self.assertIn("SHA256SUMS", text)
         self.assertIn("CHECKPOINT_1_PENDING_GLOBAL_MERGE", text)
@@ -177,6 +182,23 @@ class Phase1RPAIContractTest(unittest.TestCase):
         self.assertEqual(execution_names, scientific_names)
         self.assertEqual(len(execution_names), 40)
         self.assertEqual(len(set(execution_names)), 40)
+
+    def test_checkpoint_attestation_is_frozen_and_content_complete(self) -> None:
+        self.assertEqual(
+            hashlib.sha256(CHECKPOINT_ATTESTATION.read_bytes()).hexdigest(),
+            "d050805b0c1e9e8d8e879c7443bb10504859c654d0ba031bbbc6ce3635b02fca",
+        )
+        attestation = json.loads(CHECKPOINT_ATTESTATION.read_text(encoding="utf-8"))
+        self.assertEqual(attestation["marker_type"], "full_content_checkpoint_attestation")
+        self.assertEqual(attestation["tree_sha256"], "42d571bd87f05f1182810f5a8bfa6d084c0d0dd277aff739bcf8f69868e6fb99")
+        self.assertEqual(attestation["file_count"], 16)
+        self.assertEqual(attestation["bytes"], 12439085481)
+        self.assertEqual(len(attestation["files"]), 16)
+        self.assertEqual(len({row["path"] for row in attestation["files"]}), 16)
+        for row in attestation["files"]:
+            self.assertEqual(len(row["sha256"]), 64)
+            self.assertEqual(len(row["head_sha256"]), 64)
+            self.assertEqual(len(row["tail_sha256"]), 64)
 
     def test_merge_utility_is_outcome_blind_and_fail_closed(self) -> None:
         utility = PAI / "merge_stage_r_phase1r_natural_shards.py"
