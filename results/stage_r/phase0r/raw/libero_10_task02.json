@@ -1,0 +1,21 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 26639,
+  "data_file": "libero_10_task02.npz",
+  "data_sha256": "888401afd0c4597e9f665358d31dabff3aa10a833417ecf107b9c959ec7a6ff8",
+  "elapsed_seconds": 27429.43476176262,
+  "environment_steps": 132156,
+  "physical_batched_policy_calls": 6929,
+  "pose_keys": [
+    "chefmate_8_frypan_1_pos",
+    "chefmate_8_frypan_1_quat",
+    "moka_pot_1_pos",
+    "moka_pot_1_quat"
+  ],
+  "prompt": "turn on the stove and put the moka pot on it",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_10",
+  "task_id": 2
+}

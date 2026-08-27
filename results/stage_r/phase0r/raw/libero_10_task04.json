@@ -1,0 +1,27 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 25239,
+  "data_file": "libero_10_task04.npz",
+  "data_sha256": "e105c61b7b360b45ff09c4f5adf6aa0a4b76c7ccb7f5cda0157c3b48becd5e97",
+  "elapsed_seconds": 12882.802268266678,
+  "environment_steps": 125184,
+  "physical_batched_policy_calls": 6509,
+  "pose_keys": [
+    "plate_1_pos",
+    "plate_1_quat",
+    "plate_2_pos",
+    "plate_2_quat",
+    "porcelain_mug_1_pos",
+    "porcelain_mug_1_quat",
+    "red_coffee_mug_1_pos",
+    "red_coffee_mug_1_quat",
+    "white_yellow_mug_1_pos",
+    "white_yellow_mug_1_quat"
+  ],
+  "prompt": "put the white mug on the left plate and put the yellow and white mug on the right plate",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_10",
+  "task_id": 4
+}

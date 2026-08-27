@@ -1,0 +1,21 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 28381,
+  "data_file": "libero_10_task09.npz",
+  "data_sha256": "725d8bca12eeeb7e54fe0df75c536a6b8b6081c08a180c9228a43596983dd8e8",
+  "elapsed_seconds": 18267.451627492905,
+  "environment_steps": 140967,
+  "physical_batched_policy_calls": 7354,
+  "pose_keys": [
+    "porcelain_mug_1_pos",
+    "porcelain_mug_1_quat",
+    "white_yellow_mug_1_pos",
+    "white_yellow_mug_1_quat"
+  ],
+  "prompt": "put the yellow and white mug in the microwave and close it",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_10",
+  "task_id": 9
+}

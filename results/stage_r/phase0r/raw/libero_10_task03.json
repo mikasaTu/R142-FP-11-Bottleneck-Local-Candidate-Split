@@ -1,0 +1,21 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 24094,
+  "data_file": "libero_10_task03.npz",
+  "data_sha256": "9a680aa8ef70bd560d73481bad320a833f05c769f2cf4fe3a1db317c595d99ca",
+  "elapsed_seconds": 17439.6256005764,
+  "environment_steps": 119469,
+  "physical_batched_policy_calls": 6302,
+  "pose_keys": [
+    "akita_black_bowl_1_pos",
+    "akita_black_bowl_1_quat",
+    "wine_bottle_1_pos",
+    "wine_bottle_1_quat"
+  ],
+  "prompt": "put the black bowl in the bottom drawer of the cabinet and close it",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_10",
+  "task_id": 3
+}

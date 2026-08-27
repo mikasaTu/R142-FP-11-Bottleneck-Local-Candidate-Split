@@ -1,0 +1,21 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 20165,
+  "data_file": "libero_10_task05.npz",
+  "data_sha256": "2e78dda37b3e0ec5ae1099e1ff1b80e25d63f7803a90fc764f70c5699a1094f1",
+  "elapsed_seconds": 11787.76591515541,
+  "environment_steps": 99837,
+  "physical_batched_policy_calls": 5405,
+  "pose_keys": [
+    "black_book_1_pos",
+    "black_book_1_quat",
+    "white_yellow_mug_1_pos",
+    "white_yellow_mug_1_quat"
+  ],
+  "prompt": "pick up the book and place it in the back compartment of the caddy",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_10",
+  "task_id": 5
+}

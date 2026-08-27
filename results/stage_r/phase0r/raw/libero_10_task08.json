@@ -1,0 +1,21 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 48387,
+  "data_file": "libero_10_task08.npz",
+  "data_sha256": "b975fd6325d1ea79785b7bf258395b31648725008f61c3f65f3759e66d5b4576",
+  "elapsed_seconds": 45335.69561505318,
+  "environment_steps": 241433,
+  "physical_batched_policy_calls": 12255,
+  "pose_keys": [
+    "moka_pot_1_pos",
+    "moka_pot_1_quat",
+    "moka_pot_2_pos",
+    "moka_pot_2_quat"
+  ],
+  "prompt": "put both moka pots on the stove",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_10",
+  "task_id": 8
+}

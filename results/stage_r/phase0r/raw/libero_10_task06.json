@@ -1,0 +1,25 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 26686,
+  "data_file": "libero_10_task06.npz",
+  "data_sha256": "8448a6abcb09c1b83895c720b2801b9e0125e56f091760da87146c06a47aaee8",
+  "elapsed_seconds": 14241.958490371704,
+  "environment_steps": 132449,
+  "physical_batched_policy_calls": 7037,
+  "pose_keys": [
+    "chocolate_pudding_1_pos",
+    "chocolate_pudding_1_quat",
+    "plate_1_pos",
+    "plate_1_quat",
+    "porcelain_mug_1_pos",
+    "porcelain_mug_1_quat",
+    "red_coffee_mug_1_pos",
+    "red_coffee_mug_1_quat"
+  ],
+  "prompt": "put the white mug on the plate and put the chocolate pudding to the right of the plate",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_10",
+  "task_id": 6
+}

@@ -1,0 +1,33 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 29186,
+  "data_file": "libero_10_task00.npz",
+  "data_sha256": "8952499c4917d8b573987f618535b23b43e899037f54202d6c6a13ba4d79aadb",
+  "elapsed_seconds": 22739.644634008408,
+  "environment_steps": 144956,
+  "physical_batched_policy_calls": 7662,
+  "pose_keys": [
+    "alphabet_soup_1_pos",
+    "alphabet_soup_1_quat",
+    "basket_1_pos",
+    "basket_1_quat",
+    "butter_1_pos",
+    "butter_1_quat",
+    "cream_cheese_1_pos",
+    "cream_cheese_1_quat",
+    "ketchup_1_pos",
+    "ketchup_1_quat",
+    "milk_1_pos",
+    "milk_1_quat",
+    "orange_juice_1_pos",
+    "orange_juice_1_quat",
+    "tomato_sauce_1_pos",
+    "tomato_sauce_1_quat"
+  ],
+  "prompt": "put both the alphabet soup and the tomato sauce in the basket",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_10",
+  "task_id": 0
+}
