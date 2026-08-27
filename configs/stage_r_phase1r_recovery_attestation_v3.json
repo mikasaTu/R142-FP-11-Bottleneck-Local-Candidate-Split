@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+  "amendment_kind": "outcome_blind_incremental_preflight_recovery",
+  "scientific_contract_unchanged": true,
+  "predecessor_jobs": {
+    "A0": "dlc23vriim5nqz3x",
+    "A1": "dlc37u51mzcgmo2v",
+    "B0": "dlc41sx6yj9qqeb5",
+    "B1": "dlc4ls3yimpu3imz"
+  },
+  "predecessor_run_ids": {
+    "A0": "r142-stage-r-phase1r-shard-a0-20260828-idle4-r4",
+    "A1": "r142-stage-r-phase1r-shard-a1-20260828-idle4-r4",
+    "B0": "r142-stage-r-phase1r-shard-b0-20260828-idle4-r4",
+    "B1": "r142-stage-r-phase1r-shard-b1-20260828-idle4-r4"
+  },
+  "replacement_run_ids": {
+    "A0": "r142-stage-r-phase1r-shard-a0-20260828-idle4-r5",
+    "A1": "r142-stage-r-phase1r-shard-a1-20260828-idle4-r5",
+    "B0": "r142-stage-r-phase1r-shard-b0-20260828-idle4-r5",
+    "B1": "r142-stage-r-phase1r-shard-b1-20260828-idle4-r5"
+  },
+  "failure_mode": "the first short idle slice reached small prerequisite checks, then Python bytecode caches appeared inside frozen_source; every resumed attempt fail-closed on the exact frozen-source inventory before checkpoint validation, task mapping, FIRST_WORK, or natural cells",
+  "outcomes_inspected": false,
+  "natural_cells_observed": 0,
+  "first_work_observed": false,
+  "operational_change": "disable Python bytecode writes, persist an atomic frozen-source full-hash attestation, and skip already validated small preflight markers on later platform attempts",
+  "frozen_source_resume_validator_sha256": "3d9241828eb1971239ec3e2566617843b8bec832247a2bb563f236c684d04bd0",
+  "small_preflight_validator_sha256": "5eb36792ff6cabe8ed6f94c142864faf1173ed52fe917b5e4bd265347b1a0fe2",
+  "prerequisite_validator_sha256": "9c45933f5052684fad52a90de1e05a01594db555cf9aff45b68680995e510c46",
+  "launcher_sha256": "e7d8e3df1ab63af0318d19c6e6d475ea2c0061e673ddf775e4059fcc7f71d77b",
+  "tasks_changed": false,
+  "seeds_changed": false,
+  "candidate_budget_changed": false,
+  "selection_changed": false,
+  "thresholds_changed": false,
+  "analysis_protocol_changed": false,
+  "checkpoint_changed": false,
+  "resource_contract_changed": false,
+  "gpu_per_job": 4,
+  "cpu_per_job": 46,
+  "memory_per_job": "800Gi",
+  "shared_memory_per_job": "800Gi",
+  "total_gpu_limit": 16
+}

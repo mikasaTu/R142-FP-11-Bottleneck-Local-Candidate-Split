@@ -31,6 +31,13 @@ readonly CHECKPOINT_ATTESTATION="$REPO/configs/stage_r_pi05_libero_checkpoint_at
 readonly CHECKPOINT_ATTESTATION_SHA256=d050805b0c1e9e8d8e879c7443bb10504859c654d0ba031bbbc6ce3635b02fca
 readonly CHECKPOINT_VALIDATOR="$REPO/pai/validate_stage_r_checkpoint_attestation.py"
 readonly CHECKPOINT_VALIDATOR_SHA256=1b32a626d34bcb25bd81927f24c44579686d2945ab4f36525d1bad1c6dc639c4
+readonly FROZEN_SOURCE_VALIDATOR="$REPO/pai/validate_stage_r_frozen_source_resume.py"
+readonly FROZEN_SOURCE_VALIDATOR_SHA256=3d9241828eb1971239ec3e2566617843b8bec832247a2bb563f236c684d04bd0
+readonly SMALL_PREFLIGHT_VALIDATOR="$REPO/pai/validate_stage_r_small_preflight_marker.py"
+readonly SMALL_PREFLIGHT_VALIDATOR_SHA256=5eb36792ff6cabe8ed6f94c142864faf1173ed52fe917b5e4bd265347b1a0fe2
+readonly PREREQUISITE_VALIDATOR="$REPO/pai/validate_stage_r_phase1r_prerequisites.py"
+readonly PREREQUISITE_VALIDATOR_SHA256=9c45933f5052684fad52a90de1e05a01594db555cf9aff45b68680995e510c46
+export PYTHONDONTWRITEBYTECODE=1
 readonly OUTPUT_ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase1r
 readonly PHASE0_MERGE_ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase0r_merged/r142-stage-r-phase0r-authoritative-20260827
 readonly PHASE0_RAW="$PHASE0_MERGE_ROOT/raw"
@@ -103,6 +110,9 @@ expect_sha256() {
 expect_sha256 "$EXECUTION_CONFIG" "$EXECUTION_CONFIG_SHA256"
 expect_sha256 "$CHECKPOINT_ATTESTATION" "$CHECKPOINT_ATTESTATION_SHA256"
 expect_sha256 "$CHECKPOINT_VALIDATOR" "$CHECKPOINT_VALIDATOR_SHA256"
+expect_sha256 "$FROZEN_SOURCE_VALIDATOR" "$FROZEN_SOURCE_VALIDATOR_SHA256"
+expect_sha256 "$SMALL_PREFLIGHT_VALIDATOR" "$SMALL_PREFLIGHT_VALIDATOR_SHA256"
+expect_sha256 "$PREREQUISITE_VALIDATOR" "$PREREQUISITE_VALIDATOR_SHA256"
 
 if [[ ! -e runtime/source_commit.txt ]]; then
   if find frozen_source -mindepth 1 -print -quit | grep -q .; then
@@ -113,22 +123,31 @@ if [[ ! -e runtime/source_commit.txt ]]; then
   printf '%s\n' "$SOURCE_COMMIT" > runtime/source_commit.txt
   git -C "$REPO" rev-parse "$SOURCE_COMMIT^{tree}" > runtime/source_tree.txt
   ( cd frozen_source; find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum ) > runtime/frozen_source.sha256
+  "$PYTHON" "$FROZEN_SOURCE_VALIDATOR" seal frozen_source runtime/frozen_source.sha256 \
+    runtime/frozen_source_verified.json "$SOURCE_COMMIT" "$(cat runtime/source_tree.txt)" >/dev/null
 else
   [[ "$(cat runtime/source_commit.txt)" == "$SOURCE_COMMIT" ]] || { echo "resume source commit differs from frozen archive" >&2; exit 79; }
   [[ "$(cat runtime/source_tree.txt)" == "$(git -C "$REPO" rev-parse "$SOURCE_COMMIT^{tree}")" ]] || { echo "resume source tree differs from pinned commit" >&2; exit 79; }
   [[ -s runtime/source_tree.txt && -s runtime/frozen_source.sha256 ]] || { echo "source archive marker is incomplete" >&2; exit 79; }
   [[ -n "$(find frozen_source -type f -print -quit)" ]] || { echo "frozen source archive is empty" >&2; exit 79; }
-  if find frozen_source -type l -print -quit | grep -q .; then
-    echo "frozen source contains a symlink" >&2
-    exit 79
+  if [[ -s runtime/frozen_source_verified.json ]]; then
+    "$PYTHON" "$FROZEN_SOURCE_VALIDATOR" validate frozen_source runtime/frozen_source.sha256 \
+      runtime/frozen_source_verified.json "$SOURCE_COMMIT" "$(cat runtime/source_tree.txt)" >/dev/null
+  else
+    if find frozen_source -type l -print -quit | grep -q .; then
+      echo "frozen source contains a symlink" >&2
+      exit 79
+    fi
+    (
+      cd frozen_source
+      sha256sum --check --strict ../runtime/frozen_source.sha256 >/dev/null
+      diff -u \
+        <(awk '{print $2}' ../runtime/frozen_source.sha256 | LC_ALL=C sort) \
+        <(find . -type f -print | LC_ALL=C sort) >/dev/null
+    )
+    "$PYTHON" "$FROZEN_SOURCE_VALIDATOR" seal frozen_source runtime/frozen_source.sha256 \
+      runtime/frozen_source_verified.json "$SOURCE_COMMIT" "$(cat runtime/source_tree.txt)" >/dev/null
   fi
-  (
-    cd frozen_source
-    sha256sum --check --strict ../runtime/frozen_source.sha256 >/dev/null
-    diff -u \
-      <(awk '{print $2}' ../runtime/frozen_source.sha256 | LC_ALL=C sort) \
-      <(find . -type f -print | LC_ALL=C sort) >/dev/null
-  )
 fi
 
 # Resume is fail-closed.  Validate the immutable completion manifest before
@@ -205,100 +224,29 @@ expect_sha256 "$SELECTION_ROOT/SELECTION_SHA256SUMS" "$SELECTION_SHA256SUMS_SHA2
 expect_sha256 "$CALIBRATION_FILE" "$CALIBRATION_SHA256"
 expect_sha256 "$CALIBRATION_ROOT/SHA256SUMS" "$CALIBRATION_SHA256SUMS_SHA256"
 
-"$PYTHON" frozen_source/scripts/stage_r_phase1r.py validate-config --protocol "$PROTOCOL_PATH" --shards "$SHARDS_PATH" > runtime/protocol_validation.json
-"$PYTHON" frozen_source/scripts/stage_r_phase1r.py validate-selection --root "$SELECTION_ROOT" > runtime/selection_validation.json
+if ! "$PYTHON" "$SMALL_PREFLIGHT_VALIDATOR" runtime protocol >/dev/null 2>&1; then
+  "$PYTHON" frozen_source/scripts/stage_r_phase1r.py validate-config --protocol "$PROTOCOL_PATH" --shards "$SHARDS_PATH" > runtime/protocol_validation.json
+fi
+"$PYTHON" "$SMALL_PREFLIGHT_VALIDATOR" runtime protocol >/dev/null
+if ! "$PYTHON" "$SMALL_PREFLIGHT_VALIDATOR" runtime selection >/dev/null 2>&1; then
+  "$PYTHON" frozen_source/scripts/stage_r_phase1r.py validate-selection --root "$SELECTION_ROOT" > runtime/selection_validation.json
+fi
+"$PYTHON" "$SMALL_PREFLIGHT_VALIDATOR" runtime selection >/dev/null
 # These commands validate already committed controls only; they never collect
 # controls or regenerate calibration.
-"$PYTHON" frozen_source/scripts/stage_r_phase1r.py validate-controls --root "$CONTROLS_ROOT" --kind positive --owner 2254:2254 > runtime/positive_control_validation.json
-"$PYTHON" frozen_source/scripts/stage_r_phase1r.py validate-controls --root "$CONTROLS_ROOT" --kind null --owner 2254:2254 > runtime/null_control_validation.json
+if ! "$PYTHON" "$SMALL_PREFLIGHT_VALIDATOR" runtime positive >/dev/null 2>&1; then
+  "$PYTHON" frozen_source/scripts/stage_r_phase1r.py validate-controls --root "$CONTROLS_ROOT" --kind positive --owner 2254:2254 > runtime/positive_control_validation.json
+fi
+"$PYTHON" "$SMALL_PREFLIGHT_VALIDATOR" runtime positive >/dev/null
+if ! "$PYTHON" "$SMALL_PREFLIGHT_VALIDATOR" runtime null >/dev/null 2>&1; then
+  "$PYTHON" frozen_source/scripts/stage_r_phase1r.py validate-controls --root "$CONTROLS_ROOT" --kind null --owner 2254:2254 > runtime/null_control_validation.json
+fi
+"$PYTHON" "$SMALL_PREFLIGHT_VALIDATOR" runtime null >/dev/null
 
-"$PYTHON" - "$CALIBRATION_FILE" "$CALIBRATION_ROOT/SHA256SUMS" <<'PY'
-import hashlib, json, re, sys
-from pathlib import Path, PurePosixPath
-calibration, seal = Path(sys.argv[1]), Path(sys.argv[2])
-root = calibration.parent
-for line in seal.read_text(encoding="utf-8").splitlines():
-    if not line.strip(): continue
-    match = re.fullmatch(r"([0-9a-f]{64})  (.+)", line)
-    if match is None: raise SystemExit(f"unsafe calibration seal line: {line!r}")
-    digest, name = match.groups()
-    rel = PurePosixPath(name)
-    if rel.is_absolute() or ".." in rel.parts or "\\" in name:
-        raise SystemExit(f"unsafe calibration seal path: {name!r}")
-    path = root.joinpath(*rel.parts)
-    if path.resolve() != path or not path.is_file() or path.is_symlink():
-        raise SystemExit(f"missing/noncanonical calibration artifact: {path}")
-    if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
-        raise SystemExit(f"calibration digest mismatch: {path}")
-payload = json.loads(calibration.read_text(encoding="utf-8"))
-if payload.get("protocol_id") != "r142-stage-r-phase1r-human-override-v1":
-    raise SystemExit("calibration protocol mismatch")
-if int(payload.get("shuffles", 0)) < 1000:
-    raise SystemExit("calibration shuffles below frozen minimum")
-if payload.get("unpermuted_curve_present") is not False or payload.get("natural_curve_present") is not False:
-    raise SystemExit("calibration is not blinded")
-if any(key in payload for key in ("curve", "curves", "natural")):
-    raise SystemExit("calibration contains unblinded data")
-marker = json.loads((root / "COMPLETED_CALIBRATION.json").read_text(encoding="utf-8"))
-if marker.get("protocol_id") != payload["protocol_id"] or marker.get("owner") != "2254:2254":
-    raise SystemExit("calibration completion marker drifted")
-PY
-
-"$PYTHON" - "$PHASE0_MERGE_ROOT" "$PHASE0_RAW" "$AUTHORITY_MANIFEST_SHA256" <<'PY' > runtime/phase0_authority_validation.json
-import hashlib, json, re, sys
-from pathlib import Path, PurePosixPath
-merge_root, raw_root, expected_sha = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
-def sha(path):
-    h = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1048576), b""): h.update(chunk)
-    return h.hexdigest()
-def check_sums(path, base):
-    names = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip(): continue
-        m = re.fullmatch(r"([0-9a-f]{64})  (.+)", line)
-        if m is None: raise SystemExit(f"unsafe digest line: {line!r}")
-        digest, name = m.groups(); rel = PurePosixPath(name)
-        if rel.is_absolute() or ".." in rel.parts or "\\" in name or not name:
-            raise SystemExit(f"unsafe digest path: {name!r}")
-        target = base.joinpath(*rel.parts)
-        if target.resolve() != target or not target.is_file() or target.is_symlink():
-            raise SystemExit(f"missing/noncanonical file: {target}")
-        if sha(target) != digest: raise SystemExit(f"digest mismatch: {target}")
-        names.append(name)
-    if len(names) != len(set(names)): raise SystemExit(f"duplicate path in {path}")
-    return names
-authority = merge_root / "AUTHORITY_MANIFEST.json"
-if sha(authority) != expected_sha: raise SystemExit("authority manifest SHA mismatch")
-a = json.loads(authority.read_text(encoding="utf-8"))
-if a.get("protocol_id") != "r142-stage-r-phase0r-v1" or a.get("outcome_selection_permitted") is not False:
-    raise SystemExit("authority protocol/outcome contract drifted")
-if a.get("authority_rule") != "parent[0:32]+shard_A[32:36]+shard_B[36:40]":
-    raise SystemExit("authority range rule drifted")
-records = a.get("records")
-if not isinstance(records, list) or [r.get("index") for r in records] != list(range(40)):
-    raise SystemExit("authority records do not cover indices 0..39")
-for r in records[:32]:
-    if r.get("source") != "parent": raise SystemExit("parent authority source drift")
-for r in records[32:36]:
-    if r.get("source") != "shard_a": raise SystemExit("shard A authority source drift")
-for r in records[36:]:
-    if r.get("source") != "shard_b": raise SystemExit("shard B authority source drift")
-raw_marker = json.loads((merge_root / "COMPLETED_PHASE0R_RAW.json").read_text(encoding="utf-8"))
-if raw_marker.get("protocol_id") != "r142-stage-r-phase0r-v1" or raw_marker.get("task_count") != 40 or raw_marker.get("rollout_count") != 20480:
-    raise SystemExit("raw completion marker cardinality/protocol drift")
-if raw_marker.get("outcomes_unblinded") is not False or raw_marker.get("authority_manifest_sha256") != expected_sha:
-    raise SystemExit("raw completion marker unblinding/authority drift")
-names = check_sums(merge_root / "MERGE_SHA256SUMS", merge_root)
-npz = sorted(p.name for p in raw_root.glob("*.npz"))
-meta = sorted(p.name for p in raw_root.glob("*.json"))
-if len(npz) != 40 or len(meta) != 40: raise SystemExit("raw input must contain exactly 40 NPZ and 40 metadata files")
-expected_raw = sorted("raw/" + n for n in npz + meta)
-if sorted(n for n in names if n.startswith("raw/")) != expected_raw:
-    raise SystemExit("merge seal raw file set drifted")
-print(json.dumps({"valid": True, "authority_records": 40, "raw_tasks": 40, "raw_rollouts": 20480, "raw_files": 80}, sort_keys=True))
-PY
+"$PYTHON" "$PREREQUISITE_VALIDATOR" calibration "$CALIBRATION_FILE" \
+  "$CALIBRATION_ROOT/SHA256SUMS" >/dev/null
+"$PYTHON" "$PREREQUISITE_VALIDATOR" phase0 "$PHASE0_MERGE_ROOT" "$PHASE0_RAW" \
+  "$AUTHORITY_MANIFEST_SHA256" > runtime/phase0_authority_validation.json
 
 "$PYTHON" "$CHECKPOINT_VALIDATOR" "$CHECKPOINT" "$CHECKPOINT_TREE_SHA" \
   "$CHECKPOINT_ATTESTATION" "$CHECKPOINT_ATTESTATION_SHA256" \

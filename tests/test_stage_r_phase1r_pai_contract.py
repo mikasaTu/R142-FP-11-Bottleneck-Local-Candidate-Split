@@ -14,6 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 PAI = ROOT / "pai"
 LAUNCHER = PAI / "run_stage_r_phase1r_idle_4gpu.sh"
 CHECKPOINT_VALIDATOR = PAI / "validate_stage_r_checkpoint_attestation.py"
+FROZEN_SOURCE_VALIDATOR = PAI / "validate_stage_r_frozen_source_resume.py"
+SMALL_PREFLIGHT_VALIDATOR = PAI / "validate_stage_r_small_preflight_marker.py"
+PREREQUISITE_VALIDATOR = PAI / "validate_stage_r_phase1r_prerequisites.py"
 TEMPLATES = (
     PAI / "r142_stage_r_phase1r_natural_shard_a0_idle4.json",
     PAI / "r142_stage_r_phase1r_natural_shard_a1_idle4.json",
@@ -44,6 +47,7 @@ class Phase1RPAIContractTest(unittest.TestCase):
         text = LAUNCHER.read_text(encoding="utf-8")
         self.assertTrue(text.startswith("#!/usr/bin/env bash"))
         self.assertIn("set -Eeuo pipefail", text)
+        self.assertIn("export PYTHONDONTWRITEBYTECODE=1", text)
         self.assertIn("PAI_PHASE1R_SOURCE_COMMIT", text)
         self.assertIn(f"readonly REQUIRED_SOURCE_COMMIT={EXPECTED_SCIENCE_COMMIT}", text)
         self.assertNotIn("REQUIRED_SOURCE_COMMIT=" + "0" * 40, text)
@@ -75,6 +79,26 @@ class Phase1RPAIContractTest(unittest.TestCase):
             "checkpoint file inventory drifted from full-content attestation",
             validator_text,
         )
+        helper_contracts = (
+            (
+                FROZEN_SOURCE_VALIDATOR,
+                "3d9241828eb1971239ec3e2566617843b8bec832247a2bb563f236c684d04bd0",
+            ),
+            (
+                SMALL_PREFLIGHT_VALIDATOR,
+                "5eb36792ff6cabe8ed6f94c142864faf1173ed52fe917b5e4bd265347b1a0fe2",
+            ),
+            (
+                PREREQUISITE_VALIDATOR,
+                "9c45933f5052684fad52a90de1e05a01594db555cf9aff45b68680995e510c46",
+            ),
+        )
+        for helper, expected_sha in helper_contracts:
+            with self.subTest(helper=helper.name):
+                self.assertEqual(hashlib.sha256(helper.read_bytes()).hexdigest(), expected_sha)
+                self.assertIn(expected_sha, text)
+                subprocess.run(["python3", "-m", "py_compile", str(helper)], check=True)
+        self.assertIn("runtime/frozen_source_verified.json", text)
         self.assertNotIn("digest = hashlib.sha256(path.read_bytes()).hexdigest()", text)
         self.assertIn("COMPLETED_EVALUATION_RESULT.json", text)
         self.assertIn("SHA256SUMS", text)
