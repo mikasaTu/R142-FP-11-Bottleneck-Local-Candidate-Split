@@ -156,6 +156,11 @@
   worker with 46 CPU cores and 800 GiB memory/shared memory, below the user
   ceilings. Their exact PAI jobs ended `Succeeded`; repeated shard-B
   preemptions resumed in the same directory.
+- **observed fact** — after all scientific and publication gates were sealed,
+  redundant parent JobId `dlcyuv28a0djtgxd` was stopped exactly. The readback
+  was `Stopped / StoppedByUser` at `2026-08-27T07:28:53Z`. No DeleteJob was
+  performed, and the stop did not change the frozen authority map or any
+  result hash.
 
 ## Evidence boundary
 

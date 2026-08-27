@@ -4,7 +4,7 @@
 
 | authority | exact JobId | exact PAI state | task indices |
 |---|---|---|---:|
-| parent | `dlcyuv28a0djtgxd` | running redundancy; only pre-frozen pairs used | 0--31 |
+| parent | `dlcyuv28a0djtgxd` | `Stopped / StoppedByUser` after finalization; only pre-frozen pairs used | 0--31 |
 | shard A | `dlc9b8jreh4e8fy3` | `Succeeded` | 32--35 |
 | shard B | `dlcap6ioa9w2ht2u` | `Succeeded` | 36--39 |
 
@@ -57,6 +57,26 @@ final SHA256SUMS         2d887069054098d569c4f42260d419f7bcc9377c41c51d46fb14a7e
 The final 87-file checksum manifest passed. The workflow stopped at
 Checkpoint 1; no Phase-1 code, rollout, threshold, or precomputation was run.
 
+## Redundant parent final cleanup
+
+After the authoritative merge, frozen analysis, checksum validation, GitHub
+publication, and Feishu report publication were complete, the parent job was
+still consuming an idle-pool worker only for redundant indices. It was
+therefore stopped by exact JobId, without deleting its PAI service record or
+any registry/CPFS evidence.
+
+```text
+JobId                    dlcyuv28a0djtgxd
+pre-stop                 Running / JobRunning
+worker shape             4 GPU, 46 CPU, 800 GiB memory/shared memory
+post-stop                Stopped / StoppedByUser
+GmtFinishTime            2026-08-27T07:28:53Z
+delete performed         no
+```
+
+Shard A and B remained terminal `Succeeded`. The stop did not alter the
+frozen authority map, result hashes, decision, or Checkpoint-1 boundary.
+
 ## Verification commands
 
 - local and dev14 test selection:
@@ -73,7 +93,8 @@ Checkpoint 1; no Phase-1 code, rollout, threshold, or precomputation was run.
   decision/checkpoint/Phase-1 fields.
 - Feishu `step3/实验报告` doc token:
   `UNtUdgZYfoCMhGxZ3CQcOo3RnAg`.
-- Feishu update result: success, revision 2, no warnings.
-- Outline readback returned all ten report sections. Keyword readback returned
+- Feishu final cleanup append result: success, revision 3, no warnings.
+- Outline readback returned all eleven report sections. Keyword readback returned
   the exact decision, `CHECKPOINT_1_STOP`, GitHub result commit, authority
-  manifest SHA, and the `libero_10/08` failure-case row.
+  manifest SHA, the `libero_10/08` failure-case row, the exact parent JobId,
+  and `StoppedByUser`.

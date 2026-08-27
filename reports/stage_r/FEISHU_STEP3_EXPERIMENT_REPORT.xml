@@ -125,3 +125,11 @@
 
 <h2>10. 最终停止边界</h2>
 <p><b>interpretation：</b>本结果不授权 Phase-1R、split intervention、VLA 扩展、修改阈值或在 outcome 后更换 task distribution。当前 idea 在 pinned pi05_libero/LIBERO 上没有通过最小前提筛查，必须停在 Checkpoint 1。</p>
+
+<h2>11. 冗余父作业最终清理</h2>
+<ul>
+  <li><b>observed fact：</b>补充 shard A <code>dlc9b8jreh4e8fy3</code> 与 shard B <code>dlcap6ioa9w2ht2u</code> 保持终态 <code>Succeeded</code>。</li>
+  <li><b>observed fact：</b>父作业 <code>dlcyuv28a0djtgxd</code> 仅是已从 indices 32--39 权威来源中排除的冗余计算；其 4 GPU、46 CPU、800 GiB memory/shared-memory 规格低于用户限制。</li>
+  <li><b>observed fact：</b>在最终 87-file checksum、<code>NO_STAGE_R_PRECONDITION_ON_PINNED_PI05_LIBERO</code>、<code>CHECKPOINT_1_STOP</code> 与 <code>phase1_authorized=false</code> 均已验证后，父作业于 2026-08-27T07:28:53Z 精确停止；PAI 读回 <code>Stopped / StoppedByUser</code>。</li>
+  <li><b>evidence boundary：</b>本操作只执行 Stop，没有 Delete Job；registry、PAI 服务记录与全部 CPFS artifacts 保留。父作业后续冗余输出没有替换冻结的 A/B 权威结果，也没有启动 Phase-1。</li>
+</ul>
