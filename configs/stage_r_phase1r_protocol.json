@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+  "human_gate_override": {
+    "date": "2026-08-27",
+    "checkpoint_1_stop_overridden": true,
+    "continue_after_control_failure": true,
+    "phase0r_negative_result_preserved": true
+  },
+  "task_scope": {
+    "suite_order": ["libero_spatial", "libero_object", "libero_goal", "libero_10"],
+    "task_ids": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    "natural_task_count": 40,
+    "robotwin": "SOURCE_LIMITATION_UNVERIFIABLE",
+    "phase2r": "NOT_DEFINED_IN_SUPPLIED_PLAN"
+  },
+  "episode_selection": {
+    "unit": "phase0r_rollout",
+    "count_per_task": 12,
+    "without_replacement": true,
+    "requested_per_stratum": {"failed": 4, "marginal": 4, "successful": 4},
+    "failed": "eventual_success_false_and_final_progress_equal_zero",
+    "marginal": "eventual_success_false_and_final_progress_greater_than_zero",
+    "successful": "eventual_success_true",
+    "shortfall_fill": "sha256_rank_among_all_remaining_rollouts"
+  },
+  "branching": {
+    "locations": 10,
+    "deciles": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+    "step_rule": "max(0,min(L-1,ceil(q*L)-1))",
+    "descendants_per_cell": 16,
+    "resampled_action_chunk_executed_actions": 5,
+    "eventual_success_only": true,
+    "streams": ["calibration", "heldout"]
+  },
+  "controls": {
+    "positive": "GeometricCommit2D-Phase1R-v1",
+    "null": "OpenPlane2D-Phase1R-v1",
+    "same_cell_schema": true
+  },
+  "statistics": {
+    "primary": "pooled_R_t",
+    "location_sensitivity": "max_R_minus_min_R",
+    "permutation_shuffles": 1000,
+    "permutation_unit": "within_episode_branch_location_labels",
+    "threshold_quantile": 0.95,
+    "bootstrap_replicates": 10000,
+    "bootstrap_unit": "episode_paired_across_locations"
+  },
+  "compute": {
+    "natural_tasks": 40,
+    "episodes_per_task": 12,
+    "locations_per_episode": 10,
+    "descendants_per_location": 16,
+    "natural_descendant_rollouts_per_stream": 76800,
+    "max_active_gpus_global": 16,
+    "max_gpu_per_job": 8,
+    "max_cpu_per_job": 88,
+    "max_memory_gib_per_job": 1525,
+    "max_shared_memory_gib_per_job": 1525
+  },
+  "completion": {
+    "atomic_unit": "task_episode_location_stream_cell",
+    "require_sha256": true,
+    "require_uid_gid": "2254:2254",
+    "partial_is_not_complete": true
+  }
+}
