@@ -337,9 +337,12 @@ def expected_cells(selection: dict[str, Any]) -> list[tuple[int, str, int, str]]
 def validate_npz(path: Path) -> None:
     try:
         with zipfile.ZipFile(path, "r") as archive:
-            names = set(archive.namelist())
+            members = archive.namelist()
+            names = set(members)
     except Exception as exc:
         fail(f"invalid NPZ {path}: {type(exc).__name__}: {exc}")
+    if len(members) != len(names):
+        fail(f"NPZ has duplicate members {path}")
     if not NPZ_MEMBERS.issubset(names):
         fail(f"NPZ missing arrays {path}: {sorted(NPZ_MEMBERS - names)}")
     unsafe = [name for name in names if not name.endswith(".npy") or "/" in name or "\\" in name or name.startswith(".")]
@@ -402,8 +405,9 @@ def validate_cell(
     if (metadata.get("owner_uid"), metadata.get("owner_gid")) != EXPECTED_OWNER:
         fail(f"cell metadata owner mismatch: {cell_root}")
     validate_npz(cell_root / "cell.npz")
-    expected_lines = {f"{npz_sha}  cell.npz", f"{metadata_sha}  metadata.json"}
-    if set((cell_root / "SHA256SUMS").read_text(encoding="utf-8").splitlines()) != expected_lines:
+    expected_lines = [f"{npz_sha}  cell.npz", f"{metadata_sha}  metadata.json"]
+    observed_lines = (cell_root / "SHA256SUMS").read_text(encoding="utf-8").splitlines()
+    if len(observed_lines) != 2 or sorted(observed_lines) != sorted(expected_lines):
         fail(f"cell checksum mismatch: {cell_root}")
     return cell_root / "COMPLETED_CELL.json"
 
@@ -545,7 +549,7 @@ def validate_shard(
 
 
 def link_or_copy_tree(source: Path, destination: Path) -> None:
-    """Copy a mapped task tree with hardlinks where possible."""
+    """Copy a mapped task tree into an inode-independent snapshot."""
 
     if destination.exists() or destination.is_symlink():
         fail(f"destination already exists: {destination}")
@@ -561,10 +565,8 @@ def link_or_copy_tree(source: Path, destination: Path) -> None:
             continue
         if not entry.is_file():
             fail(f"mapped task contains unsupported entry: {entry}")
-        try:
-            os.link(entry, target)
-        except OSError:
-            shutil.copy2(entry, target)
+        shutil.copy2(entry, target)
+        require_sha(target, sha256_file(entry))
         require_owner(target)
 
 
@@ -578,10 +580,8 @@ def copy_provenance(source: Path, destination: Path) -> None:
     ):
         source_path = source / name
         target = destination / name
-        try:
-            os.link(source_path, target)
-        except OSError:
-            shutil.copy2(source_path, target)
+        shutil.copy2(source_path, target)
+        require_sha(target, sha256_file(source_path))
         require_owner(target)
 
 
@@ -734,8 +734,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--selection-root", type=Path, required=True, help="frozen selection directory")
     parser.add_argument("--source-commit", required=True, help="exact source commit used by both natural shards")
     parser.add_argument("--output", type=Path, required=True, help="fresh merged output directory")
-    parser.add_argument("--expected-job-id-a", help="optional exact PAI job id for shard A")
-    parser.add_argument("--expected-job-id-b", help="optional exact PAI job id for shard B")
+    parser.add_argument("--expected-job-id-a", required=True, help="exact PAI job id for shard A")
+    parser.add_argument("--expected-job-id-b", required=True, help="exact PAI job id for shard B")
     return parser
 
 

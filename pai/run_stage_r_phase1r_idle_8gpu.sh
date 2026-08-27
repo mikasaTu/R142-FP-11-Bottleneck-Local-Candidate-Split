@@ -104,9 +104,20 @@ if [[ ! -e runtime/source_commit.txt ]]; then
   ( cd frozen_source; find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum ) > runtime/frozen_source.sha256
 else
   [[ "$(cat runtime/source_commit.txt)" == "$SOURCE_COMMIT" ]] || { echo "resume source commit differs from frozen archive" >&2; exit 79; }
+  [[ "$(cat runtime/source_tree.txt)" == "$(git -C "$REPO" rev-parse "$SOURCE_COMMIT^{tree}")" ]] || { echo "resume source tree differs from pinned commit" >&2; exit 79; }
   [[ -s runtime/source_tree.txt && -s runtime/frozen_source.sha256 ]] || { echo "source archive marker is incomplete" >&2; exit 79; }
   [[ -n "$(find frozen_source -type f -print -quit)" ]] || { echo "frozen source archive is empty" >&2; exit 79; }
-  ( cd frozen_source; sha256sum --check --strict ../runtime/frozen_source.sha256 ) >/dev/null
+  if find frozen_source -type l -print -quit | grep -q .; then
+    echo "frozen source contains a symlink" >&2
+    exit 79
+  fi
+  (
+    cd frozen_source
+    sha256sum --check --strict ../runtime/frozen_source.sha256 >/dev/null
+    diff -u \
+      <(awk '{print $2}' ../runtime/frozen_source.sha256 | LC_ALL=C sort) \
+      <(find . -type f -print | LC_ALL=C sort) >/dev/null
+  )
 fi
 
 # Resume is fail-closed.  Validate the immutable completion manifest before

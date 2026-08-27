@@ -75,7 +75,7 @@
     "success_gate": "persisted_completed_evaluation_result",
     "validation_method": "static",
     "validation_status": "passed",
-    "validated_payload_sha256": "97a1ca713f8551f21e481d9f99dc207a5c881f86ec183b6b2dc8c50422c3cb7a",
+    "validated_payload_sha256": "77cff89854267977a62710e4276d2863f01e7016fa7b0d38be246d6e2cbd7ae2",
     "pai_probe_created": false,
     "contract_ready": true,
     "require_actual_idle": true,
