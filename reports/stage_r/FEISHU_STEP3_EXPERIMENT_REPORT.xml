@@ -1,0 +1,127 @@
+<title>实验报告</title>
+<h1>R142-FP-11 Stage-R / step3：Phase-0R 轨迹轴前提筛查</h1>
+<p><b>最终判定：</b><b>NO_STAGE_R_PRECONDITION_ON_PINNED_PI05_LIBERO</b>。正控通过，40 个 LIBERO 自然任务全部完成，0 个任务满足预注册联合保留条件；严格停在 <code>CHECKPOINT_1_STOP</code>，<code>phase1_authorized=false</code>，未进入 Phase-1。</p>
+<p><b>执行日期：</b>2026-08-27（Asia/Shanghai）　<b>GitHub main：</b><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/commit/c0ada3144e2055d2c75b65704e5c78db284f99b6">c0ada3144e2055d2c75b65704e5c78db284f99b6</a></p>
+
+<h2>1. Decision label 与 evidence boundary</h2>
+<ul>
+  <li><b>observed fact：</b>冻结正控通过；40/40 个 LIBERO 任务完成；保留任务 0 个。</li>
+  <li><b>observed fact：</b>RoboTwin 保留为 <code>SOURCE_LIMITATION_UNVERIFIABLE</code>，没有使用替代轨迹。</li>
+  <li><b>interpretation：</b>在 pinned pi05_libero / LIBERO 分布上，不存在可供 bottleneck-local split 干预的合格 shared-failing-prefix population。</li>
+  <li><b>untested hypothesis：</b>其他 checkpoint、policy 或更难任务可能产生 all-fail family；本实验没有测试，不能外推。</li>
+</ul>
+
+<h2>2. 冻结 lineage 与权威数据边界</h2>
+<ul>
+  <li><b>observed fact：</b>protocol <code>r142-stage-r-phase0r-v1</code>；scientific source commit <code>24423e8114ace80e6a76f22bee29992cea420cfc</code>。</li>
+  <li><b>observed fact：</b>OpenPI pi05_libero commit <code>54cbaee6ae0c010a1ed431871cdaa8f4684ac709</code>；QPILOTS <code>eacf47b981e3b22357f8a74902f8dad8cfcfa375</code>；LIBERO <code>f78abd68ee283de9f9be3c8f7e2a9ad60246e95c</code>。</li>
+  <li><b>observed fact：</b>权威映射预注册为 parent indices 0–31、shard A indices 32–35、shard B indices 36–39；从未按 outcome 选择 parent 的后续冗余结果。</li>
+  <li><b>observed fact：</b><code>AUTHORITY_MANIFEST.json</code> SHA-256 为 <code>3d5a37ec8a7e2c0dfd0c808ad59553c43a13c846b90f99c1afaa3529a072469c</code>。</li>
+</ul>
+
+<h2>3. 预注册 gates</h2>
+<table>
+  <tr><td><b>Gate</b></td><td><b>通过任务 / 40</b></td><td><b>结果</b></td></tr>
+  <tr><td>rho ≥ 3</td><td>14</td><td>部分通过</td></tr>
+  <tr><td>low-p fraction ≥ 0.25</td><td>0</td><td>自然任务全局失败</td></tr>
+  <tr><td>median t_div / episode ≥ 0.10</td><td>0</td><td>自然任务全局 undefined</td></tr>
+  <tr><td>stable successful modes ≥ 2</td><td>30</td><td>部分通过</td></tr>
+  <tr><td>E6 success/progress window</td><td>1</td><td>部分通过</td></tr>
+  <tr><td>全部 gates 联合</td><td>0</td><td>失败</td></tr>
+</table>
+<p><b>observed fact：</b>正控的 rho=25.453、low-p fraction=0.5、pooled success=0.410，divergence/action-split/mode checks 全部通过，说明分析 pipeline 能检测预注册模式。</p>
+<p><b>observed fact：</b>所有自然任务 low-p fraction 均为 0，640 个自然 initial-state family 中没有一个 32/32 全失败 family；因此 preregistered all-fail-only t_div 对全部自然任务都 undefined。</p>
+
+<h2>4. 方法与阈值</h2>
+<ul>
+  <li><b>observed fact：</b>每任务 16 个 deterministic initial states × 32 个 independent candidates，共 512 个 eventual-termination rollouts；40 个任务合计 20,480。</li>
+  <li><b>observed fact：</b>所有权威 NPZ/metadata pair 通过 protocol identity、SHA、16×32 coverage、rollout seed、offset/length、finite arrays 与 owner 2254:2254 检查。</li>
+  <li><b>observed fact：</b>冻结 null thresholds：divergence RMS 0.0070381425；action-prefix silhouette 0.7127923129；successful-mode silhouette 0.3565303449。</li>
+  <li><b>observed fact：</b>t_div 只在 32 个 descendants 全失败的 family 上计算；successful modes 只在成功轨迹的 mid-trajectory action/pose features 上计算。</li>
+</ul>
+
+<h2>5. 40-task quantitative table</h2>
+<table>
+  <tr><td><b>Task</b></td><td><b>p_bar</b></td><td><b>rho</b></td><td><b>low-p</b></td><td><b>all-fail</b></td><td><b>t_div frac</b></td><td><b>modes</b></td><td><b>E6</b></td><td><b>retained</b></td></tr>
+  <tr><td>spatial/00</td><td>1.000</td><td>undefined</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>spatial/01</td><td>1.000</td><td>undefined</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>spatial/02</td><td>1.000</td><td>undefined</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>spatial/03</td><td>0.992</td><td>2.419</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>spatial/04</td><td>0.951</td><td>6.815</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>spatial/05</td><td>0.930</td><td>14.182</td><td>0</td><td>0</td><td>undefined</td><td>1</td><td>fail</td><td>no</td></tr>
+  <tr><td>spatial/06</td><td>0.998</td><td>1.002</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>spatial/07</td><td>0.998</td><td>1.002</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>spatial/08</td><td>1.000</td><td>undefined</td><td>0</td><td>0</td><td>undefined</td><td>1</td><td>fail</td><td>no</td></tr>
+  <tr><td>spatial/09</td><td>0.990</td><td>1.602</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>object/00</td><td>0.977</td><td>1.183</td><td>0</td><td>0</td><td>undefined</td><td>1</td><td>fail</td><td>no</td></tr>
+  <tr><td>object/01</td><td>0.990</td><td>3.326</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>object/02</td><td>0.953</td><td>7.741</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>object/03</td><td>0.975</td><td>1.047</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>object/04</td><td>0.980</td><td>8.241</td><td>0</td><td>0</td><td>undefined</td><td>1</td><td>fail</td><td>no</td></tr>
+  <tr><td>object/05</td><td>0.994</td><td>1.587</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>object/06</td><td>1.000</td><td>undefined</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>object/07</td><td>0.998</td><td>1.002</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>object/08</td><td>0.998</td><td>1.002</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>object/09</td><td>0.988</td><td>2.114</td><td>0</td><td>0</td><td>undefined</td><td>1</td><td>fail</td><td>no</td></tr>
+  <tr><td>goal/00</td><td>0.977</td><td>3.004</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>goal/01</td><td>0.994</td><td>0.872</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>goal/02</td><td>0.916</td><td>4.318</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>goal/03</td><td>0.934</td><td>7.989</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>goal/04</td><td>0.992</td><td>0.806</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>goal/05</td><td>0.988</td><td>2.833</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>goal/06</td><td>0.994</td><td>3.018</td><td>0</td><td>0</td><td>undefined</td><td>1</td><td>fail</td><td>no</td></tr>
+  <tr><td>goal/07</td><td>1.000</td><td>undefined</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>goal/08</td><td>1.000</td><td>undefined</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>goal/09</td><td>0.963</td><td>1.425</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>libero_10/00</td><td>0.965</td><td>1.704</td><td>0</td><td>0</td><td>undefined</td><td>1</td><td>fail</td><td>no</td></tr>
+  <tr><td>libero_10/01</td><td>0.992</td><td>1.344</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>libero_10/02</td><td>0.980</td><td>1.931</td><td>0</td><td>0</td><td>undefined</td><td>1</td><td>fail</td><td>no</td></tr>
+  <tr><td>libero_10/03</td><td>0.979</td><td>1.530</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>libero_10/04</td><td>0.969</td><td>3.991</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>libero_10/05</td><td>0.980</td><td>6.500</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>libero_10/06</td><td>0.918</td><td>5.084</td><td>0</td><td>0</td><td>undefined</td><td>1</td><td>fail</td><td>no</td></tr>
+  <tr><td>libero_10/07</td><td>0.992</td><td>0.806</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+  <tr><td>libero_10/08</td><td>0.500</td><td>6.867</td><td>0</td><td>0</td><td>undefined</td><td>1</td><td>pass</td><td>no</td></tr>
+  <tr><td>libero_10/09</td><td>0.967</td><td>4.085</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
+</table>
+
+<h2>6. Negative controls 与 failure cases</h2>
+<ul>
+  <li><b>observed fact：</b>14 个任务 rho≥3，但没有任何 all-fail state；high rho 不是 candidate collapse 的充分证据。</li>
+  <li><b>observed fact：</b>30 个任务存在至少两个 successful modes，但没有任务同时具有 measurable shared failing prefix。</li>
+  <li><b>observed fact：</b><code>libero_10/08</code> 是唯一 E6 任务：p_bar=0.5、rho=6.867、progress median=0.833、IQR=[0.667,1.0]；但只有 1 个 stable mode、all-fail=0、t_div undefined。</li>
+  <li><b>observed fact：</b>自然任务 pooled success 范围 [0.5,1.0]，中位数 0.9893；除 libero_10/08 外全部 E6 失败。</li>
+</ul>
+
+<h2>7. 代码优先机理反解</h2>
+<ol>
+  <li><b>observed fact：</b><code>task_metrics()</code> 在某 initial state 只要出现一个成功 descendant 就跳过 failing-prefix divergence 分支。本实验每个自然 family 都至少有一个成功，因此自然 t_div 全部 undefined。</li>
+  <li><b>interpretation：</b>这不是 detector malfunction：正控在同一实现中通过。自然 rollouts 提供了 heterogeneity 与 successful modes，但没有提供“共享失败前缀后在某一 control step 分叉”的联合结构。</li>
+  <li><b>interpretation：</b>rho 与 mode count 来自不同 population。rho 描述 initial-state 间成功率差异；mode count 只在成功轨迹上计算。两者都不能推出 all-fail family 或 local failure bottleneck。</li>
+  <li><b>observed fact：</b>没有执行 split intervention，因此没有可报告的机制提升或降低；正确结论是前提缺失，而不是 proposed 已被一次 intervention comparison 直接击败。</li>
+</ol>
+
+<h2>8. Compute accounting</h2>
+<table>
+  <tr><td><b>Suite</b></td><td><b>rollouts</b></td><td><b>policy forwards</b></td><td><b>env steps</b></td></tr>
+  <tr><td>LIBERO-Spatial</td><td>5,120</td><td>109,844</td><td>539,184</td></tr>
+  <tr><td>LIBERO-Object</td><td>5,120</td><td>147,736</td><td>728,460</td></tr>
+  <tr><td>LIBERO-Goal</td><td>5,120</td><td>119,255</td><td>586,237</td></tr>
+  <tr><td>LIBERO-10</td><td>5,120</td><td>281,514</td><td>1,397,875</td></tr>
+  <tr><td><b>Total</b></td><td><b>20,480</b></td><td><b>658,349</b></td><td><b>3,251,756</b></td></tr>
+</table>
+<p><b>observed fact：</b>Phase-0R 是 observational screen，branch count=0。Supplemental A/B 各使用闲时池 1 worker × 4 A800、46 CPU、800 GiB memory/shared memory，均低于用户限制；两个 exact PAI jobs 均终态 Succeeded，B 的多次抢占在同目录恢复。</p>
+
+<h2>9. 完整性证据与成果链接</h2>
+<ul>
+  <li><b>observed fact：</b>analysis summary SHA-256 <code>7da6f4751f64f08bdfa50e7f37ac1dd1a2f80b7f3f36862f12e7e95ef475c299</code>。</li>
+  <li><b>observed fact：</b>top-level completion SHA-256 <code>9daff7a544ebb7b1c4e3f6fbf10e38b124c067aa6c56a417f822a028dd5fb10a</code>。</li>
+  <li><b>observed fact：</b>final 87-file SHA256SUMS 完整通过；manifest SHA-256 <code>2d887069054098d569c4f42260d419f7bcc9377c41c51d46fb14a7ef8139f924</code>。</li>
+  <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/blob/main/reports/stage_r/PHASE0R_REPORT.md">完整 Phase-0R 报告</a></li>
+  <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/blob/main/reports/stage_r/MECHANISM_REVERSE_EXPLANATION.md">机制反解</a></li>
+  <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/tree/main/results/stage_r/phase0r">结果 bundle、authority manifest 与 checksums</a></li>
+</ul>
+<p><b>observed fact：</b>GitHub fresh clone 回读 HEAD <code>c0ada3144e2055d2c75b65704e5c78db284f99b6</code>；8/8 bundle hashes、decision/checkpoint/phase1 fields 全部验证通过；测试 6 passed。</p>
+
+<h2>10. 最终停止边界</h2>
+<p><b>interpretation：</b>本结果不授权 Phase-1R、split intervention、VLA 扩展、修改阈值或在 outcome 后更换 task distribution。当前 idea 在 pinned pi05_libero/LIBERO 上没有通过最小前提筛查，必须停在 Checkpoint 1。</p>

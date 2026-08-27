@@ -65,3 +65,15 @@ Checkpoint 1; no Phase-1 code, rollout, threshold, or precomputation was run.
 - `python -m py_compile` passed for both operational merge/finalize scripts.
 - both merge and final root checksum manifests passed complete verification.
 
+## Publication readback
+
+- GitHub main result commit:
+  `c0ada3144e2055d2c75b65704e5c78db284f99b6`.
+- A fresh clone from GitHub reproduced all eight bundle hashes and the frozen
+  decision/checkpoint/Phase-1 fields.
+- Feishu `step3/实验报告` doc token:
+  `UNtUdgZYfoCMhGxZ3CQcOo3RnAg`.
+- Feishu update result: success, revision 2, no warnings.
+- Outline readback returned all ten report sections. Keyword readback returned
+  the exact decision, `CHECKPOINT_1_STOP`, GitHub result commit, authority
+  manifest SHA, and the `libero_10/08` failure-case row.
