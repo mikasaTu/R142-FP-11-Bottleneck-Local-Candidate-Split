@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+  "assignment_method": "outcome_blind_lpt_by_phase0r_elapsed_seconds_ties_by_rank",
+  "phase0r_authority_manifest_sha256": "3d5a37ec8a7e2c0dfd0c808ad59553c43a13c846b90f99c1afaa3529a072469c",
+  "global_world_size": 16,
+  "active_job_limit": 2,
+  "gpu_per_job": 8,
+  "streams": ["calibration", "heldout"],
+  "shards": {
+    "A": {
+      "global_ranks": [0, 1, 2, 3, 4, 5, 6, 7],
+      "rank_tasks": {
+        "0": ["libero_10_task08"],
+        "1": ["libero_10_task02", "libero_object_task03"],
+        "2": ["libero_10_task00", "libero_goal_task06"],
+        "3": ["libero_goal_task03", "libero_object_task04"],
+        "4": ["libero_10_task01", "libero_object_task08"],
+        "5": ["libero_10_task07", "libero_object_task06", "libero_goal_task08"],
+        "6": ["libero_10_task09", "libero_object_task00"],
+        "7": ["libero_spatial_task04", "libero_10_task05", "libero_goal_task07"]
+      }
+    },
+    "B": {
+      "global_ranks": [8, 9, 10, 11, 12, 13, 14, 15],
+      "rank_tasks": {
+        "8": ["libero_10_task03", "libero_spatial_task00"],
+        "9": ["libero_spatial_task09", "libero_goal_task02", "libero_object_task01"],
+        "10": ["libero_spatial_task07", "libero_10_task04", "libero_object_task09"],
+        "11": ["libero_goal_task09", "libero_spatial_task08", "libero_object_task07"],
+        "12": ["libero_spatial_task01", "libero_spatial_task03", "libero_goal_task01"],
+        "13": ["libero_spatial_task05", "libero_spatial_task06", "libero_goal_task04"],
+        "14": ["libero_spatial_task02", "libero_goal_task05", "libero_object_task02"],
+        "15": ["libero_10_task06", "libero_goal_task00", "libero_object_task05"]
+      }
+    }
+  }
+}
