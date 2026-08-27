@@ -1,0 +1,25 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 8070,
+  "data_file": "libero_goal_task07.npz",
+  "data_sha256": "8e4821f35dcc29dd3203e6670acfb2abef04354578453de229df3f5dfb500df5",
+  "elapsed_seconds": 9398.811148405075,
+  "environment_steps": 39268,
+  "physical_batched_policy_calls": 2041,
+  "pose_keys": [
+    "akita_black_bowl_1_pos",
+    "akita_black_bowl_1_quat",
+    "cream_cheese_1_pos",
+    "cream_cheese_1_quat",
+    "plate_1_pos",
+    "plate_1_quat",
+    "wine_bottle_1_pos",
+    "wine_bottle_1_quat"
+  ],
+  "prompt": "turn on the stove",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_goal",
+  "task_id": 7
+}

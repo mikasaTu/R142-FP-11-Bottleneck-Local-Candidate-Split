@@ -1,0 +1,25 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 14038,
+  "data_file": "libero_goal_task00.npz",
+  "data_sha256": "f7e3db70698a64e242cf0cc658f74500a2b25b3841ffdcdf878baa4f32e01d8d",
+  "elapsed_seconds": 14003.66963815689,
+  "environment_steps": 69206,
+  "physical_batched_policy_calls": 3643,
+  "pose_keys": [
+    "akita_black_bowl_1_pos",
+    "akita_black_bowl_1_quat",
+    "cream_cheese_1_pos",
+    "cream_cheese_1_quat",
+    "plate_1_pos",
+    "plate_1_quat",
+    "wine_bottle_1_pos",
+    "wine_bottle_1_quat"
+  ],
+  "prompt": "open the middle drawer of the cabinet",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_goal",
+  "task_id": 0
+}

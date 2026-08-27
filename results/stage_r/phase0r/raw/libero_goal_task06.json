@@ -1,0 +1,25 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 9493,
+  "data_file": "libero_goal_task06.npz",
+  "data_sha256": "a36970e47cf25e24b41acbfeae1564ad5c950f322ff2c6db70c13eb8076703f3",
+  "elapsed_seconds": 10815.482949495316,
+  "environment_steps": 46412,
+  "physical_batched_policy_calls": 2406,
+  "pose_keys": [
+    "akita_black_bowl_1_pos",
+    "akita_black_bowl_1_quat",
+    "cream_cheese_1_pos",
+    "cream_cheese_1_quat",
+    "plate_1_pos",
+    "plate_1_quat",
+    "wine_bottle_1_pos",
+    "wine_bottle_1_quat"
+  ],
+  "prompt": "put the cream cheese in the bowl",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_goal",
+  "task_id": 6
+}

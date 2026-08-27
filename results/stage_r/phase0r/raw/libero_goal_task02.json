@@ -1,0 +1,25 @@
+{
+  "branch_count": 0,
+  "budget_slack": 0,
+  "candidate_equivalent_policy_forwards": 11248,
+  "data_file": "libero_goal_task02.npz",
+  "data_sha256": "fe35afb26481c582df804ecf4e4c1ed9d5011eee97b2d4d7d6b6b1936ffc38fb",
+  "elapsed_seconds": 12441.826550006866,
+  "environment_steps": 55276,
+  "physical_batched_policy_calls": 3009,
+  "pose_keys": [
+    "akita_black_bowl_1_pos",
+    "akita_black_bowl_1_quat",
+    "cream_cheese_1_pos",
+    "cream_cheese_1_quat",
+    "plate_1_pos",
+    "plate_1_quat",
+    "wine_bottle_1_pos",
+    "wine_bottle_1_quat"
+  ],
+  "prompt": "put the wine bottle on top of the cabinet",
+  "protocol_id": "r142-stage-r-phase0r-v1",
+  "rollout_count": 512,
+  "suite": "libero_goal",
+  "task_id": 2
+}
