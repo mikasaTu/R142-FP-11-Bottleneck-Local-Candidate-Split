@@ -1,0 +1,19 @@
+{
+  "cell": {
+    "location_index": 6,
+    "parent_id": "positive_episode00",
+    "selection_index": 0,
+    "stream": "calibration",
+    "suite": "control_positive",
+    "task_id": 0
+  },
+  "metadata": {
+    "path": "metadata.json",
+    "sha256": "a954dba1bd0515b60bb314256df2f0aaa090e2a5c83d29dc9c5f4f86860df88c"
+  },
+  "npz": {
+    "path": "cell.npz",
+    "sha256": "de93c957fa975570fc2318996d381e4906d24229e3ffd6eb042185b5c149c202"
+  },
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1"
+}

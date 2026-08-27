@@ -1,0 +1,19 @@
+{
+  "cell": {
+    "location_index": 3,
+    "parent_id": "null_episode08",
+    "selection_index": 8,
+    "stream": "heldout",
+    "suite": "control_null",
+    "task_id": 0
+  },
+  "metadata": {
+    "path": "metadata.json",
+    "sha256": "aa7a9e8a685f06d9327725984dace2723d1c9fec07805f208f63881c5b30c214"
+  },
+  "npz": {
+    "path": "cell.npz",
+    "sha256": "1deb1d706cc8e5d494ac39ea1376a359835fcd34704273502ae599c0890b4965"
+  },
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1"
+}

@@ -1,0 +1,35 @@
+{
+  "artifact": "BLINDED_PHASE1R_CALIBRATION_COMPLETE",
+  "calibration_sha256": "f8a6486a96b9fc02071c391c4971ac2251d5c5e89dbb405f9d51dcd44fbfad6a",
+  "controls": {
+    "null": {
+      "cell_count": 240,
+      "checkpoint": "CONTROL_COMPLETE",
+      "control_kind": "null",
+      "control_name": "OpenPlane2D-Phase1R-v1",
+      "expected_cell_count": 240,
+      "marker_type": "control",
+      "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+      "schema_version": 1,
+      "summary": "CONTROL_BUNDLE.json",
+      "summary_sha256": "b1b854da5570174b4f45f33f71e69e5b0b23b7caa001156ce92df0a76896f4d4"
+    },
+    "positive": {
+      "cell_count": 240,
+      "checkpoint": "CONTROL_COMPLETE",
+      "control_kind": "positive",
+      "control_name": "GeometricCommit2D-Phase1R-v1",
+      "expected_cell_count": 240,
+      "marker_type": "control",
+      "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+      "schema_version": 1,
+      "summary": "CONTROL_BUNDLE.json",
+      "summary_sha256": "188c3309cd7035ad9e8807b1ebe02ee469f74fe2ddee2694ab10a9dfaa54a6b7"
+    }
+  },
+  "natural_curve_present": false,
+  "owner": "2254:2254",
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+  "schema_version": 1,
+  "unpermuted_curve_present": false
+}

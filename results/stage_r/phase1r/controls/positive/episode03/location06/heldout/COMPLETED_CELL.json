@@ -1,0 +1,19 @@
+{
+  "cell": {
+    "location_index": 6,
+    "parent_id": "positive_episode03",
+    "selection_index": 3,
+    "stream": "heldout",
+    "suite": "control_positive",
+    "task_id": 0
+  },
+  "metadata": {
+    "path": "metadata.json",
+    "sha256": "9cb6520950a021b7d945697e670d01350f097c816077b046ffe3c4368162c77f"
+  },
+  "npz": {
+    "path": "cell.npz",
+    "sha256": "3c6949632b79c4cb831d759d04a664e872c3d1e160ab2771c8492750a48a1487"
+  },
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1"
+}

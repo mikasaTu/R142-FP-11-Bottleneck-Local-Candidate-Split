@@ -1,0 +1,12 @@
+{
+  "cell_count": 240,
+  "checkpoint": "CONTROL_COMPLETE",
+  "control_kind": "positive",
+  "control_name": "GeometricCommit2D-Phase1R-v1",
+  "expected_cell_count": 240,
+  "marker_type": "control",
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+  "schema_version": 1,
+  "summary": "CONTROL_BUNDLE.json",
+  "summary_sha256": "188c3309cd7035ad9e8807b1ebe02ee469f74fe2ddee2694ab10a9dfaa54a6b7"
+}

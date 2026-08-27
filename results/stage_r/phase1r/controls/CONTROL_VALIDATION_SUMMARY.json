@@ -1,0 +1,150 @@
+{
+  "calibration_sha256": "f8a6486a96b9fc02071c391c4971ac2251d5c5e89dbb405f9d51dcd44fbfad6a",
+  "controls": {
+    "null": {
+      "calibration": {
+        "branch_count": 1920,
+        "cell_count": 120,
+        "commit_point": null,
+        "commit_point_decile": null,
+        "curve": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "largest_adjacent_cliff": 0.0,
+        "largest_adjacent_cliff_between": [
+          0,
+          1
+        ],
+        "location_sensitivity": 0.0,
+        "r_max": 1.0,
+        "r_min": 1.0
+      },
+      "heldout": {
+        "branch_count": 1920,
+        "cell_count": 120,
+        "commit_point": null,
+        "commit_point_decile": null,
+        "curve": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "largest_adjacent_cliff": 0.0,
+        "largest_adjacent_cliff_between": [
+          0,
+          1
+        ],
+        "location_sensitivity": 0.0,
+        "r_max": 1.0,
+        "r_min": 1.0
+      },
+      "heldout_above_threshold": false
+    },
+    "positive": {
+      "calibration": {
+        "branch_count": 1920,
+        "cell_count": 120,
+        "commit_point": 4,
+        "commit_point_decile": 0.5,
+        "curve": [
+          0.6822916666666666,
+          0.765625,
+          0.703125,
+          0.7291666666666666,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "largest_adjacent_cliff": 0.7291666666666666,
+        "largest_adjacent_cliff_between": [
+          3,
+          4
+        ],
+        "location_sensitivity": 0.765625,
+        "r_max": 0.765625,
+        "r_min": 0.0
+      },
+      "heldout": {
+        "branch_count": 1920,
+        "cell_count": 120,
+        "commit_point": 4,
+        "commit_point_decile": 0.5,
+        "curve": [
+          0.7395833333333334,
+          0.78125,
+          0.7239583333333334,
+          0.7135416666666666,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "largest_adjacent_cliff": 0.7135416666666666,
+        "largest_adjacent_cliff_between": [
+          3,
+          4
+        ],
+        "location_sensitivity": 0.78125,
+        "r_max": 0.78125,
+        "r_min": 0.0
+      },
+      "heldout_above_threshold": true
+    }
+  },
+  "engineering_history": [
+    {
+      "evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase1r-control-smoke-nD1nkQ",
+      "null_heldout_sensitivity": 0.0,
+      "positive_heldout_sensitivity": 0.078125,
+      "status": "failed_control_engineering",
+      "threshold": 0.14583333333333334,
+      "version": "v1"
+    },
+    {
+      "evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase1r-control-smoke-v2-nHwNHA",
+      "null_heldout_sensitivity": 0.0,
+      "positive_heldout_sensitivity": 0.03125,
+      "status": "failed_control_engineering_weak_cliff",
+      "threshold": 0.015625,
+      "version": "v2"
+    },
+    {
+      "largest_adjacent_cliff_between": [
+        3,
+        4
+      ],
+      "null_heldout_sensitivity": 0.0,
+      "positive_heldout_sensitivity": 0.78125,
+      "status": "passed_before_natural_execution",
+      "threshold": 0.4635416666666667,
+      "version": "v3_frozen"
+    }
+  ],
+  "natural_results_read": false,
+  "null_control_pass": true,
+  "positive_control_pass": true,
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+  "schema_version": 1,
+  "threshold": 0.4635416666666667
+}
