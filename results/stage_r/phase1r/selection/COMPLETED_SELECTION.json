@@ -1,0 +1,10 @@
+{
+  "checkpoint": "SELECTION_COMPLETE",
+  "marker_type": "selection",
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+  "schema_version": 1,
+  "summary": "SELECTION_MANIFEST.json",
+  "summary_sha256": "082f1f28f6ed8bddb1ed2ef87a3b848ac3daccec5c333f7f2cf1c4ef5d988231",
+  "task_count": 40,
+  "total_selected": 480
+}
