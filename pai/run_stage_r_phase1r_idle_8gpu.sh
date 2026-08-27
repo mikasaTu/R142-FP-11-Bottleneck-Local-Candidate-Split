@@ -7,14 +7,13 @@ trap 'code=$?; printf "STAGE_R_PHASE1R_NATURAL_FAILED line=%s exit_code=%s comma
 # The final scientific source pin is intentionally supplied by the controller.
 # A PAI run must provide one exact commit, so optimization cannot silently
 # change the source used by a natural shard.
-readonly REQUIRED_SOURCE_COMMIT=0000000000000000000000000000000000000000
-# Parent must replace the all-zero value with the final post-optimization
-# commit before copying this launcher into the canonical code path.  A runtime
-# variable is also accepted for controlled local validation, but PAI does not
-# pass launcher arguments and the zero pin is intentionally fail-closed.
+readonly REQUIRED_SOURCE_COMMIT=57859fcbb36776e0049ce24fb1abbadab0de46d5
+# The committed default is the final pre-launch scientific source. A runtime
+# variable is accepted only for controlled local validation; the formal PAI
+# templates use this exact committed default.
 SOURCE_COMMIT="${PAI_PHASE1R_SOURCE_COMMIT:-$REQUIRED_SOURCE_COMMIT}"
-if [[ -z "$SOURCE_COMMIT" || "$SOURCE_COMMIT" == "$REQUIRED_SOURCE_COMMIT" || ! "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
-  echo "replace REQUIRED_SOURCE_COMMIT with one exact 40-hex git commit" >&2
+if [[ -z "$SOURCE_COMMIT" || "$SOURCE_COMMIT" =~ ^0{40}$ || ! "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "SOURCE_COMMIT must be one nonzero exact 40-hex git commit" >&2
   exit 64
 fi
 
@@ -107,6 +106,7 @@ else
   [[ "$(cat runtime/source_commit.txt)" == "$SOURCE_COMMIT" ]] || { echo "resume source commit differs from frozen archive" >&2; exit 79; }
   [[ -s runtime/source_tree.txt && -s runtime/frozen_source.sha256 ]] || { echo "source archive marker is incomplete" >&2; exit 79; }
   [[ -n "$(find frozen_source -type f -print -quit)" ]] || { echo "frozen source archive is empty" >&2; exit 79; }
+  ( cd frozen_source; sha256sum --check --strict ../runtime/frozen_source.sha256 ) >/dev/null
 fi
 
 # Resume is fail-closed.  Validate the immutable completion manifest before

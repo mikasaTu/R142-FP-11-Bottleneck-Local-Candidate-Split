@@ -27,6 +27,7 @@ EXPECTED_AIMASTER = (
     "--max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure"
 )
 EXPECTED_LAUNCHER_SHA = hashlib.sha256(LAUNCHER.read_bytes()).hexdigest()
+EXPECTED_SCIENCE_COMMIT = "57859fcbb36776e0049ce24fb1abbadab0de46d5"
 
 
 class Phase1RPAIContractTest(unittest.TestCase):
@@ -36,7 +37,9 @@ class Phase1RPAIContractTest(unittest.TestCase):
         self.assertTrue(text.startswith("#!/usr/bin/env bash"))
         self.assertIn("set -Eeuo pipefail", text)
         self.assertIn("PAI_PHASE1R_SOURCE_COMMIT", text)
-        self.assertIn("readonly REQUIRED_SOURCE_COMMIT=0000000000000000000000000000000000000000", text)
+        self.assertIn(f"readonly REQUIRED_SOURCE_COMMIT={EXPECTED_SCIENCE_COMMIT}", text)
+        self.assertNotIn("REQUIRED_SOURCE_COMMIT=" + "0" * 40, text)
+        self.assertIn("sha256sum --check --strict ../runtime/frozen_source.sha256", text)
         self.assertIn('visible_devices="$local_rank,0"', text)
         self.assertIn('CUDA_VISIBLE_DEVICES="$visible_devices" EGL_DEVICE_ID=0 MUJOCO_EGL_DEVICE_ID=0', text)
         self.assertIn("robosuite resolves MUJOCO_EGL_DEVICE_ID", text)
