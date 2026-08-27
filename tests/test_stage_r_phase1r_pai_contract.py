@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static contract tests for the two natural Phase-1R idle shard manifests."""
+"""Static contract tests for the four natural Phase-1R idle execution shards."""
 
 from __future__ import annotations
 
@@ -12,11 +12,14 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 PAI = ROOT / "pai"
-LAUNCHER = PAI / "run_stage_r_phase1r_idle_8gpu.sh"
+LAUNCHER = PAI / "run_stage_r_phase1r_idle_4gpu.sh"
 TEMPLATES = (
-    PAI / "r142_stage_r_phase1r_natural_shard_a_idle8.json",
-    PAI / "r142_stage_r_phase1r_natural_shard_b_idle8.json",
+    PAI / "r142_stage_r_phase1r_natural_shard_a0_idle4.json",
+    PAI / "r142_stage_r_phase1r_natural_shard_a1_idle4.json",
+    PAI / "r142_stage_r_phase1r_natural_shard_b0_idle4.json",
+    PAI / "r142_stage_r_phase1r_natural_shard_b1_idle4.json",
 )
+EXECUTION = ROOT / "configs" / "stage_r_phase1r_execution_idle4.json"
 EXPECTED_MOUNTS = (
     ("d-mkixtohdn75dp8x9tb", "/mnt/cpfs/zbl-cpfs-new/USERS/leon"),
     ("d-36p023eg0f2vuqny8y", "/mnt/cpfs/zbl-cpfs-new/CKPT/leon"),
@@ -43,6 +46,9 @@ class Phase1RPAIContractTest(unittest.TestCase):
         self.assertIn('visible_devices="$local_rank,0"', text)
         self.assertIn('CUDA_VISIBLE_DEVICES="$visible_devices" EGL_DEVICE_ID=0 MUJOCO_EGL_DEVICE_ID=0', text)
         self.assertIn("robosuite resolves MUJOCO_EGL_DEVICE_ID", text)
+        self.assertIn("PAI_CANARY_EXPECTED_GPUS:-}\" != 4", text)
+        self.assertIn("EXECUTION_SHARD=A0", text)
+        self.assertIn("EXECUTION_SHARD=B1", text)
         self.assertIn("git -C \"$REPO\" archive \"$SOURCE_COMMIT\"", text)
         self.assertIn("collect-natural", text)
         self.assertIn("COMPLETED_EVALUATION_RESULT.json", text)
@@ -63,7 +69,7 @@ class Phase1RPAIContractTest(unittest.TestCase):
                 manifest = json.loads(path.read_text(encoding="utf-8"))
                 self.assertEqual(manifest["schema_version"], 2)
                 self.assertEqual(manifest["kind"], "pytorchjob")
-                self.assertEqual(manifest["resource_alias"], "idle-a800")
+                self.assertEqual(manifest["resource_alias"], "idle-a800-wrc-4gpu")
                 self.assertEqual(manifest["workspace_id"], "179169")
                 self.assertEqual(manifest["network"], {})
                 self.assertEqual(
@@ -76,14 +82,14 @@ class Phase1RPAIContractTest(unittest.TestCase):
                 )
                 worker = manifest["worker"]
                 self.assertEqual(worker["count"], 1)
-                self.assertEqual(worker["gpu"], 8)
-                self.assertEqual(worker["cpu"], 88)
-                self.assertEqual(worker["memory"], "1525Gi")
-                self.assertEqual(worker["shared_memory"], "1525Gi")
+                self.assertEqual(worker["gpu"], 4)
+                self.assertEqual(worker["cpu"], 46)
+                self.assertEqual(worker["memory"], "800Gi")
+                self.assertEqual(worker["shared_memory"], "800Gi")
                 runtime = manifest["runtime"]
                 self.assertEqual(
                     runtime["command_file"],
-                    "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split/pai/run_stage_r_phase1r_idle_8gpu.sh",
+                    "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split/pai/run_stage_r_phase1r_idle_4gpu.sh",
                 )
                 self.assertEqual(runtime["write_paths"], ["{{ARTIFACT_DIR}}"])
                 self.assertEqual(runtime["output_mode"], "resume")
@@ -101,8 +107,10 @@ class Phase1RPAIContractTest(unittest.TestCase):
                 self.assertEqual(manifest["fault_tolerance"]["retry_sleep_seconds"], 30)
                 self.assertIs(manifest["fault_tolerance"]["pai_automatic_fault_tolerance"], True)
                 evidence = manifest["evidence"]
-                shard = "a" if "_shard_a_" in evidence["kind"] else "b"
-                self.assertEqual(evidence["idle_8gpu_contract"], "generic_formal_idle_8gpu_v1")
+                execution_shard = evidence["execution_shard"]
+                expected_ranges = {"A0": [0, 3], "A1": [4, 7], "B0": [8, 11], "B1": [12, 15]}
+                expected_counts = {"A0": 7, "A1": 10, "B0": 11, "B1": 12}
+                self.assertEqual(evidence["idle_4gpu_contract"], "generic_formal_idle_4gpu_v1")
                 self.assertEqual(evidence["workload_type"], "evaluation")
                 self.assertTrue(evidence["kind"].endswith("_formal_evaluation"))
                 self.assertEqual(evidence["success_gate"], "persisted_completed_evaluation_result")
@@ -112,7 +120,9 @@ class Phase1RPAIContractTest(unittest.TestCase):
                 self.assertIs(evidence["contract_ready"], True)
                 self.assertEqual(evidence["expected_first_work_uid"], 2254)
                 self.assertEqual(evidence["expected_first_work_gid"], 2254)
-                self.assertEqual(evidence["global_rank_range"], [0, 7] if shard == "a" else [8, 15])
+                self.assertEqual(evidence["global_rank_range"], expected_ranges[execution_shard])
+                self.assertEqual(evidence["natural_tasks"], expected_counts[execution_shard])
+                self.assertEqual(evidence["execution_config_sha256"], hashlib.sha256(EXECUTION.read_bytes()).hexdigest())
                 self.assertIs(evidence["no_controls_regeneration"], True)
                 self.assertIs(evidence["no_calibration_regeneration"], True)
                 self.assertIs(evidence["no_unblinding"], True)
@@ -127,7 +137,7 @@ class Phase1RPAIContractTest(unittest.TestCase):
                 tags = manifest["submission"]["tags"]
                 self.assertEqual(tags["managed_by"], "pai-job-registry")
                 self.assertEqual(tags["purpose"], "formal-evaluation")
-                self.assertEqual(tags["hardware"], "8xa800-idle")
+                self.assertEqual(tags["hardware"], "4xa800-idle")
                 self.assertEqual(tags["resource_pool"], "idle-a800")
                 self.assertEqual(tags["task"], evidence["task_id"])
                 self.assertEqual(tags["model"], evidence["model_id"])

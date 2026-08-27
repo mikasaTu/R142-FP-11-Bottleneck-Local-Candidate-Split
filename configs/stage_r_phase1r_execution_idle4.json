@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+  "amendment_kind": "outcome_blind_resource_compatibility_execution_split",
+  "reason": "The idle quota rejected 8 GPU, 88 CPU, 1525Gi memory/shared-memory; the exact verified compliant idle preset is 4 GPU, 46 CPU, 800Gi memory/shared-memory.",
+  "scientific_contract_unchanged": true,
+  "frozen_shards_sha256": "f0e4b137d5f5b39737f671dc273428fdd5b646327863f03a542c2c7c5e2977d6",
+  "phase0r_authority_manifest_sha256": "3d5a37ec8a7e2c0dfd0c808ad59553c43a13c846b90f99c1afaa3529a072469c",
+  "assignment_method": "fixed_contiguous_halves_of_preregistered_global_rank_mapping_before_natural_outcomes",
+  "active_job_limit": 4,
+  "gpu_per_job": 4,
+  "cpu_per_job": 46,
+  "memory_per_job": "800Gi",
+  "shared_memory_per_job": "800Gi",
+  "total_gpu_limit": 16,
+  "resource_id": "quotaewyznuc7b9l",
+  "oversold_type": "AcceptQuotaOverSold",
+  "resource_source_job_id": "dlc1x35e210yt1lg",
+  "contract_source_job_id": "dlc1o0zea2lzqf9o",
+  "execution_shards": {
+    "A0": {"logical_shard": "A", "global_ranks": [0, 1, 2, 3]},
+    "A1": {"logical_shard": "A", "global_ranks": [4, 5, 6, 7]},
+    "B0": {"logical_shard": "B", "global_ranks": [8, 9, 10, 11]},
+    "B1": {"logical_shard": "B", "global_ranks": [12, 13, 14, 15]}
+  },
+  "outcomes_inspected": false,
+  "thresholds_changed": false,
+  "seeds_changed": false,
+  "candidate_budget_changed": false,
+  "selection_changed": false,
+  "analysis_protocol_changed": false
+}

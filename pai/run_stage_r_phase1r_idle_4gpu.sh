@@ -32,6 +32,8 @@ readonly PHASE0_MERGE_ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stag
 readonly PHASE0_RAW="$PHASE0_MERGE_ROOT/raw"
 readonly PROTOCOL_SHA256=7e4de68cba5c0fdb288ee25d81f30b72d65483753973f06f44b395e3db0b9cb4
 readonly SHARDS_SHA256=f0e4b137d5f5b39737f671dc273428fdd5b646327863f03a542c2c7c5e2977d6
+readonly EXECUTION_CONFIG="$REPO/configs/stage_r_phase1r_execution_idle4.json"
+readonly EXECUTION_CONFIG_SHA256=0279da07d96f243a71503230903a55aa2027997ed3b422f379a040523ba63dd3
 readonly SELECTION_MANIFEST_SHA256=082f1f28f6ed8bddb1ed2ef87a3b848ac3daccec5c333f7f2cf1c4ef5d988231
 readonly SELECTION_SHA256SUMS_SHA256=e7aa31741834ae5ac1064e3fab5a2b307e8202ad543b2d11f1e4e5fb337b3893
 readonly CALIBRATION_SHA256=f8a6486a96b9fc02071c391c4971ac2251d5c5e89dbb405f9d51dcd44fbfad6a
@@ -45,12 +47,14 @@ if [[ ! "$RUN_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$ ]]; then
   exit 64
 fi
 case "$RUN_ID" in
-  r142-stage-r-phase1r-shard-a-*) SHARD=A ;;
-  r142-stage-r-phase1r-shard-b-*) SHARD=B ;;
-  *) echo "run id must identify shard A or B" >&2; exit 64 ;;
+  r142-stage-r-phase1r-shard-a0-*) EXECUTION_SHARD=A0; SHARD=A ;;
+  r142-stage-r-phase1r-shard-a1-*) EXECUTION_SHARD=A1; SHARD=A ;;
+  r142-stage-r-phase1r-shard-b0-*) EXECUTION_SHARD=B0; SHARD=B ;;
+  r142-stage-r-phase1r-shard-b1-*) EXECUTION_SHARD=B1; SHARD=B ;;
+  *) echo "run id must identify execution shard A0, A1, B0, or B1" >&2; exit 64 ;;
 esac
-if [[ "${PAI_CANARY_EXPECTED_GPUS:-}" != 8 ]]; then
-  echo "natural Phase-1R requires PAI_CANARY_EXPECTED_GPUS=8" >&2
+if [[ "${PAI_CANARY_EXPECTED_GPUS:-}" != 4 ]]; then
+  echo "natural Phase-1R execution shards require PAI_CANARY_EXPECTED_GPUS=4" >&2
   exit 77
 fi
 if [[ "$(id -u):$(id -g)" != 2254:2254 ]]; then
@@ -92,6 +96,7 @@ expect_sha256() {
   observed="$(sha256_file "$path")"
   [[ "$observed" == "$expected" ]] || { echo "SHA256 mismatch for $path: $observed != $expected" >&2; return 1; }
 }
+expect_sha256 "$EXECUTION_CONFIG" "$EXECUTION_CONFIG_SHA256"
 
 if [[ ! -e runtime/source_commit.txt ]]; then
   if find frozen_source -mindepth 1 -print -quit | grep -q .; then
@@ -305,14 +310,19 @@ if observed != expected: raise SystemExit(f"checkpoint tree SHA mismatch: {obser
 print(json.dumps({"valid": True, "file_count": count, "tree_sha256": observed}, sort_keys=True))
 PY
 
-"$PYTHON" - "$SHARDS_PATH" "$SHARD" "$SELECTION_ROOT" runtime/task_mapping.tsv <<'PY'
+"$PYTHON" - "$SHARDS_PATH" "$EXECUTION_CONFIG" "$EXECUTION_SHARD" "$SELECTION_ROOT" runtime/task_mapping.tsv <<'PY'
 import json, re, sys
 from pathlib import Path
-shards, shard, selection_root, out = json.loads(Path(sys.argv[1]).read_text()), sys.argv[2], Path(sys.argv[3]), Path(sys.argv[4])
+shards = json.loads(Path(sys.argv[1]).read_text())
+execution = json.loads(Path(sys.argv[2]).read_text())
+execution_shard, selection_root, out = sys.argv[3], Path(sys.argv[4]), Path(sys.argv[5])
+execution_entry = execution["execution_shards"].get(execution_shard)
+if not isinstance(execution_entry, dict): raise SystemExit(f"missing execution shard {execution_shard}")
+shard = execution_entry.get("logical_shard")
 payload = shards["shards"].get(shard)
 if not isinstance(payload, dict): raise SystemExit(f"missing shard {shard}")
-global_ranks = [int(v) for v in payload.get("global_ranks", [])]
-expected_ranks = list(range(0, 8)) if shard == "A" else list(range(8, 16))
+global_ranks = [int(v) for v in execution_entry.get("global_ranks", [])]
+expected_ranks = {"A0": list(range(0, 4)), "A1": list(range(4, 8)), "B0": list(range(8, 12)), "B1": list(range(12, 16))}[execution_shard]
 if global_ranks != expected_ranks: raise SystemExit(f"shard global ranks drifted: {global_ranks}")
 rank_tasks = payload.get("rank_tasks")
 if not isinstance(rank_tasks, dict): raise SystemExit("rank_tasks missing")
@@ -329,18 +339,18 @@ for local_rank, global_rank in enumerate(global_ranks):
         if not selection.is_file() or selection.is_symlink(): raise SystemExit(f"missing selection {selection}")
         lines.append(f"{local_rank}\t{global_rank}\t{task_name}\t{suite}\t{task_id}\t{selection}")
 out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-expected_count = 17 if shard == "A" else 23
+expected_count = {"A0": 7, "A1": 10, "B0": 11, "B1": 12}[execution_shard]
 if len(seen) != expected_count: raise SystemExit(f"shard task count drifted: {len(seen)}")
 PY
 
 # Resume marker handling is fail-closed: preserve invalid markers as evidence.
 if [[ -f COMPLETED_EVALUATION_RESULT.json && -f SHA256SUMS ]]; then
-  if "$PYTHON" - "$ARTIFACT_DIR" "$SHARD" "$SOURCE_COMMIT" <<'PY'
+  if "$PYTHON" - "$ARTIFACT_DIR" "$SHARD" "$EXECUTION_SHARD" "$SOURCE_COMMIT" <<'PY'
 import hashlib, json, re, sys
 from pathlib import Path, PurePosixPath
-root, shard, source = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+root, shard, execution_shard, source = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4]
 marker = json.loads((root / "COMPLETED_EVALUATION_RESULT.json").read_text())
-if marker.get("shard") != shard or marker.get("source_commit") != source or marker.get("success_gate") != "persisted_completed_evaluation_result":
+if marker.get("shard") != shard or marker.get("execution_shard") != execution_shard or marker.get("source_commit") != source or marker.get("success_gate") != "persisted_completed_evaluation_result":
     raise SystemExit("completion identity/gate mismatch")
 if marker.get("phase1_authorized") is not False or marker.get("analysis_performed") is not False:
     raise SystemExit("natural completion attempted analysis/authorization")
@@ -374,11 +384,11 @@ fi
 
 first_work_once() {
   local local_rank="$1" global_rank="$2" task_name="$3"
-  "$PYTHON" - "$ARTIFACT_DIR/FIRST_WORK.json" "$SOURCE_COMMIT" "$SHARD" "$local_rank" "$global_rank" "$task_name" <<'PY'
+  "$PYTHON" - "$ARTIFACT_DIR/FIRST_WORK.json" "$SOURCE_COMMIT" "$SHARD" "$EXECUTION_SHARD" "$local_rank" "$global_rank" "$task_name" <<'PY'
 import json, os, sys
 from pathlib import Path
 path = Path(sys.argv[1])
-payload = {"schema_version": 1, "milestone": "first_valid_natural_task_cell", "source_commit": sys.argv[2], "shard": sys.argv[3], "local_rank": int(sys.argv[4]), "global_rank": int(sys.argv[5]), "task_name": sys.argv[6], "completed_cells": 240, "streams": ["calibration", "heldout"], "uid": os.getuid(), "gid": os.getgid()}
+payload = {"schema_version": 1, "milestone": "first_valid_natural_task_cell", "source_commit": sys.argv[2], "shard": sys.argv[3], "execution_shard": sys.argv[4], "local_rank": int(sys.argv[5]), "global_rank": int(sys.argv[6]), "task_name": sys.argv[7], "completed_cells": 240, "streams": ["calibration", "heldout"], "uid": os.getuid(), "gid": os.getgid()}
 try:
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
 except FileExistsError:
@@ -443,12 +453,12 @@ for pid in "${pids[@]}"; do
 done
 [[ "$failed" == 0 ]] || { echo "one or more natural rank workers failed" >&2; exit 80; }
 
-"$PYTHON" - "$ARTIFACT_DIR" "$SHARD" "$SOURCE_COMMIT" "$PROTOCOL_SHA256" "$SHARDS_SHA256" "$SELECTION_MANIFEST_SHA256" "$CALIBRATION_SHA256" "$AUTHORITY_MANIFEST_SHA256" <<'PY'
+"$PYTHON" - "$ARTIFACT_DIR" "$SHARD" "$EXECUTION_SHARD" "$SOURCE_COMMIT" "$PROTOCOL_SHA256" "$SHARDS_SHA256" "$EXECUTION_CONFIG_SHA256" "$SELECTION_MANIFEST_SHA256" "$CALIBRATION_SHA256" "$AUTHORITY_MANIFEST_SHA256" <<'PY'
 import json, os, sys
 from pathlib import Path
 from r142_stage_r.phase1 import validate_task_completion_marker
-root, shard = Path(sys.argv[1]), sys.argv[2]
-source_commit, protocol_sha, shards_sha, selection_sha, calibration_sha, authority_sha = sys.argv[3:]
+root, shard, execution_shard = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+source_commit, protocol_sha, shards_sha, execution_sha, selection_sha, calibration_sha, authority_sha = sys.argv[4:]
 mapping = []
 for line in (root / "runtime/task_mapping.tsv").read_text().splitlines()[1:]:
     local_rank, global_rank, task_name, suite, task_id, selection = line.split("\t")
@@ -457,9 +467,9 @@ for line in (root / "runtime/task_mapping.tsv").read_text().splitlines()[1:]:
     if not ok: raise SystemExit(f"final task validation failed for {task_name}: {'; '.join(errors)}")
     mapping.append({"local_rank": int(local_rank), "global_rank": int(global_rank), "task_name": task_name, "suite": suite, "task_id": task_id_int, "selection": Path(selection).name, "completed_cells": int(marker["completed_cells"])})
 expected_cells, expected_descendants = len(mapping) * 12 * 10 * 2, len(mapping) * 12 * 10 * 16
-payload = {"schema_version": 1, "marker_type": "natural_phase1r_shard", "protocol_id": "r142-stage-r-phase1r-human-override-v1", "source_commit": source_commit, "protocol_sha256": protocol_sha, "shards_sha256": shards_sha, "selection_manifest_sha256": selection_sha, "calibration_sha256": calibration_sha, "authority_manifest_sha256": authority_sha, "shard": shard, "global_ranks": sorted({row["global_rank"] for row in mapping}), "task_names": [row["task_name"] for row in mapping], "mapping": mapping, "streams": ["calibration", "heldout"], "natural_cells": expected_cells, "natural_descendants_per_stream": expected_descendants, "uid": os.getuid(), "gid": os.getgid(), "checkpoint": "SHARD_NATURAL_COMPLETE"}
+payload = {"schema_version": 1, "marker_type": "natural_phase1r_execution_shard", "protocol_id": "r142-stage-r-phase1r-human-override-v1", "source_commit": source_commit, "protocol_sha256": protocol_sha, "shards_sha256": shards_sha, "execution_config_sha256": execution_sha, "selection_manifest_sha256": selection_sha, "calibration_sha256": calibration_sha, "authority_manifest_sha256": authority_sha, "shard": shard, "execution_shard": execution_shard, "global_ranks": sorted({row["global_rank"] for row in mapping}), "task_names": [row["task_name"] for row in mapping], "mapping": mapping, "streams": ["calibration", "heldout"], "natural_cells": expected_cells, "natural_descendants_per_stream": expected_descendants, "uid": os.getuid(), "gid": os.getgid(), "checkpoint": "EXECUTION_SHARD_NATURAL_COMPLETE"}
 temporary = root / "runtime/.SHARD_NATURAL_COMPLETE.json.tmp"; temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n"); temporary.replace(root / "SHARD_NATURAL_COMPLETE.json")
-completed = {"schema_version": 1, "success_gate": "persisted_completed_evaluation_result", "decision": "NATURAL_SHARD_COMPLETE_NO_UNBLINDING", "checkpoint": "CHECKPOINT_1_PENDING_GLOBAL_MERGE", "phase1_authorized": False, "analysis_performed": False, "protocol_id": "r142-stage-r-phase1r-human-override-v1", "source_commit": source_commit, "protocol_sha256": protocol_sha, "shards_sha256": shards_sha, "selection_manifest_sha256": selection_sha, "calibration_sha256": calibration_sha, "authority_manifest_sha256": authority_sha, "shard": shard, "task_names": [row["task_name"] for row in mapping], "task_count": len(mapping), "natural_cells": expected_cells, "natural_descendants_per_stream": expected_descendants, "streams": ["calibration", "heldout"], "uid": os.getuid(), "gid": os.getgid()}
+completed = {"schema_version": 1, "success_gate": "persisted_completed_evaluation_result", "decision": "NATURAL_EXECUTION_SHARD_COMPLETE_NO_UNBLINDING", "checkpoint": "CHECKPOINT_1_PENDING_GLOBAL_MERGE", "phase1_authorized": False, "analysis_performed": False, "protocol_id": "r142-stage-r-phase1r-human-override-v1", "source_commit": source_commit, "protocol_sha256": protocol_sha, "shards_sha256": shards_sha, "execution_config_sha256": execution_sha, "selection_manifest_sha256": selection_sha, "calibration_sha256": calibration_sha, "authority_manifest_sha256": authority_sha, "shard": shard, "execution_shard": execution_shard, "task_names": [row["task_name"] for row in mapping], "task_count": len(mapping), "natural_cells": expected_cells, "natural_descendants_per_stream": expected_descendants, "streams": ["calibration", "heldout"], "uid": os.getuid(), "gid": os.getgid()}
 temporary = root / "runtime/.COMPLETED_EVALUATION_RESULT.json.tmp"; temporary.write_text(json.dumps(completed, indent=2, sort_keys=True) + "\n"); temporary.replace(root / "COMPLETED_EVALUATION_RESULT.json")
 PY
 
@@ -478,12 +488,12 @@ sync -f "$ARTIFACT_DIR/SHARD_NATURAL_COMPLETE.json"
 sync -f "$ARTIFACT_DIR/COMPLETED_EVALUATION_RESULT.json"
 sync -f "$ARTIFACT_DIR/SHA256SUMS"
 
-"$PYTHON" - "$ARTIFACT_DIR" "$SHARD" "$SOURCE_COMMIT" <<'PY'
+"$PYTHON" - "$ARTIFACT_DIR" "$SHARD" "$EXECUTION_SHARD" "$SOURCE_COMMIT" <<'PY'
 import hashlib, json, re, sys
 from pathlib import Path, PurePosixPath
-root, shard, source = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+root, shard, execution_shard, source = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4]
 marker = json.loads((root / "COMPLETED_EVALUATION_RESULT.json").read_text())
-if marker.get("shard") != shard or marker.get("source_commit") != source or marker.get("success_gate") != "persisted_completed_evaluation_result":
+if marker.get("shard") != shard or marker.get("execution_shard") != execution_shard or marker.get("source_commit") != source or marker.get("success_gate") != "persisted_completed_evaluation_result":
     raise SystemExit("completion marker identity/gate mismatch")
 if marker.get("phase1_authorized") is not False or marker.get("analysis_performed") is not False:
     raise SystemExit("natural marker attempted analysis/authorization")
@@ -501,4 +511,4 @@ actual = sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_
 if sorted(names) != actual: raise SystemExit("completion SHA256SUMS is not exhaustive")
 print("STAGE_R_PHASE1R_NATURAL_SHARD_COMPLETE_VALIDATED")
 PY
-echo "STAGE_R_PHASE1R_NATURAL_SHARD_COMPLETE_NO_UNBLINDING shard=$SHARD checkpoint=CHECKPOINT_1_PENDING_GLOBAL_MERGE"
+echo "STAGE_R_PHASE1R_NATURAL_EXECUTION_SHARD_COMPLETE_NO_UNBLINDING execution_shard=$EXECUTION_SHARD logical_shard=$SHARD checkpoint=CHECKPOINT_1_PENDING_GLOBAL_MERGE"

@@ -1,9 +1,9 @@
 {
   "schema_version": 2,
   "kind": "pytorchjob",
-  "name_prefix": "r142-fp11-phase1r-natural-shard-b-idle8",
-  "description": "R142 Stage-R Phase-1R natural shard B; fixed outcome-blind mapping; calibration and heldout streams; no shard analysis or unblinding",
-  "resource_alias": "idle-a800",
+  "name_prefix": "r142-fp11-phase1r-natural-shard-a1-idle4",
+  "description": "R142 Stage-R Phase-1R natural execution shard A1; fixed outcome-blind rank subset; calibration and heldout streams; no shard analysis or unblinding",
+  "resource_alias": "idle-a800-wrc-4gpu",
   "workspace_id": "179169",
   "provenance": {
     "contract_source_job_id": "dlct3tq8a7z5lsdd",
@@ -39,13 +39,13 @@
   "worker": {
     "count": 1,
     "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
-    "gpu": 8,
-    "cpu": 88,
-    "memory": "1525Gi",
-    "shared_memory": "1525Gi"
+    "gpu": 4,
+    "cpu": 46,
+    "memory": "800Gi",
+    "shared_memory": "800Gi"
   },
   "runtime": {
-    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split/pai/run_stage_r_phase1r_idle_8gpu.sh",
+    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split/pai/run_stage_r_phase1r_idle_4gpu.sh",
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
     "uid": 2254,
     "gid": 2254,
@@ -66,16 +66,15 @@
     "pai_automatic_fault_tolerance": true
   },
   "evidence": {
-    "kind": "r142_fp11_stage_r_phase1r_natural_shard_b_formal_evaluation",
-    "idle_8gpu_contract": "generic_formal_idle_8gpu_v1",
-    "resource_contract": "generic_formal_idle_8gpu_v1",
+    "kind": "r142_fp11_stage_r_phase1r_natural_execution_shard_a1_formal_evaluation",
+    "resource_contract": "generic_formal_idle_4gpu_v1",
     "workload_type": "evaluation",
-    "task_id": "r142-fp11-stage-r-phase1r-natural-shard-b-20260827",
+    "task_id": "r142-fp11-stage-r-phase1r-natural-shard-a1-20260828",
     "model_id": "pi05-libero-phase1r-natural-fixed-policy",
     "success_gate": "persisted_completed_evaluation_result",
     "validation_method": "static",
     "validation_status": "passed",
-    "validated_payload_sha256": "77cff89854267977a62710e4276d2863f01e7016fa7b0d38be246d6e2cbd7ae2",
+    "validated_payload_sha256": "e564c78bf952902c2e18e7ab2920b5145123c72aea330fcb8cde2e82720ad1a4",
     "pai_probe_created": false,
     "contract_ready": true,
     "require_actual_idle": true,
@@ -90,13 +89,22 @@
     "selection_manifest_sha256": "082f1f28f6ed8bddb1ed2ef87a3b848ac3daccec5c333f7f2cf1c4ef5d988231",
     "calibration_sha256": "f8a6486a96b9fc02071c391c4971ac2251d5c5e89dbb405f9d51dcd44fbfad6a",
     "authority_manifest_sha256": "3d5a37ec8a7e2c0dfd0c808ad59553c43a13c846b90f99c1afaa3529a072469c",
-    "streams": ["calibration", "heldout"],
+    "streams": [
+      "calibration",
+      "heldout"
+    ],
     "natural_cells_per_task": 240,
-    "natural_tasks": 23,
+    "natural_tasks": 10,
     "no_controls_regeneration": true,
     "no_calibration_regeneration": true,
     "no_unblinding": true,
-    "global_rank_range": [8, 15]
+    "global_rank_range": [
+      4,
+      7
+    ],
+    "idle_4gpu_contract": "generic_formal_idle_4gpu_v1",
+    "execution_config_sha256": "0279da07d96f243a71503230903a55aa2027997ed3b422f379a040523ba63dd3",
+    "execution_shard": "A1"
   },
   "submission": {
     "priority": 9,
@@ -107,12 +115,12 @@
     "tags": {
       "managed_by": "pai-job-registry",
       "purpose": "formal-evaluation",
-      "task": "r142-fp11-stage-r-phase1r-natural-shard-b-20260827",
+      "task": "r142-fp11-stage-r-phase1r-natural-shard-a1-20260828",
       "model": "pi05-libero-phase1r-natural-fixed-policy",
       "dataset": "libero-phase0r-authoritative-40tasks",
-      "hardware": "8xa800-idle",
+      "hardware": "4xa800-idle",
       "resource_pool": "idle-a800",
-      "experiment_role": "phase1r-natural-shard-b"
+      "experiment_role": "phase1r-natural-execution-shard-a1"
     }
   }
 }
