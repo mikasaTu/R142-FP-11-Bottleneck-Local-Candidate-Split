@@ -181,3 +181,46 @@ pairs reproduced their recorded NPZ and metadata SHA values. `task08`, rank 6,
 the subset completion records, and terminal `Succeeded` remained absent. This
 is another same-directory recovery checkpoint, not completion or permission
 to change the frozen authority mapping.
+
+## Shard B terminal completion
+
+At the 2026-08-27T01:19Z checkpoint, exact GetJob reported terminal
+`Succeeded` for shard B under the original JobId
+`dlcap6ioa9w2ht2u`, run ID
+`r142-stage-r-phase0r-supp-b-20260825-idle4-r2`, and unchanged CPFS artifact
+directory. The final master UID
+`191d01f2-887a-4af8-a91a-a26e9dc44801` succeeded after resuming from the
+same directory at `2026-08-26T12:40:49Z`; all six earlier failed master pods
+remain visible in the exact restart lineage.
+
+The previously missing `libero_10_task08` pair passed the same outcome-blind
+protocol/task identity, 512-rollout, exact 16-by-32 state/candidate coverage,
+rollout-seed formula, offsets, finite-array, owner `2254:2254`, and
+metadata/data SHA audit:
+
+```text
+NPZ SHA256      b975fd6325d1ea79785b7bf258395b31648725008f61c3f65f3759e66d5b4576
+metadata SHA256 2bddf2851ce846b880ffb0689d56390e6baff9bc7637e496bfe7949da9c0a123
+```
+
+All four shard-B authoritative targets (`libero_10_task06`--`task09`) and
+global-rank markers 4--7 passed the strong structure audit. The subset
+manifests state four targets, 2,048 rollouts, no outcome unblinding, no global
+Phase-0R completion, and no Phase-1 authorization. A complete
+`sha256sum --check SHA256SUMS` passed, including all imported prerequisites,
+and all audited immutable files were owner `2254:2254`, mode `0600`. The
+terminal hashes are:
+
+```text
+COMPLETED_SUBSET_RAW.json         0b715a07ed08ac4b6aa9ed4c6b4ee84591566829db360ae0317163b1a4e81671
+COMPLETED_EVALUATION_RESULT.json  581e0baf5d2c0f42b58b9e5e2e98dba7a608e7a2ce058457f70c0d8bdcfed48b
+SHA256SUMS                        1043c0ea3d4c5b4b285e2b4c033275f8b42ebafbcf489f7ad9b9fcc993c90633
+```
+
+This completes the independently pre-registered shard-B gate. Together with
+the earlier shard-A terminal completion, the frozen authority mapping is now
+eligible for a fail-closed global merge: parent indices 0--31, shard A
+indices 32--35, and shard B indices 36--39. Candidate outcomes have not been
+read or used for source selection. Phase-1 remains unauthorized; the next
+permitted action is the strong authoritative merge and frozen Phase-0R
+analysis, ending at `CHECKPOINT_1`.
