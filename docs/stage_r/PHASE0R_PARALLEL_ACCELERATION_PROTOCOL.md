@@ -61,3 +61,13 @@ The merged authoritative set is fixed as parent indices 0--31 plus shard A
 indices 32--35 plus shard B indices 36--39. Only then may the frozen Phase-0R
 aggregate and analysis run. The workflow must stop at `CHECKPOINT_1`; it must
 not enter Phase-1.
+
+The operational merge implementation is
+`scripts/stage_r_phase0r_authoritative_merge.py`. It validates both subset
+checksum manifests and completion records, validates every selected task pair
+without reading success values, enforces the exact 16-by-32 genealogy and
+rollout-seed schedule, hardlinks only the pre-registered source for each task,
+and atomically publishes an `AUTHORITY_MANIFEST.json`,
+`COMPLETED_PHASE0R_RAW.json`, and `SHA256SUMS`. An existing partial output
+directory is a hard failure. The frozen analyzer may be invoked only after the
+merged checksum manifest validates.
