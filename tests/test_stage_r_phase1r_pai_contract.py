@@ -13,6 +13,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 PAI = ROOT / "pai"
 LAUNCHER = PAI / "run_stage_r_phase1r_idle_4gpu.sh"
+CHECKPOINT_VALIDATOR = PAI / "validate_stage_r_checkpoint_attestation.py"
 TEMPLATES = (
     PAI / "r142_stage_r_phase1r_natural_shard_a0_idle4.json",
     PAI / "r142_stage_r_phase1r_natural_shard_a1_idle4.json",
@@ -56,8 +57,24 @@ class Phase1RPAIContractTest(unittest.TestCase):
         self.assertIn("git -C \"$REPO\" archive \"$SOURCE_COMMIT\"", text)
         self.assertIn("collect-natural", text)
         self.assertIn("CHECKPOINT_ATTESTATION_SHA256=d050805b0c1e9e8d8e879c7443bb10504859c654d0ba031bbbc6ce3635b02fca", text)
-        self.assertIn("frozen_full_content_attestation_plus_exact_metadata_and_content_probes", text)
-        self.assertIn("checkpoint file inventory drifted from full-content attestation", text)
+        self.assertIn(
+            "CHECKPOINT_VALIDATOR_SHA256=1b32a626d34bcb25bd81927f24c44579686d2945ab4f36525d1bad1c6dc639c4",
+            text,
+        )
+        self.assertEqual(
+            hashlib.sha256(CHECKPOINT_VALIDATOR.read_bytes()).hexdigest(),
+            "1b32a626d34bcb25bd81927f24c44579686d2945ab4f36525d1bad1c6dc639c4",
+        )
+        subprocess.run(["python3", "-m", "py_compile", str(CHECKPOINT_VALIDATOR)], check=True)
+        validator_text = CHECKPOINT_VALIDATOR.read_text(encoding="utf-8")
+        self.assertIn(
+            "frozen_full_content_attestation_plus_exact_metadata_and_content_probes",
+            validator_text,
+        )
+        self.assertIn(
+            "checkpoint file inventory drifted from full-content attestation",
+            validator_text,
+        )
         self.assertNotIn("digest = hashlib.sha256(path.read_bytes()).hexdigest()", text)
         self.assertIn("COMPLETED_EVALUATION_RESULT.json", text)
         self.assertIn("SHA256SUMS", text)

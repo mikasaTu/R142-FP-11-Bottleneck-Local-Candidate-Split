@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+  "amendment_kind": "outcome_blind_canonical_registry_recovery_reroute",
+  "scientific_contract_unchanged": true,
+  "supersedes_operational_field": "configs/stage_r_phase1r_recovery_attestation_v1.json#failed_run_directories_reused",
+  "superseded_value": true,
+  "effective_value": false,
+  "reason": "the canonical pai-job registry fail-closes on reuse of a run id after any CreateJob attempt; no alternate registry or direct unregistered CreateJob is permitted",
+  "failed_jobs": {
+    "A0": "dlc1bswe8aezclrc",
+    "A1": "dlc1fer47ebj5vpn",
+    "B0": "dlc1iqm8sq3tarts",
+    "B1": "dlc1lshs0arkjb4l"
+  },
+  "failed_run_directories_preserved": true,
+  "failed_run_directories_modified_after_failure_evidence": false,
+  "replacement_run_ids": {
+    "A0": "r142-stage-r-phase1r-shard-a0-20260828-idle4-r4",
+    "A1": "r142-stage-r-phase1r-shard-a1-20260828-idle4-r4",
+    "B0": "r142-stage-r-phase1r-shard-b0-20260828-idle4-r4",
+    "B1": "r142-stage-r-phase1r-shard-b1-20260828-idle4-r4"
+  },
+  "outcomes_inspected": false,
+  "natural_cells_observed": 0,
+  "first_work_observed": false,
+  "tasks_changed": false,
+  "seeds_changed": false,
+  "candidate_budget_changed": false,
+  "selection_changed": false,
+  "thresholds_changed": false,
+  "analysis_protocol_changed": false,
+  "resource_contract_changed": false,
+  "checkpoint_validator_sha256": "1b32a626d34bcb25bd81927f24c44579686d2945ab4f36525d1bad1c6dc639c4",
+  "checkpoint_full_content_attestation_sha256": "d050805b0c1e9e8d8e879c7443bb10504859c654d0ba031bbbc6ce3635b02fca",
+  "launcher_sha256": "9eb236c14855f7ff72cc79ef76a47bef847430538c525e71ec0fd754d0a2b5b3",
+  "gpu_per_job": 4,
+  "cpu_per_job": 46,
+  "memory_per_job": "800Gi",
+  "shared_memory_per_job": "800Gi",
+  "total_gpu_limit": 16
+}

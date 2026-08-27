@@ -29,6 +29,8 @@ readonly CHECKPOINT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/openpi/r16p15/openpi
 readonly CHECKPOINT_TREE_SHA=42d571bd87f05f1182810f5a8bfa6d084c0d0dd277aff739bcf8f69868e6fb99
 readonly CHECKPOINT_ATTESTATION="$REPO/configs/stage_r_pi05_libero_checkpoint_attestation.json"
 readonly CHECKPOINT_ATTESTATION_SHA256=d050805b0c1e9e8d8e879c7443bb10504859c654d0ba031bbbc6ce3635b02fca
+readonly CHECKPOINT_VALIDATOR="$REPO/pai/validate_stage_r_checkpoint_attestation.py"
+readonly CHECKPOINT_VALIDATOR_SHA256=1b32a626d34bcb25bd81927f24c44579686d2945ab4f36525d1bad1c6dc639c4
 readonly OUTPUT_ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase1r
 readonly PHASE0_MERGE_ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase0r_merged/r142-stage-r-phase0r-authoritative-20260827
 readonly PHASE0_RAW="$PHASE0_MERGE_ROOT/raw"
@@ -100,6 +102,7 @@ expect_sha256() {
 }
 expect_sha256 "$EXECUTION_CONFIG" "$EXECUTION_CONFIG_SHA256"
 expect_sha256 "$CHECKPOINT_ATTESTATION" "$CHECKPOINT_ATTESTATION_SHA256"
+expect_sha256 "$CHECKPOINT_VALIDATOR" "$CHECKPOINT_VALIDATOR_SHA256"
 
 if [[ ! -e runtime/source_commit.txt ]]; then
   if find frozen_source -mindepth 1 -print -quit | grep -q .; then
@@ -297,58 +300,9 @@ if sorted(n for n in names if n.startswith("raw/")) != expected_raw:
 print(json.dumps({"valid": True, "authority_records": 40, "raw_tasks": 40, "raw_rollouts": 20480, "raw_files": 80}, sort_keys=True))
 PY
 
-"$PYTHON" - "$CHECKPOINT" "$CHECKPOINT_TREE_SHA" "$CHECKPOINT_ATTESTATION" "$CHECKPOINT_ATTESTATION_SHA256" <<'PY' > runtime/checkpoint_validation.json
-import hashlib, json, os, sys
-from pathlib import Path
-root, expected_tree, attestation_path, expected_attestation = Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3]), sys.argv[4]
-attestation_bytes = attestation_path.read_bytes()
-if hashlib.sha256(attestation_bytes).hexdigest() != expected_attestation:
-    raise SystemExit("checkpoint attestation SHA mismatch")
-attestation = json.loads(attestation_bytes)
-expected_header = {
-    "schema_version": 1,
-    "marker_type": "full_content_checkpoint_attestation",
-    "checkpoint": str(root),
-    "tree_sha256": expected_tree,
-    "file_count": 16,
-    "bytes": 12439085481,
-    "probe_scheme": "sha256_first_and_last_1MiB_plus_full_file_metadata",
-    "uid": 2254,
-    "gid": 2254,
-}
-if any(attestation.get(key) != value for key, value in expected_header.items()):
-    raise SystemExit("checkpoint attestation header mismatch")
-rows = attestation.get("files")
-if not isinstance(rows, list) or len(rows) != 16:
-    raise SystemExit("checkpoint attestation file inventory mismatch")
-expected_paths = [str(row.get("path", "")) for row in rows]
-actual_paths = []
-for path in sorted(root.rglob("*")):
-    if path.is_symlink(): raise SystemExit(f"checkpoint contains symlink: {path}")
-    if path.is_file(): actual_paths.append(path.relative_to(root).as_posix())
-if actual_paths != expected_paths:
-    raise SystemExit("checkpoint file inventory drifted from full-content attestation")
-probe_bytes = 1024 * 1024
-for row in rows:
-    path = root / row["path"]
-    metadata = path.stat()
-    observed_metadata = (metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns)
-    expected_metadata = (row.get("size"), row.get("mtime_ns"), row.get("ctime_ns"))
-    if observed_metadata != expected_metadata:
-        raise SystemExit(f"checkpoint metadata drifted: {path}")
-    with path.open("rb") as handle:
-        head = handle.read(probe_bytes)
-        if metadata.st_size > probe_bytes:
-            handle.seek(max(0, metadata.st_size - probe_bytes))
-            tail = handle.read(probe_bytes)
-        else:
-            tail = head
-    if hashlib.sha256(head).hexdigest() != row.get("head_sha256") or hashlib.sha256(tail).hexdigest() != row.get("tail_sha256"):
-        raise SystemExit(f"checkpoint probe digest drifted: {path}")
-    if metadata.st_size <= 2 * probe_bytes and hashlib.sha256(path.read_bytes()).hexdigest() != row.get("sha256"):
-        raise SystemExit(f"checkpoint small-file full digest drifted: {path}")
-print(json.dumps({"valid": True, "validation_mode": "frozen_full_content_attestation_plus_exact_metadata_and_content_probes", "file_count": len(rows), "bytes": attestation["bytes"], "tree_sha256": expected_tree, "attestation_sha256": expected_attestation, "uid": os.getuid(), "gid": os.getgid()}, sort_keys=True))
-PY
+"$PYTHON" "$CHECKPOINT_VALIDATOR" "$CHECKPOINT" "$CHECKPOINT_TREE_SHA" \
+  "$CHECKPOINT_ATTESTATION" "$CHECKPOINT_ATTESTATION_SHA256" \
+  > runtime/checkpoint_validation.json
 
 "$PYTHON" - "$SHARDS_PATH" "$EXECUTION_CONFIG" "$EXECUTION_SHARD" "$SELECTION_ROOT" runtime/task_mapping.tsv <<'PY'
 import json, re, sys
