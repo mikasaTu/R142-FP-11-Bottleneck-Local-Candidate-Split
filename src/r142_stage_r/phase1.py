@@ -435,7 +435,25 @@ def _capture_snapshot(environment: Any, queue: Sequence[np.ndarray], seed: int, 
     )
 
 
+def _action_stream_sha256(actions: Sequence[np.ndarray]) -> str:
+    """Hash the exact replayed action tensor with shape/dtype framing."""
+
+    array = np.asarray(actions, dtype=np.float32)
+    digest = hashlib.sha256()
+    digest.update(str(array.dtype).encode("ascii"))
+    digest.update(b"\0")
+    digest.update(repr(tuple(int(value) for value in array.shape)).encode("ascii"))
+    digest.update(b"\0")
+    digest.update(array.tobytes(order="C"))
+    return digest.hexdigest()
+
+
 def _restore_snapshot(environment: Any, snapshot: BranchSnapshot) -> None:
+    # A factory-created LIBERO environment starts with seed=0; restore the
+    # snapshot seed first so the adapter seed contract remains exact.
+    snapshot_seed = getattr(snapshot.environment, "evaluation_seed", None)
+    if snapshot_seed is not None and hasattr(environment, "evaluation_seed"):
+        environment.evaluation_seed = int(snapshot_seed)
     environment.restore_snapshot(copy.deepcopy(snapshot.environment))
     if snapshot.observation_history is not None and hasattr(environment, "_observation"):
         environment._observation = copy.deepcopy(snapshot.observation_history)
@@ -517,6 +535,8 @@ def replay_baseline_snapshot(
         "replay_actions": len(replay_actions),
         "baseline_length": expected_length,
         "baseline_success": observed_success,
+        "replay_action_sha256": _action_stream_sha256(replay_actions),
+        "replay_action_shape": list(np.asarray(replay_actions, dtype=np.float32).shape),
         "action_max_abs_error": 0.0,
     }
 
@@ -538,6 +558,156 @@ def _branch_seed(stream: str, suite: str, task_id: int, parent_id: str, location
     )
 
 
+def replay_baseline_snapshots(
+    environment: Any,
+    policy: Any,
+    suite: str,
+    task_id: int,
+    row: Mapping[str, Any],
+    target_steps: Sequence[int],
+) -> tuple[dict[int, BranchSnapshot], dict[str, Any]]:
+    """Replay one baseline and capture all requested pre-action snapshots.
+
+    A selected natural episode has ten frozen decile locations.  The source
+    baseline is replayed once, while a snapshot is captured whenever the
+    replay reaches a requested location.  This keeps baseline accounting
+    exact and removes an otherwise silent ten-fold replay multiplier.
+    """
+
+    init_state = int(row["init_state"])
+    rollout_seed = int(row["rollout_seed"])
+    requested_steps = [int(value) for value in target_steps]
+    if not requested_steps:
+        raise ValueError("target_steps must be nonempty")
+    if any(value < 0 for value in requested_steps):
+        raise ValueError("target_steps must be nonnegative")
+    raw_actions = np.asarray(row.get("actions", []), dtype=np.float32)
+    expected_length = int(len(raw_actions))
+    if expected_length <= 0:
+        raise RuntimeError("baseline rollout has no actions")
+    if any(value >= expected_length for value in requested_steps):
+        raise RuntimeError(
+            f"target_steps={requested_steps} contains a step outside baseline length={expected_length}"
+        )
+    target_set = set(requested_steps)
+    observation = _reset_seeded(environment, suite, task_id, init_state)
+    queue: list[np.ndarray] = []
+    counter = 0
+    step = 0
+    done = False
+    captured: dict[int, BranchSnapshot] = {}
+    replay_actions: list[np.ndarray] = []
+    final_result: Mapping[str, Any] | None = None
+    action_max_abs_error = 0.0
+    # Replay the complete baseline once.  Capturing multiple snapshots during
+    # this pass preserves the exact source action stream and terminal label.
+    while not done:
+        if step >= expected_length:
+            raise RuntimeError(
+                f"baseline terminated after {step} actions but raw rollout has {expected_length}"
+            )
+        if not queue:
+            queue.extend(_sample_chunk(policy, observation, rollout_seed, counter))
+            counter += 1
+        if step in target_set and step not in captured:
+            captured[step] = _capture_snapshot(environment, queue, rollout_seed, counter, step)
+        action = np.asarray(queue.pop(0), dtype=np.float32)
+        expected_action = np.asarray(raw_actions[step], dtype=np.float32)
+        if action.shape != expected_action.shape or not np.allclose(
+            action, expected_action, rtol=ACTION_REPLAY_RTOL, atol=ACTION_REPLAY_ATOL
+        ):
+            max_error = float(np.max(np.abs(action - expected_action))) if action.shape == expected_action.shape else float("inf")
+            raise RuntimeError(
+                f"baseline action mismatch at step={step}: shape={action.shape}/{expected_action.shape}, max_error={max_error}"
+            )
+        if action.shape == expected_action.shape:
+            action_max_abs_error = max(action_max_abs_error, float(np.max(np.abs(action - expected_action))))
+        result = _execute(environment, action)
+        replay_actions.append(action.copy())
+        observation = _observation(policy, environment)
+        final_result = result
+        done = bool(result.get("done", False))
+        step += 1
+    if len(replay_actions) != expected_length:
+        raise RuntimeError(f"baseline replay length={len(replay_actions)} != raw length={expected_length}")
+    if set(captured) != target_set:
+        raise RuntimeError(
+            f"failed to capture baseline snapshots: captured={sorted(captured)} requested={sorted(target_set)}"
+        )
+    if final_result is None:
+        raise RuntimeError("baseline produced no terminal result")
+    expected_success = bool(row.get("success", False))
+    observed_success = bool(final_result.get("success", False))
+    if observed_success != expected_success:
+        raise RuntimeError(
+            f"baseline terminal success mismatch: replay={observed_success} raw={expected_success}"
+        )
+    return captured, {
+        "replay_steps": step,
+        "replay_actions": len(replay_actions),
+        "baseline_length": expected_length,
+        "baseline_success": observed_success,
+        "expected_success": expected_success,
+        "policy_forwards": counter,
+        "policy_batches": counter,
+        "target_steps": requested_steps,
+        "captured_steps": sorted(captured),
+        "replay_action_sha256": _action_stream_sha256(replay_actions),
+        "replay_action_shape": list(np.asarray(replay_actions, dtype=np.float32).shape),
+        "action_max_abs_error": action_max_abs_error,
+    }
+class BranchEnvironmentPool:
+    """Factory-created simulator pool reused across natural cells.
+
+    The pool is intentionally bounded by the configured model microbatch.  A
+    cell with more descendants than the pool capacity is evaluated in waves;
+    no live MuJoCo handle is ever deep-copied or shared by two descendants.
+    """
+
+    def __init__(
+        self,
+        environment_factory: Callable[[str, int, str], Any],
+        suite: str,
+        task_id: int,
+        *,
+        capacity: int,
+        kind: str = "natural",
+    ) -> None:
+        if int(capacity) <= 0:
+            raise ValueError("branch environment pool capacity must be positive")
+        self.environment_factory = environment_factory
+        self.suite = str(suite)
+        self.task_id = int(task_id)
+        self.kind = str(kind)
+        self.capacity = int(capacity)
+        self._environments: list[Any] = []
+        self._closed = False
+
+    def acquire(self, count: int) -> list[Any]:
+        if self._closed:
+            raise RuntimeError("branch environment pool is closed")
+        requested = int(count)
+        if not 0 < requested <= self.capacity:
+            raise ValueError(f"requested {requested} environments exceeds pool capacity {self.capacity}")
+        while len(self._environments) < requested:
+            self._environments.append(
+                self.environment_factory(self.suite, self.task_id, self.kind)
+            )
+        return self._environments[:requested]
+
+    @property
+    def created_count(self) -> int:
+        return len(self._environments)
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        for environment in self._environments:
+            if hasattr(environment, "close"):
+                environment.close()
+        self._environments.clear()
+
 def _collect_branch_cell_batched(
     environment: Any,
     policy: Any,
@@ -552,111 +722,159 @@ def _collect_branch_cell_batched(
     descendants: int,
     max_steps: int,
     microbatch: int,
+    environment_pool: BranchEnvironmentPool | None = None,
 ) -> list[BranchTrace] | None:
-    """Try a batched official-policy branch rollout.
+    """Compatibility wrapper for the factory-backed batched collector."""
 
-    Each branch needs an independent simulator state, so this path clones the
-    adapter and restores the same snapshot into every clone.  If an external
-    simulator cannot be deep-copied (common for live MuJoCo handles), return
-    ``None`` and let the caller use the exact sequential fallback.  We never
-    silently share simulator state between descendants.
-    """
+    if environment_pool is None:
+        return None
+    return _collect_branch_cell_batched_pool(
+        environment,
+        policy,
+        snapshot=snapshot,
+        suite=suite,
+        task_id=task_id,
+        parent_id=parent_id,
+        generation_step=generation_step,
+        stream=stream,
+        location_index=location_index,
+        descendants=descendants,
+        max_steps=max_steps,
+        microbatch=microbatch,
+        environment_pool=environment_pool,
+    )
 
+
+def _collect_branch_wave(
+    policy: Any,
+    branch_envs: Sequence[Any],
+    branch_ids: Sequence[int],
+    *,
+    suite: str,
+    task_id: int,
+    parent_id: str,
+    generation_step: int,
+    stream: str,
+    location_index: int,
+    max_steps: int,
+    microbatch: int,
+) -> tuple[list[BranchTrace], int]:
+    seeds = [
+        _branch_seed(stream, suite, task_id, parent_id, location_index, branch_id)
+        for branch_id in branch_ids
+    ]
+    count = len(branch_ids)
+    queues: list[list[np.ndarray]] = [[] for _ in range(count)]
+    counters = [0 for _ in range(count)]
+    observations = [_observation(policy, environment) for environment in branch_envs]
+    actions: list[list[np.ndarray]] = [[] for _ in range(count)]
+    progresses: list[list[float]] = [[] for _ in range(count)]
+    states: list[list[np.ndarray]] = [[] for _ in range(count)]
+    successes = [False for _ in range(count)]
+    done = [False for _ in range(count)]
+    forwards = [0 for _ in range(count)]
+    policy_batches = 0
+    for _ in range(int(max_steps)):
+        if all(done):
+            break
+        needs_plan = [index for index in range(count) if not done[index] and not queues[index]]
+        if needs_plan:
+            chunks, batch_count = _sample_chunks(
+                policy,
+                [observations[index] for index in needs_plan],
+                [seeds[index] for index in needs_plan],
+                [counters[index] for index in needs_plan],
+                microbatch=max(1, int(microbatch)),
+            )
+            policy_batches += int(batch_count)
+            for local, index in enumerate(needs_plan):
+                queues[index].extend(np.asarray(chunks[local], dtype=np.float32))
+                counters[index] += 1
+                forwards[index] += 1
+        for index, environment in enumerate(branch_envs):
+            if done[index]:
+                continue
+            if not queues[index]:
+                raise RuntimeError(f"empty action queue for branch {branch_ids[index]}")
+            action = np.asarray(queues[index].pop(0), dtype=np.float32)
+            result = _execute(environment, action)
+            observations[index] = _observation(policy, environment)
+            actions[index].append(action.copy())
+            progresses[index].append(float(result.get("progress", 0.0)))
+            states[index].append(_state_vector(environment, observations[index]))
+            successes[index] = bool(result.get("success", False))
+            done[index] = bool(result.get("done", False))
+    if not all(done):
+        raise RuntimeError(f"branch exceeded max_steps={max_steps}")
+    traces = [
+        BranchTrace(
+            branch_id=int(branch_id),
+            parent_id=str(parent_id),
+            generation_step=int(generation_step),
+            branch_seed=int(seeds[index]),
+            actions=np.asarray(actions[index], dtype=np.float32),
+            progress=np.asarray(progresses[index], dtype=np.float32),
+            states=np.asarray(states[index], dtype=np.float64),
+            success=bool(successes[index]),
+            policy_forwards=int(forwards[index]),
+            policy_batches=int(forwards[index]),
+            environment_steps=len(actions[index]),
+        )
+        for index, branch_id in enumerate(branch_ids)
+    ]
+    return traces, int(policy_batches)
+
+
+def _collect_branch_cell_batched_pool(
+    environment: Any,
+    policy: Any,
+    *,
+    snapshot: BranchSnapshot,
+    suite: str,
+    task_id: int,
+    parent_id: str,
+    generation_step: int,
+    stream: str,
+    location_index: int,
+    descendants: int,
+    max_steps: int,
+    microbatch: int,
+    environment_pool: BranchEnvironmentPool,
+) -> list[BranchTrace] | None:
+    """Collect descendants in bounded waves using factory-created environments."""
+
+    del environment  # retained for compatibility with the public API
     if not hasattr(policy, "sample_model_actions_official"):
         return None
-    branch_envs: list[Any] = []
-    try:
-        for _ in range(int(descendants)):
-            branch_env = copy.deepcopy(environment)
-            _restore_snapshot(branch_env, snapshot)
-            # Optional adapter hook: controls can distinguish the frozen
-            # baseline replay from a fresh descendant without changing the
-            # generic snapshot contract.  Natural adapters simply omit it.
-            if hasattr(branch_env, "begin_branch"):
-                branch_env.begin_branch()
-            branch_envs.append(branch_env)
-    except Exception:
-        for branch_env in branch_envs:
-            if hasattr(branch_env, "close"):
-                branch_env.close()
-        return None
-
-    seeds = [_branch_seed(stream, suite, task_id, parent_id, location_index, branch_id) for branch_id in range(int(descendants))]
-    queues: list[list[np.ndarray]] = [[] for _ in range(int(descendants))]
-    counters = [0 for _ in range(int(descendants))]
-    observations = [_observation(policy, branch_env) for branch_env in branch_envs]
-    actions: list[list[np.ndarray]] = [[] for _ in range(int(descendants))]
-    progresses: list[list[float]] = [[] for _ in range(int(descendants))]
-    states: list[list[np.ndarray]] = [[] for _ in range(int(descendants))]
-    successes = [False for _ in range(int(descendants))]
-    done = [False for _ in range(int(descendants))]
-    forwards = [0 for _ in range(int(descendants))]
-    policy_batches = 0
-    try:
-        for _ in range(int(max_steps)):
-            if all(done):
-                break
-            needs_plan = [index for index in range(int(descendants)) if not done[index] and not queues[index]]
-            if needs_plan:
-                chunks, batch_count = _sample_chunks(
-                    policy,
-                    [observations[index] for index in needs_plan],
-                    [seeds[index] for index in needs_plan],
-                    [counters[index] for index in needs_plan],
-                    microbatch=max(1, int(microbatch)),
-                )
-                policy_batches += int(batch_count)
-                for local, index in enumerate(needs_plan):
-                    queues[index].extend(np.asarray(chunks[local], dtype=np.float32))
-                    counters[index] += 1
-                    forwards[index] += 1
-            for index, branch_env in enumerate(branch_envs):
-                if done[index]:
-                    continue
-                if not queues[index]:
-                    raise RuntimeError(f"empty action queue for branch {index}")
-                action = np.asarray(queues[index].pop(0), dtype=np.float32)
-                result = _execute(branch_env, action)
-                observations[index] = _observation(policy, branch_env)
-                actions[index].append(action.copy())
-                progresses[index].append(float(result.get("progress", 0.0)))
-                states[index].append(_state_vector(branch_env, observations[index]))
-                successes[index] = bool(result.get("success", False))
-                done[index] = bool(result.get("done", False))
-        if not all(done):
-            raise RuntimeError(f"branch exceeded max_steps={max_steps}")
-        # ``policy_batches`` is common to the cell; distribute it as a sum of
-        # per-branch logical batches for a stable cell-level accounting field.
-        # The true physical count remains recorded by the caller metadata.
-        traces = []
-        for branch_id in range(int(descendants)):
-            traces.append(
-                BranchTrace(
-                    branch_id=int(branch_id),
-                    parent_id=str(parent_id),
-                    generation_step=int(generation_step),
-                    branch_seed=int(seeds[branch_id]),
-                    actions=np.asarray(actions[branch_id], dtype=np.float32),
-                    progress=np.asarray(progresses[branch_id], dtype=np.float32),
-                    states=np.asarray(states[branch_id], dtype=np.float64),
-                    success=bool(successes[branch_id]),
-                    policy_forwards=int(forwards[branch_id]),
-                    policy_batches=int(forwards[branch_id]),
-                    environment_steps=len(actions[branch_id]),
-                )
-            )
-        # Attach the physical count for the writer without changing the fixed
-        # per-trace schema.  ``collect_branch_cell`` copies this attribute when
-        # present; sequential traces naturally have one batch per forward.
-        if traces:
-            setattr(traces[0], "physical_policy_batches", int(policy_batches))
-        return traces
-    finally:
-        for branch_env in branch_envs:
-            if hasattr(branch_env, "close"):
-                branch_env.close()
-
-
+    traces: list[BranchTrace] = []
+    physical_batches = 0
+    for start in range(0, int(descendants), int(environment_pool.capacity)):
+        branch_ids = list(
+            range(start, min(start + int(environment_pool.capacity), int(descendants)))
+        )
+        branch_envs = environment_pool.acquire(len(branch_ids))
+        for branch_environment in branch_envs:
+            _restore_snapshot(branch_environment, snapshot)
+            if hasattr(branch_environment, "begin_branch"):
+                branch_environment.begin_branch()
+        wave, wave_batches = _collect_branch_wave(
+            policy,
+            branch_envs,
+            branch_ids,
+            suite=suite,
+            task_id=task_id,
+            parent_id=parent_id,
+            generation_step=generation_step,
+            stream=stream,
+            location_index=location_index,
+            max_steps=max_steps,
+            microbatch=microbatch,
+        )
+        traces.extend(wave)
+        physical_batches += int(wave_batches)
+    if traces:
+        setattr(traces[0], "physical_policy_batches", int(physical_batches))
+    return traces
 def collect_branch_cell(
     environment: Any,
     policy: Any,
@@ -671,11 +889,12 @@ def collect_branch_cell(
     descendants: int = DESCENDANTS_PER_CELL,
     max_steps: int = 1000,
     microbatch: int = 1,
+    environment_pool: BranchEnvironmentPool | None = None,
 ) -> list[BranchTrace]:
     if stream not in STREAMS:
         raise ValueError(f"unknown stream {stream!r}")
-    if int(microbatch) > 1 and hasattr(policy, "sample_model_actions_official"):
-        batched = _collect_branch_cell_batched(
+    if int(microbatch) > 1 and hasattr(policy, "sample_model_actions_official") and environment_pool is not None:
+        batched = _collect_branch_cell_batched_pool(
             environment,
             policy,
             snapshot=snapshot,
@@ -688,6 +907,7 @@ def collect_branch_cell(
             descendants=descendants,
             max_steps=max_steps,
             microbatch=int(microbatch),
+            environment_pool=environment_pool,
         )
         if batched is not None:
             return batched
@@ -977,6 +1197,164 @@ def _cell_marker_digest(entries: Sequence[tuple[str, Path]]) -> str:
     return digest.hexdigest()
 
 
+def baseline_replay_path(
+    output_root: str | Path,
+    suite: str,
+    task_id: int,
+    selection_index: int,
+) -> Path:
+    """Return the portable location of one episode baseline evidence record."""
+
+    return (
+        Path(output_root)
+        / suite
+        / f"task{int(task_id):02d}"
+        / f"episode{int(selection_index):02d}"
+        / "BASELINE_REPLAY.json"
+    )
+
+
+def _baseline_replay_sums_path(path: str | Path) -> Path:
+    return Path(path).with_name("BASELINE_REPLAY_SHA256SUMS")
+
+
+def write_baseline_replay_evidence(
+    output_root: str | Path,
+    *,
+    suite: str,
+    task_id: int,
+    selection_index: int,
+    parent_id: str,
+    row: Mapping[str, Any],
+    source_raw_file: str,
+    source_raw_sha256: str,
+    replay: Mapping[str, Any],
+    owner_uid: int | None = None,
+    owner_gid: int | None = None,
+) -> dict[str, Any]:
+    """Atomically persist one descendant-blind baseline replay accounting record."""
+
+    path = baseline_replay_path(output_root, suite, task_id, selection_index)
+    payload = {
+        "schema_version": PHASE1_SCHEMA_VERSION,
+        "protocol_id": PHASE1_PROTOCOL_ID,
+        "marker_type": "baseline_replay",
+        "suite": str(suite),
+        "task_id": int(task_id),
+        "selection_index": int(selection_index),
+        "parent_id": str(parent_id),
+        "source_raw_file": str(source_raw_file),
+        "source_raw_sha256": str(source_raw_sha256),
+        "source_raw_key": str(parent_id),
+        "init_state": int(row["init_state"]),
+        "candidate_id": int(row["candidate_id"]),
+        "rollout_seed": int(row["rollout_seed"]),
+        "baseline_length": int(replay["baseline_length"]),
+        "replay_steps": int(replay["replay_steps"]),
+        "replay_actions": int(replay["replay_actions"]),
+        "baseline_success": bool(replay["baseline_success"]),
+        "expected_success": bool(row.get("success", False)),
+        "replay_action_sha256": str(replay["replay_action_sha256"]),
+        "replay_action_shape": [int(value) for value in replay["replay_action_shape"]],
+        "policy_forwards": int(replay["policy_forwards"]),
+        "policy_batches": int(replay["policy_batches"]),
+        "target_steps": [int(value) for value in replay["target_steps"]],
+        "captured_steps": [int(value) for value in replay["captured_steps"]],
+        "action_max_abs_error": float(replay["action_max_abs_error"]),
+        "owner_uid": int(os.getuid() if owner_uid is None else owner_uid),
+        "owner_gid": int(os.getgid() if owner_gid is None else owner_gid),
+    }
+    atomic_json(path, payload)
+    digest = sha256_file(path)
+    _atomic_text(
+        _baseline_replay_sums_path(path),
+        f"{digest}  {path.name}\n",
+    )
+    return {**payload, "record_sha256": digest}
+
+
+def validate_baseline_replay_evidence(
+    path: str | Path,
+    *,
+    suite: str | None = None,
+    task_id: int | None = None,
+    selection_index: int | None = None,
+    parent_id: str | None = None,
+    source_raw_file: str | None = None,
+    source_raw_sha256: str | None = None,
+    expected_success: bool | None = None,
+    require_owner: tuple[int, int] | None = (2254, 2254),
+) -> tuple[bool, list[str], dict[str, Any] | None]:
+    """Fail-closed validation of one baseline replay accounting record."""
+
+    destination = Path(path)
+    sums_path = _baseline_replay_sums_path(destination)
+    errors: list[str] = []
+    if not destination.is_file() or not sums_path.is_file():
+        return False, ["missing baseline replay evidence"], None
+    try:
+        payload = json.loads(destination.read_text(encoding="utf-8"))
+        if payload.get("protocol_id") != PHASE1_PROTOCOL_ID or payload.get("marker_type") != "baseline_replay":
+            errors.append("baseline replay protocol/type mismatch")
+        if suite is not None and payload.get("suite") != suite:
+            errors.append("baseline replay suite mismatch")
+        if task_id is not None and int(payload.get("task_id", -1)) != int(task_id):
+            errors.append("baseline replay task mismatch")
+        if selection_index is not None and int(payload.get("selection_index", -1)) != int(selection_index):
+            errors.append("baseline replay selection mismatch")
+        if parent_id is not None and payload.get("parent_id") != parent_id:
+            errors.append("baseline replay parent mismatch")
+        if source_raw_file is not None and payload.get("source_raw_file") != source_raw_file:
+            errors.append("baseline replay source file mismatch")
+        if source_raw_sha256 is not None and payload.get("source_raw_sha256") != source_raw_sha256:
+            errors.append("baseline replay source SHA mismatch")
+        if expected_success is not None and bool(payload.get("expected_success")) != bool(expected_success):
+            errors.append("baseline replay expected outcome mismatch")
+        target_steps = [int(value) for value in payload.get("target_steps", [])]
+        captured_steps = [int(value) for value in payload.get("captured_steps", [])]
+        if len(target_steps) != LOCATIONS_PER_EPISODE:
+            errors.append("baseline replay decile count mismatch")
+        if len(captured_steps) != len(set(target_steps)):
+            errors.append("baseline replay captured-step count mismatch")
+        if sorted(captured_steps) != sorted(set(target_steps)):
+            errors.append("baseline replay captured-step identity mismatch")
+        baseline_length = int(payload.get("baseline_length", -1))
+        if int(payload.get("replay_steps", -1)) != baseline_length or int(payload.get("replay_actions", -1)) != baseline_length:
+            errors.append("baseline replay length accounting mismatch")
+        if bool(payload.get("baseline_success")) != bool(payload.get("expected_success")):
+            errors.append("baseline replay terminal label mismatch")
+        action_sha = str(payload.get("replay_action_sha256", ""))
+        if len(action_sha) != 64 or any(value not in "0123456789abcdef" for value in action_sha):
+            errors.append("baseline replay action SHA missing or malformed")
+        action_shape = payload.get("replay_action_shape")
+        if (
+            not isinstance(action_shape, list)
+            or not action_shape
+            or int(action_shape[0]) != baseline_length
+            or any(int(value) <= 0 for value in action_shape)
+        ):
+            errors.append("baseline replay action shape mismatch")
+        if int(payload.get("policy_forwards", -1)) < 1 or int(payload.get("policy_batches", -1)) < 1:
+            errors.append("baseline replay policy accounting missing")
+        if not np.isfinite(float(payload.get("action_max_abs_error", float("nan")))):
+            errors.append("baseline replay action error is nonfinite")
+        actual_sha = sha256_file(destination)
+        sums = sums_path.read_text(encoding="utf-8").splitlines()
+        if sums != [f"{actual_sha}  {destination.name}"]:
+            errors.append("baseline replay SHA256SUMS mismatch")
+        if require_owner is not None:
+            required_owner = tuple(int(value) for value in require_owner)
+            observed_owner = (int(payload.get("owner_uid", -1)), int(payload.get("owner_gid", -1)))
+            if observed_owner != required_owner:
+                errors.append(f"baseline replay owner mismatch: {observed_owner} != {required_owner}")
+            for candidate in (destination, sums_path):
+                stat = candidate.stat()
+                if (int(stat.st_uid), int(stat.st_gid)) != required_owner:
+                    errors.append(f"baseline replay filesystem owner mismatch: {candidate}")
+        return not errors, errors, {**payload, "record_sha256": actual_sha}
+    except Exception as exc:
+        return False, [f"baseline replay parse error: {type(exc).__name__}: {exc}"], None
+
 def write_task_completion_marker(
     output_root: str | Path,
     suite: str,
@@ -1003,10 +1381,30 @@ def write_task_completion_marker(
         raise RuntimeError("invalid selection manifest: " + "; ".join(selection_errors))
     selection = json.loads(selection_path.read_text(encoding="utf-8"))
     entries: list[tuple[str, Path]] = []
+    baseline_entries: list[tuple[str, Path]] = []
     cell_count = 0
     for selected in selection["selected"]:
         episode = int(selected["selection_index"])
         parent = str(selected["episode"])
+        baseline_path = baseline_replay_path(output_root, suite, task_id, episode)
+        baseline_valid, baseline_reasons, _ = validate_baseline_replay_evidence(
+            baseline_path,
+            suite=suite,
+            task_id=task_id,
+            selection_index=episode,
+            parent_id=parent,
+            expected_success=(
+                bool(selected["baseline_success"])
+                if "baseline_success" in selected
+                else None
+            ),
+            require_owner=require_owner,
+        )
+        if not baseline_valid:
+            raise RuntimeError(
+                f"cannot seal baseline replay {baseline_path}: {'; '.join(baseline_reasons)}"
+            )
+        baseline_entries.append((f"episode{episode:02d}", baseline_path))
         for location in range(LOCATIONS_PER_EPISODE):
             for stream in selected_streams:
                 directory = cell_path(output_root, suite, task_id, episode, location, stream)
@@ -1041,6 +1439,8 @@ def write_task_completion_marker(
         "descendants_per_cell": DESCENDANTS_PER_CELL,
         "completed_cells": cell_count,
         "cell_marker_sha256": _cell_marker_digest(entries),
+        "baseline_replay_count": len(baseline_entries),
+        "baseline_replay_sha256": _cell_marker_digest(baseline_entries),
         "owner_required": None if require_owner is None else [int(require_owner[0]), int(require_owner[1])],
         "checkpoint": "TASK_COMPLETE",
     }
@@ -1079,9 +1479,30 @@ def validate_task_completion_marker(
         if marker.get("streams") != list(selected_streams):
             errors.append("task marker stream mismatch")
         entries: list[tuple[str, Path]] = []
+        baseline_entries: list[tuple[str, Path]] = []
         for selected in selection.get("selected", []):
             episode = int(selected["selection_index"])
             parent = str(selected.get("episode", ""))
+            baseline_path = baseline_replay_path(output_root, suite, task_id, episode)
+            baseline_valid, baseline_reasons, _ = validate_baseline_replay_evidence(
+                baseline_path,
+                suite=suite,
+                task_id=task_id,
+                selection_index=episode,
+                parent_id=parent,
+                expected_success=(
+                    bool(selected["baseline_success"])
+                    if "baseline_success" in selected
+                    else None
+                ),
+                require_owner=require_owner,
+            )
+            if not baseline_valid:
+                errors.append(
+                    f"invalid baseline replay: {baseline_path}: {'; '.join(baseline_reasons)}"
+                )
+            else:
+                baseline_entries.append((f"episode{episode:02d}", baseline_path))
             for location in range(LOCATIONS_PER_EPISODE):
                 for stream in selected_streams:
                     directory = cell_path(output_root, suite, task_id, episode, location, stream)
@@ -1103,6 +1524,13 @@ def validate_task_completion_marker(
                         entries.append((f"episode{episode:02d}/location{location:02d}/{stream}", cell_marker))
         if entries and marker.get("cell_marker_sha256") != _cell_marker_digest(entries):
             errors.append("task cell-marker digest mismatch")
+        expected_baseline_count = len(selection.get("selected", []))
+        if marker.get("baseline_replay_count") != expected_baseline_count:
+            errors.append(
+                f"task marker baseline replay count mismatch: {marker.get('baseline_replay_count')} != {expected_baseline_count}"
+            )
+        if baseline_entries and marker.get("baseline_replay_sha256") != _cell_marker_digest(baseline_entries):
+            errors.append("task baseline-replay digest mismatch")
         if marker.get("owner_required") != (None if require_owner is None else [int(require_owner[0]), int(require_owner[1])]):
             errors.append("task owner contract mismatch")
         return not errors, errors, marker
@@ -1342,12 +1770,15 @@ class Phase1Collector:
         selected_streams = tuple(streams)
         if not selected_streams or any(stream not in STREAMS for stream in selected_streams):
             raise ValueError(f"streams must be a nonempty subset of {STREAMS}")
-        raw_rows = load_task_rollouts(Path(raw_dir) / f"{suite}_task{int(task_id):02d}.npz")
+        raw_path = Path(raw_dir) / f"{suite}_task{int(task_id):02d}.npz"
+        raw_source_sha = sha256_file(raw_path)
+        raw_rows = load_task_rollouts(raw_path)
         raw_by_key = {
             episode_key(suite, task_id, int(row["init_state"]), int(row["candidate_id"])): row for row in raw_rows
         }
         policy = self.policy_factory(suite, int(task_id), str(selection.get("prompt", "")))
         environment = self.environment_factory(suite, int(task_id), "natural")
+        branch_pool: BranchEnvironmentPool | None = None
         completed = 0
         failures = []
         try:
@@ -1357,25 +1788,151 @@ class Phase1Collector:
                 if row is None:
                     raise RuntimeError(f"selection row not found in raw archive: {parent}")
                 length = len(np.asarray(row["actions"]))
-                for location_index, step in enumerate(decile_steps(length)):
-                    snapshot, replay = replay_baseline_snapshot(environment, policy, suite, task_id, row, step)
+                target_steps = decile_steps(length)
+                selection_index = int(selected["selection_index"])
+                baseline_path = baseline_replay_path(
+                    output_root, suite, task_id, selection_index
+                )
+                baseline_valid, baseline_reasons, _ = validate_baseline_replay_evidence(
+                    baseline_path,
+                    suite=suite,
+                    task_id=task_id,
+                    selection_index=selection_index,
+                    parent_id=parent,
+                    source_raw_file=raw_path.name,
+                    source_raw_sha256=raw_source_sha,
+                    expected_success=bool(row["success"]),
+                    require_owner=self.require_owner,
+                )
+                cell_validity: dict[tuple[int, str], tuple[bool, list[str]]] = {}
+                all_cells_valid = baseline_valid
+                for location_index in range(LOCATIONS_PER_EPISODE):
                     for stream in selected_streams:
-                        directory = cell_path(output_root, suite, task_id, int(selected["selection_index"]), location_index, stream)
-                        valid, reasons, _ = validate_cell(directory, suite=suite, task_id=task_id, parent_id=parent, location_index=location_index, stream=stream, require_owner=self.require_owner)
+                        directory = cell_path(
+                            output_root,
+                            suite,
+                            task_id,
+                            selection_index,
+                            location_index,
+                            stream,
+                        )
+                        valid, reasons, _ = validate_cell(
+                            directory,
+                            suite=suite,
+                            task_id=task_id,
+                            parent_id=parent,
+                            location_index=location_index,
+                            stream=stream,
+                            require_owner=self.require_owner,
+                        )
+                        cell_validity[(location_index, stream)] = (valid, reasons)
+                        all_cells_valid = all_cells_valid and valid
+                if all_cells_valid:
+                    completed += LOCATIONS_PER_EPISODE * len(selected_streams)
+                    continue
+                if not baseline_valid:
+                    record_cell_failure(
+                        baseline_path.parent,
+                        baseline_reasons,
+                        reason="invalid_or_partial_before_recompute_baseline_replay",
+                    )
+                snapshots, replay = replay_baseline_snapshots(
+                    environment,
+                    policy,
+                    suite,
+                    task_id,
+                    row,
+                    target_steps,
+                )
+                baseline_record = write_baseline_replay_evidence(
+                    output_root,
+                    suite=suite,
+                    task_id=task_id,
+                    selection_index=selection_index,
+                    parent_id=parent,
+                    row=row,
+                    source_raw_file=raw_path.name,
+                    source_raw_sha256=raw_source_sha,
+                    replay=replay,
+                )
+                if (
+                    branch_pool is None
+                    and self.microbatch > 1
+                    and hasattr(policy, "sample_model_actions_official")
+                ):
+                    branch_pool = BranchEnvironmentPool(
+                        self.environment_factory,
+                        suite,
+                        task_id,
+                        capacity=min(DESCENDANTS_PER_CELL, self.microbatch),
+                        kind="natural",
+                    )
+                for location_index, step in enumerate(target_steps):
+                    snapshot = snapshots[int(step)]
+                    for stream in selected_streams:
+                        directory = cell_path(
+                            output_root,
+                            suite,
+                            task_id,
+                            selection_index,
+                            location_index,
+                            stream,
+                        )
+                        valid, reasons = cell_validity[(location_index, stream)]
                         if valid:
                             completed += 1
                             continue
                         if (directory / "cell.npz").exists() or (directory / "metadata.json").exists():
-                            record_cell_failure(directory, reasons, reason="invalid_or_partial_before_recompute")
-                        traces = collect_branch_cell(environment, policy, snapshot=snapshot, suite=suite, task_id=task_id, parent_id=parent, generation_step=step, stream=stream, location_index=location_index, max_steps=self.max_steps, microbatch=self.microbatch)
-                        write_cell(directory, traces, suite=suite, task_id=task_id, parent_id=parent, selection_index=int(selected["selection_index"]), location_index=location_index, decile=(location_index + 1) / 10.0, generation_step=step, stream=stream, baseline_length=length)
+                            record_cell_failure(
+                                directory,
+                                reasons,
+                                reason="invalid_or_partial_before_recompute",
+                            )
+                        traces = collect_branch_cell(
+                            environment,
+                            policy,
+                            snapshot=snapshot,
+                            suite=suite,
+                            task_id=task_id,
+                            parent_id=parent,
+                            generation_step=step,
+                            stream=stream,
+                            location_index=location_index,
+                            max_steps=self.max_steps,
+                            microbatch=self.microbatch,
+                            environment_pool=branch_pool,
+                        )
+                        write_cell(
+                            directory,
+                            traces,
+                            suite=suite,
+                            task_id=task_id,
+                            parent_id=parent,
+                            selection_index=selection_index,
+                            location_index=location_index,
+                            decile=(location_index + 1) / 10.0,
+                            generation_step=step,
+                            stream=stream,
+                            baseline_length=length,
+                            metadata_extra={
+                                "baseline_replay_file": baseline_path.name,
+                                "baseline_replay_sha256": baseline_record["record_sha256"],
+                                "baseline_replay_steps": baseline_record["replay_steps"],
+                                "baseline_policy_forwards": baseline_record["policy_forwards"],
+                                "baseline_policy_batches": baseline_record["policy_batches"],
+                            },
+                        )
                         completed += 1
         except Exception as exc:
             failures.append(f"{type(exc).__name__}: {exc}")
             raise
         finally:
-            if hasattr(environment, "close"):
-                environment.close()
+            try:
+                if branch_pool is not None:
+                    branch_pool.close()
+            finally:
+                if hasattr(environment, "close"):
+                    environment.close()
         marker = write_task_completion_marker(
             output_root,
             suite,
