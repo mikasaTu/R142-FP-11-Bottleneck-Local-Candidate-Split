@@ -83,9 +83,9 @@
   <tr><td>libero_10/07</td><td>0.992</td><td>0.806</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
   <tr><td>libero_10/08</td><td>0.500</td><td>6.867</td><td>0</td><td>0</td><td>undefined</td><td>1</td><td>pass</td><td>no</td></tr>
   <tr><td>libero_10/09</td><td>0.967</td><td>4.085</td><td>0</td><td>0</td><td>undefined</td><td>2</td><td>fail</td><td>no</td></tr>
-  <tr><td>robotwin/source</td><td>undefined</td><td>undefined</td><td>undefined</td><td>0</td><td>undefined</td><td>undefined</td><td>source limitation</td><td>no</td></tr>
+  <tr><td>robotwin/source</td><td>undefined</td><td>undefined</td><td>undefined</td><td>undefined</td><td>undefined</td><td>undefined</td><td>source limitation</td><td>no</td></tr>
 </table>
-<p><b>observed fact：</b>冻结的 RoboTwin 行为 <code>rollout_count=0</code>、<code>SOURCE_LIMITATION_UNVERIFIABLE</code>。固定的 pi0.5-LIBERO policy 没有兼容的 RoboTwin observation/action/normalization/checkpoint contract；没有用 scripted policy 或伪造轨迹替代。</p>
+<p><b>observed fact：</b>冻结的 RoboTwin 行为是 source-audit record，而不是 zero-rollout estimate：<code>rollout_count=0</code>、<code>SOURCE_LIMITATION_UNVERIFIABLE</code>，因此表中所有 rollout-derived 单元格均为 undefined。固定的 pi0.5-LIBERO policy 没有兼容的 RoboTwin observation/action/normalization/checkpoint contract；没有用 scripted policy 或伪造轨迹替代。</p>
 
 <h2>6. Negative controls 与 failure cases</h2>
 <ul>
@@ -119,6 +119,7 @@
   <li><b>observed fact：</b>analysis summary SHA-256 <code>7da6f4751f64f08bdfa50e7f37ac1dd1a2f80b7f3f36862f12e7e95ef475c299</code>。</li>
   <li><b>observed fact：</b>top-level completion SHA-256 <code>9daff7a544ebb7b1c4e3f6fbf10e38b124c067aa6c56a417f822a028dd5fb10a</code>。</li>
   <li><b>observed fact：</b>final 87-file SHA256SUMS 完整通过；manifest SHA-256 <code>2d887069054098d569c4f42260d419f7bcc9377c41c51d46fb14a7ef8139f924</code>。</li>
+  <li><b>observed fact：</b><code>REMOTE_SHA256SUMS</code> 是 CPFS 87-file final manifest；仓库内副本的完整性由 <code>BUNDLE_SHA256SUMS</code> 与 <code>RAW_SHA256SUMS</code> 校验。两者对应不同根目录，不能互相替代。</li>
   <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/blob/main/reports/stage_r/PHASE0R_REPORT.md">完整 Phase-0R 报告</a></li>
   <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/blob/main/reports/stage_r/MECHANISM_REVERSE_EXPLANATION.md">机制反解</a></li>
   <li><a href="https://github.com/mikasaTu/R142-FP-11-Bottleneck-Local-Candidate-Split/tree/main/results/stage_r/phase0r">结果 bundle、authority manifest 与 checksums</a></li>

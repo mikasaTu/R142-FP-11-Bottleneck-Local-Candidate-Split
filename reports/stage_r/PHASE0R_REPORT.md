@@ -107,12 +107,14 @@
 | libero_10/07 | 0.992 | 0.806 | 0.000 | 0 | undefined | 2 | fail | no |
 | libero_10/08 | 0.500 | 6.867 | 0.000 | 0 | undefined | 1 | pass | no |
 | libero_10/09 | 0.967 | 4.085 | 0.000 | 0 | undefined | 2 | fail | no |
-| robotwin/source | undefined | undefined | undefined | 0 | undefined | undefined | source limitation | no |
+| robotwin/source | undefined | undefined | undefined | undefined | undefined | undefined | source limitation | no |
 
-- **observed fact** — the frozen RoboTwin row has `rollout_count=0` and
-  `SOURCE_LIMITATION_UNVERIFIABLE`: the pinned pi0.5-LIBERO policy had no
-  compatible RoboTwin observation/action/normalization/checkpoint contract.
-  No scripted-policy or fabricated trajectory substitute was introduced.
+- **observed fact** — the frozen RoboTwin row is a source-audit record, not a
+  zero-rollout estimate: `rollout_count=0` and
+  `SOURCE_LIMITATION_UNVERIFIABLE`. All rollout-derived cells in the table
+  are therefore undefined. The pinned pi0.5-LIBERO policy had no compatible
+  RoboTwin observation/action/normalization/checkpoint contract. No
+  scripted-policy or fabricated trajectory substitute was introduced.
 
 ## Negative controls and failure cases
 

@@ -86,14 +86,14 @@
       "sha256": "9be8396dc31da65387fea178cef28ecd6c07ce193c4f58e8e80b8039a1d15abc"
     },
     {
-      "bytes": 10775,
+      "bytes": 10902,
       "path": "docs/steps/step3/REPORT.md",
-      "sha256": "efeaaaa3f6773bc64ae44a6924c499cc10138f6d41acd6ab0259d6a89cdf1118"
+      "sha256": "c8af308fecc8a97e9d61631bc13d77bf4130407edbebf0fd0139bf09da7eee2a"
     },
     {
-      "bytes": 16402,
+      "bytes": 16786,
       "path": "docs/steps/step3/REPORT_FEISHU_SOURCE.xml",
-      "sha256": "bb61312a1c43d722216a741584bcefc9fd1c50af1c47e40f9251a3c1e19139d9"
+      "sha256": "9def7f67a0c9b896720f29ebf4008d28159ac2c47c8e093c81ebe7c52b3310cf"
     },
     {
       "bytes": 773,
@@ -101,7 +101,7 @@
       "sha256": "1669e2106bf2607f38953929e6bf6aaed75a03b09fab636cee5abd201a296c7e"
     }
   ],
-  "generated_at_utc": "2026-08-27T09:59:35.314534+00:00",
+  "generated_at_utc": "2026-08-27T13:51:58+00:00",
   "schema_version": 1,
   "source": "Feishu docs v2 readback plus canonical repository artifacts"
 }
