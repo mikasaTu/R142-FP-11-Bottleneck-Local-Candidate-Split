@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from r142_stage_r.phase1 import (
     BranchEnvironmentPool,
@@ -139,6 +140,53 @@ class BatchedMockPolicy(MockPolicy):
         del payload
         action = np.asarray([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
         return {"actions": np.tile(action, (10, 1))}
+
+
+class BatchShapeSensitivePolicy:
+    """Official-path policy whose result exposes the physical batch shape."""
+
+    class _Random:
+        @staticmethod
+        def PRNGKey(seed: int) -> int:
+            return int(seed)
+
+        @staticmethod
+        def fold_in(key: int, value: int) -> int:
+            return int(key) + int(value)
+
+        @staticmethod
+        def normal(key: int, shape: tuple[int, int]) -> np.ndarray:
+            del key
+            return np.zeros(shape, dtype=np.float32)
+
+    def __init__(self) -> None:
+        self.jax = SimpleNamespace(random=self._Random())
+        self.jnp = np
+        self.model = SimpleNamespace(action_horizon=5, action_dim=2)
+        self.batch_sizes: list[int] = []
+
+    def sample_model_actions_official(
+        self,
+        observations: list[object],
+        noises: np.ndarray,
+    ) -> np.ndarray:
+        del noises
+        batch_size = len(observations)
+        self.batch_sizes.append(batch_size)
+        value = 1.0 if batch_size == 4 else 0.0
+        return np.full((batch_size, 5, 2), value, dtype=np.float32)
+
+    @staticmethod
+    def input_transform(observation: object) -> dict[str, np.ndarray]:
+        del observation
+        return {"state": np.zeros(1, dtype=np.float32)}
+
+    @staticmethod
+    def output_transform(payload: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+        values = np.asarray(payload["actions"], dtype=np.float32)
+        actions = np.zeros((10, 7), dtype=np.float32)
+        actions[: len(values), 0] = values[:, 0]
+        return {"actions": actions}
 
 
 class PoolEnvironment(MockEnvironment):
@@ -314,6 +362,36 @@ def test_natural_collector_uses_factory_pool_and_single_replay(tmp_path: Path) -
         (tmp_path / "natural").glob("libero_spatial/task00/episode*/BASELINE_REPLAY.json")
     )
     assert len(baseline_paths) == 12
+
+
+def test_baseline_replay_preserves_phase0_physical_microbatch() -> None:
+    action = np.asarray([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+    row = {
+        "init_state": 3,
+        "candidate_id": 4,
+        "rollout_seed": 12345,
+        "actions": np.tile(action, (8, 1)),
+        "success": True,
+    }
+    environment = MockEnvironment()
+    policy = BatchShapeSensitivePolicy()
+    snapshot, replay = replay_baseline_snapshot(
+        environment,
+        policy,
+        "libero_spatial",
+        0,
+        row,
+        3,
+        microbatch=4,
+    )
+    assert snapshot.step == 3
+    assert replay["action_max_abs_error"] == 0.0
+    assert policy.batch_sizes == [4, 4]
+
+    with pytest.raises(RuntimeError, match="baseline action mismatch"):
+        replay_baseline_snapshot(
+            MockEnvironment(), BatchShapeSensitivePolicy(), "libero_spatial", 0, row, 3
+        )
 
 
 def test_factory_pool_matches_sequential_reference(tmp_path: Path) -> None:

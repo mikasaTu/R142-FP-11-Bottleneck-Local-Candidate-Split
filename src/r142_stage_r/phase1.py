@@ -353,7 +353,15 @@ def _execute(environment: Any, action: np.ndarray) -> dict[str, Any]:
     return output
 
 
-def _sample_chunk(policy: Any, observation: Any, seed: int, counter: int, *, action_count: int = BRANCH_ACTIONS) -> np.ndarray:
+def _sample_chunk(
+    policy: Any,
+    observation: Any,
+    seed: int,
+    counter: int,
+    *,
+    action_count: int = BRANCH_ACTIONS,
+    microbatch: int = 1,
+) -> np.ndarray:
     if hasattr(policy, "sample_action_chunk"):
         chunk = policy.sample_action_chunk(observation, seed=int(seed), counter=int(counter))
         array = np.asarray(chunk, dtype=np.float32)
@@ -364,8 +372,19 @@ def _sample_chunk(policy: Any, observation: Any, seed: int, counter: int, *, act
         )
     else:
         # The pinned CleanPi05 adapter exposes only the official model sampler.
+        # Phase-0 generated every action chunk with the frozen physical
+        # microbatch, including a padded final batch. Preserve that batch
+        # shape during replay: XLA may select a different kernel for B=1 and
+        # produce small numerical drift even with identical observations and
+        # noise. Padding is outcome-blind and does not alter any logical
+        # candidate, seed, action budget, or replay tolerance.
         noise = policy_noise(policy, int(seed), int(counter))
-        array = infer_physical_many(policy, [observation], np.asarray(noise)[None, ...])[0]
+        array = infer_microbatched(
+            policy,
+            [observation],
+            [np.asarray(noise)],
+            microbatch=max(1, int(microbatch)),
+        )[0]
     if array.ndim == 3 and array.shape[0] == 1:
         array = array[0]
     if array.ndim != 2 or array.shape[0] < action_count:
@@ -468,6 +487,8 @@ def replay_baseline_snapshot(
     task_id: int,
     row: Mapping[str, Any],
     target_step: int,
+    *,
+    microbatch: int = 1,
 ) -> tuple[BranchSnapshot, dict[str, Any]]:
     """Replay the baseline and capture the complete snapshot before ``target_step``."""
 
@@ -499,7 +520,15 @@ def replay_baseline_snapshot(
                 f"baseline terminated after {step} actions but raw rollout has {expected_length}"
             )
         if not queue:
-            queue.extend(_sample_chunk(policy, observation, rollout_seed, counter))
+            queue.extend(
+                _sample_chunk(
+                    policy,
+                    observation,
+                    rollout_seed,
+                    counter,
+                    microbatch=microbatch,
+                )
+            )
             counter += 1
         if step == target:
             captured = _capture_snapshot(environment, queue, rollout_seed, counter, step)
@@ -565,6 +594,8 @@ def replay_baseline_snapshots(
     task_id: int,
     row: Mapping[str, Any],
     target_steps: Sequence[int],
+    *,
+    microbatch: int = 1,
 ) -> tuple[dict[int, BranchSnapshot], dict[str, Any]]:
     """Replay one baseline and capture all requested pre-action snapshots.
 
@@ -607,7 +638,15 @@ def replay_baseline_snapshots(
                 f"baseline terminated after {step} actions but raw rollout has {expected_length}"
             )
         if not queue:
-            queue.extend(_sample_chunk(policy, observation, rollout_seed, counter))
+            queue.extend(
+                _sample_chunk(
+                    policy,
+                    observation,
+                    rollout_seed,
+                    counter,
+                    microbatch=microbatch,
+                )
+            )
             counter += 1
         if step in target_set and step not in captured:
             captured[step] = _capture_snapshot(environment, queue, rollout_seed, counter, step)
@@ -1843,6 +1882,7 @@ class Phase1Collector:
                     task_id,
                     row,
                     target_steps,
+                    microbatch=self.microbatch,
                 )
                 baseline_record = write_baseline_replay_evidence(
                     output_root,
