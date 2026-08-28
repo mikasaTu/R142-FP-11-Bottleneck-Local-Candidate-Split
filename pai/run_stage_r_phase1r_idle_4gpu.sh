@@ -32,11 +32,15 @@ readonly CHECKPOINT_ATTESTATION_SHA256=d050805b0c1e9e8d8e879c7443bb10504859c654d
 readonly CHECKPOINT_VALIDATOR="$REPO/pai/validate_stage_r_checkpoint_attestation.py"
 readonly CHECKPOINT_VALIDATOR_SHA256=1b32a626d34bcb25bd81927f24c44579686d2945ab4f36525d1bad1c6dc639c4
 readonly FROZEN_SOURCE_VALIDATOR="$REPO/pai/validate_stage_r_frozen_source_resume.py"
-readonly FROZEN_SOURCE_VALIDATOR_SHA256=3d9241828eb1971239ec3e2566617843b8bec832247a2bb563f236c684d04bd0
+readonly FROZEN_SOURCE_VALIDATOR_SHA256=9dafe2e0bf089ffd788b81c7e4baf41c2b90faae4cdad73e2e11a107bab62775
 readonly SMALL_PREFLIGHT_VALIDATOR="$REPO/pai/validate_stage_r_small_preflight_marker.py"
 readonly SMALL_PREFLIGHT_VALIDATOR_SHA256=5eb36792ff6cabe8ed6f94c142864faf1173ed52fe917b5e4bd265347b1a0fe2
 readonly PREREQUISITE_VALIDATOR="$REPO/pai/validate_stage_r_phase1r_prerequisites.py"
 readonly PREREQUISITE_VALIDATOR_SHA256=9c45933f5052684fad52a90de1e05a01594db555cf9aff45b68680995e510c46
+readonly TASK_MAPPING_HELPER="$REPO/pai/stage_r_phase1r_task_mapping.py"
+readonly TASK_MAPPING_HELPER_SHA256=e0dff96a034122719794441d02ba177c7f82564aae088c236eca2c5a0943f671
+readonly PREFLIGHT_BUNDLE_VALIDATOR="$REPO/pai/validate_stage_r_phase1r_preflight_bundle.py"
+readonly PREFLIGHT_BUNDLE_VALIDATOR_SHA256=095db86a1c6b3e85d5683d6b232a688b87a560ccfe45093526259cc1da57829d
 export PYTHONDONTWRITEBYTECODE=1
 readonly OUTPUT_ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase1r
 readonly PHASE0_MERGE_ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase0r_merged/r142-stage-r-phase0r-authoritative-20260827
@@ -113,6 +117,8 @@ expect_sha256 "$CHECKPOINT_VALIDATOR" "$CHECKPOINT_VALIDATOR_SHA256"
 expect_sha256 "$FROZEN_SOURCE_VALIDATOR" "$FROZEN_SOURCE_VALIDATOR_SHA256"
 expect_sha256 "$SMALL_PREFLIGHT_VALIDATOR" "$SMALL_PREFLIGHT_VALIDATOR_SHA256"
 expect_sha256 "$PREREQUISITE_VALIDATOR" "$PREREQUISITE_VALIDATOR_SHA256"
+expect_sha256 "$TASK_MAPPING_HELPER" "$TASK_MAPPING_HELPER_SHA256"
+expect_sha256 "$PREFLIGHT_BUNDLE_VALIDATOR" "$PREFLIGHT_BUNDLE_VALIDATOR_SHA256"
 
 if [[ ! -e runtime/source_commit.txt ]]; then
   if find frozen_source -mindepth 1 -print -quit | grep -q .; then
@@ -123,6 +129,8 @@ if [[ ! -e runtime/source_commit.txt ]]; then
   printf '%s\n' "$SOURCE_COMMIT" > runtime/source_commit.txt
   git -C "$REPO" rev-parse "$SOURCE_COMMIT^{tree}" > runtime/source_tree.txt
   ( cd frozen_source; find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum ) > runtime/frozen_source.sha256
+  find frozen_source -type f -exec chmod 0444 {} +
+  find frozen_source -type d -exec chmod 0555 {} +
   "$PYTHON" "$FROZEN_SOURCE_VALIDATOR" seal frozen_source runtime/frozen_source.sha256 \
     runtime/frozen_source_verified.json "$SOURCE_COMMIT" "$(cat runtime/source_tree.txt)" >/dev/null
 else
@@ -131,7 +139,7 @@ else
   [[ -s runtime/source_tree.txt && -s runtime/frozen_source.sha256 ]] || { echo "source archive marker is incomplete" >&2; exit 79; }
   [[ -n "$(find frozen_source -type f -print -quit)" ]] || { echo "frozen source archive is empty" >&2; exit 79; }
   if [[ -s runtime/frozen_source_verified.json ]]; then
-    "$PYTHON" "$FROZEN_SOURCE_VALIDATOR" validate frozen_source runtime/frozen_source.sha256 \
+    "$PYTHON" "$FROZEN_SOURCE_VALIDATOR" validate-fast frozen_source runtime/frozen_source.sha256 \
       runtime/frozen_source_verified.json "$SOURCE_COMMIT" "$(cat runtime/source_tree.txt)" >/dev/null
   else
     if find frozen_source -type l -print -quit | grep -q .; then
@@ -145,6 +153,8 @@ else
         <(awk '{print $2}' ../runtime/frozen_source.sha256 | LC_ALL=C sort) \
         <(find . -type f -print | LC_ALL=C sort) >/dev/null
     )
+    find frozen_source -type f -exec chmod 0444 {} +
+    find frozen_source -type d -exec chmod 0555 {} +
     "$PYTHON" "$FROZEN_SOURCE_VALIDATOR" seal frozen_source runtime/frozen_source.sha256 \
       runtime/frozen_source_verified.json "$SOURCE_COMMIT" "$(cat runtime/source_tree.txt)" >/dev/null
   fi
@@ -224,6 +234,14 @@ expect_sha256 "$SELECTION_ROOT/SELECTION_SHA256SUMS" "$SELECTION_SHA256SUMS_SHA2
 expect_sha256 "$CALIBRATION_FILE" "$CALIBRATION_SHA256"
 expect_sha256 "$CALIBRATION_ROOT/SHA256SUMS" "$CALIBRATION_SHA256SUMS_SHA256"
 
+preflight_ready=false
+if "$PYTHON" "$PREFLIGHT_BUNDLE_VALIDATOR" runtime "$CHECKPOINT_TREE_SHA" \
+    "$CHECKPOINT_ATTESTATION_SHA256" 2254:2254 >/dev/null 2>&1 \
+  && "$PYTHON" "$TASK_MAPPING_HELPER" validate "$SHARDS_PATH" "$EXECUTION_CONFIG" \
+    "$EXECUTION_SHARD" "$SELECTION_ROOT" runtime/task_mapping.tsv >/dev/null 2>&1; then
+  preflight_ready=true
+fi
+if [[ "$preflight_ready" != true ]]; then
 if ! "$PYTHON" "$SMALL_PREFLIGHT_VALIDATOR" runtime protocol >/dev/null 2>&1; then
   "$PYTHON" frozen_source/scripts/stage_r_phase1r.py validate-config --protocol "$PROTOCOL_PATH" --shards "$SHARDS_PATH" > runtime/protocol_validation.json
 fi
@@ -252,38 +270,13 @@ fi
   "$CHECKPOINT_ATTESTATION" "$CHECKPOINT_ATTESTATION_SHA256" \
   > runtime/checkpoint_validation.json
 
-"$PYTHON" - "$SHARDS_PATH" "$EXECUTION_CONFIG" "$EXECUTION_SHARD" "$SELECTION_ROOT" runtime/task_mapping.tsv <<'PY'
-import json, re, sys
-from pathlib import Path
-shards = json.loads(Path(sys.argv[1]).read_text())
-execution = json.loads(Path(sys.argv[2]).read_text())
-execution_shard, selection_root, out = sys.argv[3], Path(sys.argv[4]), Path(sys.argv[5])
-execution_entry = execution["execution_shards"].get(execution_shard)
-if not isinstance(execution_entry, dict): raise SystemExit(f"missing execution shard {execution_shard}")
-shard = execution_entry.get("logical_shard")
-payload = shards["shards"].get(shard)
-if not isinstance(payload, dict): raise SystemExit(f"missing shard {shard}")
-global_ranks = [int(v) for v in execution_entry.get("global_ranks", [])]
-expected_ranks = {"A0": list(range(0, 4)), "A1": list(range(4, 8)), "B0": list(range(8, 12)), "B1": list(range(12, 16))}[execution_shard]
-if global_ranks != expected_ranks: raise SystemExit(f"shard global ranks drifted: {global_ranks}")
-rank_tasks = payload.get("rank_tasks")
-if not isinstance(rank_tasks, dict): raise SystemExit("rank_tasks missing")
-lines = ["local_rank\tglobal_rank\ttask_name\tsuite\ttask_id\tselection_path"]
-seen = set()
-for local_rank, global_rank in enumerate(global_ranks):
-    names = rank_tasks.get(str(global_rank))
-    if not isinstance(names, list) or not names: raise SystemExit(f"rank {global_rank} has no fixed tasks")
-    for task_name in names:
-        m = re.fullmatch(r"(libero_(?:spatial|object|goal|10))_task(\d{2})", str(task_name))
-        if m is None or task_name in seen: raise SystemExit(f"invalid/duplicate task {task_name!r}")
-        seen.add(task_name); suite, task_text = m.groups(); task_id = int(task_text)
-        selection = selection_root / f"{task_name}.json"
-        if not selection.is_file() or selection.is_symlink(): raise SystemExit(f"missing selection {selection}")
-        lines.append(f"{local_rank}\t{global_rank}\t{task_name}\t{suite}\t{task_id}\t{selection}")
-out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-expected_count = {"A0": 7, "A1": 10, "B0": 11, "B1": 12}[execution_shard]
-if len(seen) != expected_count: raise SystemExit(f"shard task count drifted: {len(seen)}")
-PY
+"$PYTHON" "$TASK_MAPPING_HELPER" write "$SHARDS_PATH" "$EXECUTION_CONFIG" \
+  "$EXECUTION_SHARD" "$SELECTION_ROOT" runtime/task_mapping.tsv >/dev/null
+fi
+"$PYTHON" "$PREFLIGHT_BUNDLE_VALIDATOR" runtime "$CHECKPOINT_TREE_SHA" \
+  "$CHECKPOINT_ATTESTATION_SHA256" 2254:2254 >/dev/null
+"$PYTHON" "$TASK_MAPPING_HELPER" validate "$SHARDS_PATH" "$EXECUTION_CONFIG" \
+  "$EXECUTION_SHARD" "$SELECTION_ROOT" runtime/task_mapping.tsv >/dev/null
 
 # Resume marker handling is fail-closed: preserve invalid markers as evidence.
 if [[ -f COMPLETED_EVALUATION_RESULT.json && -f SHA256SUMS ]]; then

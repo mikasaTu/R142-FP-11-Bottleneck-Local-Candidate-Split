@@ -82,7 +82,7 @@ class Phase1RPAIContractTest(unittest.TestCase):
         helper_contracts = (
             (
                 FROZEN_SOURCE_VALIDATOR,
-                "3d9241828eb1971239ec3e2566617843b8bec832247a2bb563f236c684d04bd0",
+                "9dafe2e0bf089ffd788b81c7e4baf41c2b90faae4cdad73e2e11a107bab62775",
             ),
             (
                 SMALL_PREFLIGHT_VALIDATOR,
@@ -99,6 +99,18 @@ class Phase1RPAIContractTest(unittest.TestCase):
                 self.assertIn(expected_sha, text)
                 subprocess.run(["python3", "-m", "py_compile", str(helper)], check=True)
         self.assertIn("runtime/frozen_source_verified.json", text)
+        extra_helpers = (
+            (PAI / "stage_r_phase1r_task_mapping.py", "e0dff96a034122719794441d02ba177c7f82564aae088c236eca2c5a0943f671"),
+            (PAI / "validate_stage_r_phase1r_preflight_bundle.py", "095db86a1c6b3e85d5683d6b232a688b87a560ccfe45093526259cc1da57829d"),
+        )
+        for helper, expected_sha in extra_helpers:
+            with self.subTest(helper=helper.name):
+                self.assertEqual(hashlib.sha256(helper.read_bytes()).hexdigest(), expected_sha)
+                self.assertIn(expected_sha, text)
+                subprocess.run(["python3", "-m", "py_compile", str(helper)], check=True)
+        preparer = PAI / "prepare_stage_r_phase1r_preflight.sh"
+        subprocess.run(["bash", "-n", str(preparer)], check=True)
+        self.assertIn("outcome_blind_cpu_preseeded_preflight", preparer.read_text(encoding="utf-8"))
         self.assertNotIn("digest = hashlib.sha256(path.read_bytes()).hexdigest()", text)
         self.assertIn("COMPLETED_EVALUATION_RESULT.json", text)
         self.assertIn("SHA256SUMS", text)

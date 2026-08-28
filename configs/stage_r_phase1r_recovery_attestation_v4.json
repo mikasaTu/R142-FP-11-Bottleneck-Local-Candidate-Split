@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+  "amendment_kind": "outcome_blind_cpu_preseeded_preflight_recovery",
+  "scientific_contract_unchanged": true,
+  "predecessor_jobs": {
+    "A0": "dlc19eigwa4lsamz",
+    "A1": "dlc1a8h91mfjyswf",
+    "B0": "dlc1b2g16yx5bslp",
+    "B1": "dlc1bwetca1m482j"
+  },
+  "predecessor_run_suffix": "r5",
+  "replacement_run_ids": {
+    "A0": "r142-stage-r-phase1r-shard-a0-20260828-idle4-r6",
+    "A1": "r142-stage-r-phase1r-shard-a1-20260828-idle4-r6",
+    "B0": "r142-stage-r-phase1r-shard-b0-20260828-idle4-r6",
+    "B1": "r142-stage-r-phase1r-shard-b1-20260828-idle4-r6"
+  },
+  "failure_mode": "idle slices ended after source archive and full SHA list creation but before the metadata attestation seal completed; no checkpoint validation, task mapping, FIRST_WORK, or natural cell was produced",
+  "outcomes_inspected": false,
+  "natural_cells_observed": 0,
+  "first_work_observed": false,
+  "operational_change": "prepare and fully validate the outcome-blind preflight bundle on dev14 CPU before CreateJob, write-lock the frozen source, then require a fast locked-attestation and exact bundle readback on every PAI attempt",
+  "cpu_preseed_script_sha256": "41c56ac8cfc9c67f6c2261ee927eb67308653cce3b14082f43aaaafbe64fbcd5",
+  "frozen_source_validator_sha256": "9dafe2e0bf089ffd788b81c7e4baf41c2b90faae4cdad73e2e11a107bab62775",
+  "task_mapping_helper_sha256": "e0dff96a034122719794441d02ba177c7f82564aae088c236eca2c5a0943f671",
+  "preflight_bundle_validator_sha256": "095db86a1c6b3e85d5683d6b232a688b87a560ccfe45093526259cc1da57829d",
+  "launcher_sha256": "1d250c27f0cf46cb8fbb6cbdcd51fa530f18a3d89a3b221672b03a66247a25b3",
+  "tasks_changed": false,
+  "seeds_changed": false,
+  "candidate_budget_changed": false,
+  "selection_changed": false,
+  "thresholds_changed": false,
+  "analysis_protocol_changed": false,
+  "checkpoint_changed": false,
+  "resource_contract_changed": false,
+  "gpu_per_job": 4,
+  "cpu_per_job": 46,
+  "memory_per_job": "800Gi",
+  "shared_memory_per_job": "800Gi",
+  "total_gpu_limit": 16
+}

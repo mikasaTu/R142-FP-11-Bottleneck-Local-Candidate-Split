@@ -19,7 +19,7 @@ def digest(path: Path) -> str:
     return value.hexdigest()
 
 
-def inventory(root: Path, sums: Path) -> tuple[int, int, str]:
+def inventory(root: Path, sums: Path) -> tuple[int, int, str, int]:
     listed: list[str] = []
     rows: list[str] = []
     total = 0
@@ -43,7 +43,9 @@ def inventory(root: Path, sums: Path) -> tuple[int, int, str]:
             f"{normalized}\0{stat.st_size}\0{stat.st_mtime_ns}\0{stat.st_ctime_ns}\n"
         )
     actual: list[str] = []
+    writable = int(bool(root.stat().st_mode & 0o222))
     for path in root.rglob("*"):
+        writable += int(bool(path.stat().st_mode & 0o222))
         if path.is_symlink():
             raise SystemExit(f"frozen source contains symlink: {path}")
         if path.is_file():
@@ -52,19 +54,34 @@ def inventory(root: Path, sums: Path) -> tuple[int, int, str]:
     if listed != actual:
         raise SystemExit("frozen-source file inventory drifted")
     metadata = hashlib.sha256("".join(rows).encode("utf-8")).hexdigest()
-    return len(actual), total, metadata
+    return len(actual), total, metadata, writable
 
 
 def main() -> None:
-    if len(sys.argv) != 7 or sys.argv[1] not in {"seal", "validate"}:
+    if len(sys.argv) != 7 or sys.argv[1] not in {"seal", "validate", "validate-fast"}:
         raise SystemExit(
             "usage: validate_stage_r_frozen_source_resume.py "
-            "seal|validate ROOT SUMS MARKER SOURCE_COMMIT SOURCE_TREE"
+            "seal|validate|validate-fast ROOT SUMS MARKER SOURCE_COMMIT SOURCE_TREE"
         )
     mode = sys.argv[1]
     root, sums, marker = map(Path, sys.argv[2:5])
     source_commit, source_tree = sys.argv[5:7]
-    file_count, total_bytes, metadata_sha256 = inventory(root, sums)
+    if mode == "validate-fast":
+        payload = json.loads(marker.read_text(encoding="utf-8"))
+        if (
+            marker.is_symlink()
+            or payload.get("marker_type") != "frozen_source_resume_attestation"
+            or payload.get("source_commit") != source_commit
+            or payload.get("source_tree") != source_tree
+            or payload.get("sha256sums_sha256") != digest(sums)
+            or payload.get("owner") != f"{os.getuid()}:{os.getgid()}"
+            or payload.get("write_locked") is not True
+            or root.stat().st_mode & 0o222
+        ):
+            raise SystemExit("fast frozen-source resume attestation drifted")
+        print(json.dumps({"valid": True, "validation_mode": "locked_preoutcome_attestation"}, sort_keys=True))
+        return
+    file_count, total_bytes, metadata_sha256, writable_count = inventory(root, sums)
     payload = {
         "schema_version": 1,
         "marker_type": "frozen_source_resume_attestation",
@@ -75,7 +92,10 @@ def main() -> None:
         "bytes": total_bytes,
         "metadata_sha256": metadata_sha256,
         "owner": f"{os.getuid()}:{os.getgid()}",
+        "write_locked": writable_count == 0,
     }
+    if not payload["write_locked"]:
+        raise SystemExit("frozen source is not write-locked")
     if mode == "seal":
         temporary = marker.with_suffix(marker.suffix + f".tmp.{os.getpid()}")
         temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
