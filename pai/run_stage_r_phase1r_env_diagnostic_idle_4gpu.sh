@@ -9,6 +9,7 @@ readonly QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
 readonly OPENPI="$QPILOTS/third_party/openpi"
 readonly OPENPI_COMMIT=54cbaee6ae0c010a1ed431871cdaa8f4684ac709
 readonly LIBERO="$OPENPI/third_party/libero"
+readonly LIBERO_CONFIG=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/libero/r16p15-stage1-task64
 readonly LIBERO_COMMIT=f78abd68ee283de9f9be3c8f7e2a9ad60246e95c
 readonly PYTHON=/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python
 readonly RAW=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase0r_merged/r142-stage-r-phase0r-authoritative-20260827/raw/libero_10_task09.npz
@@ -48,7 +49,7 @@ assert payload["raw_length"] == 520
 PY
     return
   fi
-  CUDA_VISIBLE_DEVICES=0 EGL_DEVICE_ID=0 MUJOCO_EGL_DEVICE_ID=0 PYTHONDONTWRITEBYTECODE=1 \
+  LIBERO_CONFIG_PATH="$LIBERO_CONFIG" CUDA_VISIBLE_DEVICES=0 EGL_DEVICE_ID=0 MUJOCO_EGL_DEVICE_ID=0 PYTHONDONTWRITEBYTECODE=1 \
     "$PYTHON" -u "$SOURCE_DIR/scripts/diagnose_stage_r_phase1r_env_reconstruction.py" \
       --repo "$SOURCE_DIR" --qpilots "$QPILOTS" --libero "$LIBERO" --raw "$RAW" \
       --strategy "$strategy" --output "$result" > "$log" 2>&1
