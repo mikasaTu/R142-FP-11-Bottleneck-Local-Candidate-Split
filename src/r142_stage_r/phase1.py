@@ -23,7 +23,7 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 import numpy as np
 
 from .phase0 import load_task_rollouts
-from .protocol import atomic_json, sha256_file
+from .protocol import atomic_json, ranked_initial_states, sha256_file
 from .runtime import (
     configure_external_sources,
     infer_microbatched,
@@ -424,6 +424,87 @@ def _reset_seeded(environment: Any, suite: str, task_id: int, init_state: int) -
     if hasattr(environment, "evaluation_seed"):
         environment.evaluation_seed = int(common_seed)
     return environment.reset(int(init_state))
+
+
+def replay_phase0_candidate_history(
+    environment: Any,
+    suite: str,
+    task_id: int,
+    row: Mapping[str, Any],
+    raw_by_key: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Reconstruct the frozen Phase-0 lifecycle of one candidate environment."""
+
+    init_state = int(row["init_state"])
+    candidate_id = int(row["candidate_id"])
+    ordered_states = ranked_initial_states(suite, int(task_id))
+    if init_state not in ordered_states:
+        raise RuntimeError(
+            f"target init state {init_state} is absent from the frozen Phase-0 order"
+        )
+    prior_states = ordered_states[: ordered_states.index(init_state)]
+    prior_replay: list[dict[str, Any]] = []
+    for prior_state in prior_states:
+        key = episode_key(suite, task_id, int(prior_state), candidate_id)
+        prior_row = raw_by_key.get(key)
+        if prior_row is None:
+            raise RuntimeError(f"missing frozen Phase-0 prior parent: {key}")
+        prior_actions = np.asarray(prior_row.get("actions", []), dtype=np.float32)
+        if len(prior_actions) <= 0:
+            raise RuntimeError(f"frozen Phase-0 prior parent has no actions: {key}")
+        _reset_seeded(environment, suite, task_id, int(prior_state))
+        final_result: Mapping[str, Any] | None = None
+        replayed: list[np.ndarray] = []
+        for action in prior_actions:
+            result = _execute(environment, action)
+            replayed.append(np.asarray(action, dtype=np.float32).copy())
+            final_result = result
+            if bool(result.get("done", False)):
+                break
+        observed_length = len(replayed)
+        expected_length = len(prior_actions)
+        if observed_length != expected_length:
+            raise RuntimeError(
+                f"Phase-0 prior lifecycle length mismatch for {key}: "
+                f"replay={observed_length} raw={expected_length}"
+            )
+        if final_result is None:
+            raise RuntimeError(f"Phase-0 prior lifecycle produced no result: {key}")
+        expected_success = bool(prior_row.get("success", False))
+        observed_success = bool(final_result.get("success", False))
+        if observed_success != expected_success:
+            raise RuntimeError(
+                f"Phase-0 prior lifecycle success mismatch for {key}: "
+                f"replay={observed_success} raw={expected_success}"
+            )
+        source_sha = _action_stream_sha256(prior_actions)
+        replay_sha = _action_stream_sha256(replayed)
+        if replay_sha != source_sha:
+            raise RuntimeError(f"Phase-0 prior lifecycle action SHA mismatch for {key}")
+        prior_replay.append(
+            {
+                "episode": key,
+                "init_state": int(prior_state),
+                "candidate_id": candidate_id,
+                "source_length": expected_length,
+                "replay_length": observed_length,
+                "source_success": expected_success,
+                "replay_success": observed_success,
+                "source_action_sha256": source_sha,
+                "replay_action_sha256": replay_sha,
+                "exact_terminal_match": True,
+            }
+        )
+    return {
+        "phase0_candidate_lifecycle_reconstructed": True,
+        "phase0_candidate_id": candidate_id,
+        "phase0_prior_init_states": [int(value) for value in prior_states],
+        "phase0_prior_episode_count": len(prior_replay),
+        "phase0_prior_replay_all_exact": all(
+            bool(value["exact_terminal_match"]) for value in prior_replay
+        ),
+        "phase0_prior_replay": prior_replay,
+    }
 
 
 def _capture_snapshot(environment: Any, queue: Sequence[np.ndarray], seed: int, counter: int, step: int) -> BranchSnapshot:
@@ -1277,6 +1358,16 @@ def write_baseline_replay_evidence(
         "target_steps": [int(value) for value in replay["target_steps"]],
         "captured_steps": [int(value) for value in replay["captured_steps"]],
         "action_max_abs_error": float(replay["action_max_abs_error"]),
+        "phase0_candidate_lifecycle_reconstructed": bool(
+            replay["phase0_candidate_lifecycle_reconstructed"]
+        ),
+        "phase0_candidate_id": int(replay["phase0_candidate_id"]),
+        "phase0_prior_init_states": [
+            int(value) for value in replay["phase0_prior_init_states"]
+        ],
+        "phase0_prior_episode_count": int(replay["phase0_prior_episode_count"]),
+        "phase0_prior_replay_all_exact": bool(replay["phase0_prior_replay_all_exact"]),
+        "phase0_prior_replay": list(replay["phase0_prior_replay"]),
         "owner_uid": int(os.getuid() if owner_uid is None else owner_uid),
         "owner_gid": int(os.getgid() if owner_gid is None else owner_gid),
     }
@@ -1363,6 +1454,50 @@ def validate_baseline_replay_evidence(
             errors.append("baseline source policy accounting missing")
         if float(payload.get("action_max_abs_error", float("nan"))) != 0.0:
             errors.append("baseline replay action error must be exactly zero")
+        if payload.get("phase0_candidate_lifecycle_reconstructed") is not True:
+            errors.append("baseline replay lacks Phase-0 candidate lifecycle reconstruction")
+        if int(payload.get("phase0_candidate_id", -1)) != int(payload.get("candidate_id", -2)):
+            errors.append("baseline replay candidate lifecycle identity mismatch")
+        phase0_order = ranked_initial_states(
+            str(payload.get("suite", "")), int(payload.get("task_id", -1))
+        )
+        init_state = int(payload.get("init_state", -1))
+        expected_prior_states = (
+            phase0_order[: phase0_order.index(init_state)]
+            if init_state in phase0_order
+            else None
+        )
+        observed_prior_states = [
+            int(value) for value in payload.get("phase0_prior_init_states", [])
+        ]
+        if expected_prior_states is None or observed_prior_states != expected_prior_states:
+            errors.append("baseline replay prior initial-state order mismatch")
+        prior_replay = payload.get("phase0_prior_replay", [])
+        if not isinstance(prior_replay, list):
+            errors.append("baseline replay prior lifecycle records malformed")
+            prior_replay = []
+        if int(payload.get("phase0_prior_episode_count", -1)) != len(prior_replay):
+            errors.append("baseline replay prior episode count mismatch")
+        if len(prior_replay) != len(observed_prior_states):
+            errors.append("baseline replay prior lifecycle coverage mismatch")
+        if payload.get("phase0_prior_replay_all_exact") is not True:
+            errors.append("baseline replay prior lifecycle is not exact")
+        for expected_state, prior in zip(observed_prior_states, prior_replay):
+            if not isinstance(prior, Mapping):
+                errors.append("baseline replay prior lifecycle entry malformed")
+                continue
+            if int(prior.get("init_state", -1)) != expected_state:
+                errors.append("baseline replay prior lifecycle state mismatch")
+            if int(prior.get("candidate_id", -1)) != int(payload.get("candidate_id", -2)):
+                errors.append("baseline replay prior lifecycle candidate mismatch")
+            if int(prior.get("source_length", -1)) != int(prior.get("replay_length", -2)):
+                errors.append("baseline replay prior lifecycle length mismatch")
+            if bool(prior.get("source_success")) != bool(prior.get("replay_success")):
+                errors.append("baseline replay prior lifecycle success mismatch")
+            if prior.get("source_action_sha256") != prior.get("replay_action_sha256"):
+                errors.append("baseline replay prior lifecycle action SHA mismatch")
+            if prior.get("exact_terminal_match") is not True:
+                errors.append("baseline replay prior lifecycle terminal mismatch")
         actual_sha = sha256_file(destination)
         sums = sums_path.read_text(encoding="utf-8").splitlines()
         if sums != [f"{actual_sha}  {destination.name}"]:
@@ -1802,7 +1937,7 @@ class Phase1Collector:
             episode_key(suite, task_id, int(row["init_state"]), int(row["candidate_id"])): row for row in raw_rows
         }
         policy = self.policy_factory(suite, int(task_id), str(selection.get("prompt", "")))
-        environment = self.environment_factory(suite, int(task_id), "natural")
+        environment: Any | None = None
         branch_pool: BranchEnvironmentPool | None = None
         completed = 0
         failures = []
@@ -1861,6 +1996,24 @@ class Phase1Collector:
                         baseline_reasons,
                         reason="invalid_or_partial_before_recompute_baseline_replay",
                     )
+                    for identity, (valid, reasons) in list(cell_validity.items()):
+                        if valid:
+                            cell_validity[identity] = (
+                                False,
+                                ["baseline lifecycle evidence invalid; descendant cell must be recomputed"],
+                            )
+                if environment is not None:
+                    if hasattr(environment, "close"):
+                        environment.close()
+                    environment = None
+                environment = self.environment_factory(suite, int(task_id), "natural")
+                lifecycle = replay_phase0_candidate_history(
+                    environment,
+                    suite,
+                    task_id,
+                    row,
+                    raw_by_key,
+                )
                 snapshots, replay = replay_baseline_snapshots(
                     environment,
                     policy,
@@ -1870,6 +2023,7 @@ class Phase1Collector:
                     target_steps,
                     microbatch=self.microbatch,
                 )
+                replay.update(lifecycle)
                 baseline_record = write_baseline_replay_evidence(
                     output_root,
                     suite=suite,
@@ -1950,6 +2104,9 @@ class Phase1Collector:
                             },
                         )
                         completed += 1
+                if hasattr(environment, "close"):
+                    environment.close()
+                environment = None
         except Exception as exc:
             failures.append(f"{type(exc).__name__}: {exc}")
             raise
@@ -1958,7 +2115,7 @@ class Phase1Collector:
                 if branch_pool is not None:
                     branch_pool.close()
             finally:
-                if hasattr(environment, "close"):
+                if environment is not None and hasattr(environment, "close"):
                     environment.close()
         marker = write_task_completion_marker(
             output_root,

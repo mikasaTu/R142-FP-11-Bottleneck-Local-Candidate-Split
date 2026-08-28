@@ -15,6 +15,7 @@ from r142_stage_r.phase1 import (
     collect_branch_cell,
     decile_step,
     replay_baseline_snapshot,
+    replay_phase0_candidate_history,
     selection_rank,
     validate_cell,
     validate_task_completion_marker,
@@ -155,6 +156,8 @@ class PoolEnvironment(MockEnvironment):
 
 
 def _raw_archive(root: Path, action_dim: int = 2) -> None:
+    from r142_stage_r.protocol import ranked_initial_states
+
     rows = 12
     length = 8
     offsets = np.arange(0, rows * length + 1, length, dtype=np.int64)
@@ -169,7 +172,9 @@ def _raw_archive(root: Path, action_dim: int = 2) -> None:
         objects=np.zeros((rows * length, 1), dtype=np.float64),
         progress=np.ones(rows * length, dtype=np.float32),
         success=np.ones(rows, dtype=np.bool_),
-        init_state=np.arange(rows, dtype=np.int16),
+        init_state=np.asarray(
+            ranked_initial_states("libero_spatial", 0)[:rows], dtype=np.int16
+        ),
         candidate_id=np.zeros(rows, dtype=np.int16),
         rollout_seed=np.arange(1000, 1000 + rows, dtype=np.uint64),
         policy_forwards=np.full(rows, 2, dtype=np.int32),
@@ -219,9 +224,9 @@ def test_natural_collector_resume_sha_and_task_marker(tmp_path: Path) -> None:
     )
     first = collector.collect_task(raw, selection_path, output, "libero_spatial", 0)
     assert first["completed_cells"] == 240
-    assert len(environments) == 1
-    assert environments[0].reset_calls == 12
-    assert environments[0].close_calls == 1
+    assert len(environments) == 12
+    assert sum(environment.reset_calls for environment in environments) == sum(range(1, 13))
+    assert all(environment.close_calls == 1 for environment in environments)
     assert len(policies) == 1
     assert policies[0].chunk_calls >= 24
 
@@ -248,6 +253,10 @@ def test_natural_collector_resume_sha_and_task_marker(tmp_path: Path) -> None:
         assert len(payload["replay_action_sha256"]) == 64
         assert payload["source_action_sha256"] == payload["replay_action_sha256"]
         assert payload["replay_action_shape"] == [8, 2]
+        assert payload["phase0_candidate_lifecycle_reconstructed"] is True
+        assert payload["phase0_candidate_id"] == payload["candidate_id"] == 0
+        assert payload["phase0_prior_episode_count"] == len(payload["phase0_prior_replay"])
+        assert payload["phase0_prior_replay_all_exact"] is True
         assert baseline_path.with_name("BASELINE_REPLAY_SHA256SUMS").is_file()
     valid, errors, marker = validate_task_completion_marker(
         output, "libero_spatial", 0, selection_path, require_owner=None
@@ -261,9 +270,9 @@ def test_natural_collector_resume_sha_and_task_marker(tmp_path: Path) -> None:
     second = collector.collect_task(raw, selection_path, output, "libero_spatial", 0)
     assert second["completed_cells"] == 240
     assert list((damaged.parent).glob("FAILURE.*.json"))
-    assert len(environments) == 2
-    assert environments[1].reset_calls == 1
-    assert environments[1].close_calls == 1
+    assert len(environments) == 13
+    assert environments[-1].reset_calls >= 1
+    assert environments[-1].close_calls == 1
     valid, errors, _ = validate_cell(
         damaged.parent,
         suite="libero_spatial",
@@ -315,11 +324,18 @@ def test_natural_collector_uses_factory_pool_and_single_replay(tmp_path: Path) -
         streams=("heldout",),
     )
     assert result["completed_cells"] == 120
-    # One main environment plus exactly microbatch-sized reusable pool.
-    assert len(environments) == 1 + 4
-    assert environments[0].reset_calls == 12
-    assert environments[0].begin_branch_calls == 0
-    assert all(environment.begin_branch_calls > 0 for environment in environments[1:])
+    # One fresh Phase-0-lifecycle main environment per selected parent plus
+    # exactly microbatch-sized reusable branch pool.
+    assert len(environments) == 12 + 4
+    main_environments = [
+        environment for environment in environments if environment.begin_branch_calls == 0
+    ]
+    branch_environments = [
+        environment for environment in environments if environment.begin_branch_calls > 0
+    ]
+    assert len(main_environments) == 12
+    assert len(branch_environments) == 4
+    assert sum(environment.reset_calls for environment in main_environments) == sum(range(1, 13))
     assert all(environment.close_calls == 1 for environment in environments)
     assert len(policies) == 1
     assert policies[0].official_calls > 0
@@ -355,6 +371,38 @@ def test_baseline_replay_uses_exact_frozen_phase0_action_stream() -> None:
     assert replay["policy_forwards"] == replay["policy_batches"] == 0
     assert replay["source_action_chunks"] == 2
     assert replay["source_action_sha256"] == replay["replay_action_sha256"]
+
+
+def test_phase0_candidate_history_replays_prior_initial_states_exactly() -> None:
+    from r142_stage_r.protocol import ranked_initial_states
+
+    states = ranked_initial_states("libero_spatial", 0)
+    action = np.asarray([1.0, 0.0], dtype=np.float32)
+    rows = {}
+    for init_state in states[:3]:
+        row = {
+            "init_state": init_state,
+            "candidate_id": 4,
+            "rollout_seed": 1000 + init_state,
+            "actions": np.tile(action, (8, 1)),
+            "success": True,
+        }
+        rows[f"libero_spatial_task00_init{init_state:03d}_candidate04"] = row
+    target = rows[f"libero_spatial_task00_init{states[2]:03d}_candidate04"]
+    environment = MockEnvironment()
+    lifecycle = replay_phase0_candidate_history(
+        environment,
+        "libero_spatial",
+        0,
+        target,
+        rows,
+    )
+    assert lifecycle["phase0_candidate_lifecycle_reconstructed"] is True
+    assert lifecycle["phase0_prior_init_states"] == states[:2]
+    assert lifecycle["phase0_prior_episode_count"] == 2
+    assert lifecycle["phase0_prior_replay_all_exact"] is True
+    assert environment.reset_calls == 2
+    assert environment.initial_state == states[1]
 
 
 def test_factory_pool_matches_sequential_reference(tmp_path: Path) -> None:
