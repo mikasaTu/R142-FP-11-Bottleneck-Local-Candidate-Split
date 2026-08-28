@@ -10,6 +10,9 @@ from pathlib import Path
 import numpy as np
 
 
+TARGET_HISTORY_STRATEGIES = frozenset(("prior-reset-only", "candidate-prior-lifecycle"))
+
+
 def action_sha256(actions: np.ndarray) -> str:
     array = np.asarray(actions, dtype=np.float32)
     digest = hashlib.sha256()
@@ -19,6 +22,12 @@ def action_sha256(actions: np.ndarray) -> str:
     digest.update(b"\0")
     digest.update(array.tobytes(order="C"))
     return digest.hexdigest()
+
+
+def target_environment_index(strategy: str, candidate_id: int) -> int:
+    if strategy == "single" or strategy in TARGET_HISTORY_STRATEGIES:
+        return 0
+    return int(candidate_id)
 
 
 def main() -> None:
@@ -68,10 +77,10 @@ def main() -> None:
     if len(matching) != 1:
         raise RuntimeError(f"expected one raw parent, got {len(matching)}")
     row = matching[0]
-    target_history_strategy = args.strategy in ("prior-reset-only", "candidate-prior-lifecycle")
+    target_history_strategy = args.strategy in TARGET_HISTORY_STRATEGIES
     count = 1 if args.strategy == "single" or target_history_strategy else 32
     environments = [Task64Environment(config, seed=0) for _ in range(count)]
-    target = environments[0] if args.strategy == "single" else environments[args.candidate_id]
+    target = environments[target_environment_index(args.strategy, args.candidate_id)]
     common_seed = shared_environment_seed(suite_name, task_id, args.init_state)
     ordered_states = ranked_initial_states(suite_name, task_id)
     if args.init_state not in ordered_states:
