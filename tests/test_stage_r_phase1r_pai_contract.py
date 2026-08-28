@@ -60,6 +60,17 @@ class Phase1RPAIContractTest(unittest.TestCase):
         self.assertIn("EXECUTION_SHARD=B1", text)
         self.assertIn("git -C \"$REPO\" archive \"$SOURCE_COMMIT\"", text)
         self.assertIn("collect-natural", text)
+        # Validators reject relative paths as noncanonical.  The PAI launcher
+        # must use the same artifact-rooted paths as the CPU preseed helper,
+        # including for task-mapping equality and blinded calibration checks.
+        for relative in (
+            "configs/stage_r_phase1r_protocol.json",
+            "configs/stage_r_phase1r_shards.json",
+            "results/stage_r/phase1r/selection",
+            "results/stage_r/phase1r/controls",
+            "results/stage_r/phase1r/calibration",
+        ):
+            self.assertIn(f'\"$ARTIFACT_DIR/frozen_source/{relative}\"', text)
         self.assertIn("CHECKPOINT_ATTESTATION_SHA256=d050805b0c1e9e8d8e879c7443bb10504859c654d0ba031bbbc6ce3635b02fca", text)
         self.assertIn(
             "CHECKPOINT_VALIDATOR_SHA256=1b32a626d34bcb25bd81927f24c44579686d2945ab4f36525d1bad1c6dc639c4",

@@ -225,11 +225,11 @@ export PAI_PHASE1R_SHARD="$SHARD"
 nvidia-smi -L > runtime/gpu_inventory.txt
 nvidia-smi --query-gpu=index,uuid,name,memory.total --format=csv,noheader > runtime/gpu_identity.csv
 
-PROTOCOL_PATH=frozen_source/configs/stage_r_phase1r_protocol.json
-SHARDS_PATH=frozen_source/configs/stage_r_phase1r_shards.json
-SELECTION_ROOT=frozen_source/results/stage_r/phase1r/selection
-CONTROLS_ROOT=frozen_source/results/stage_r/phase1r/controls
-CALIBRATION_ROOT=frozen_source/results/stage_r/phase1r/calibration
+PROTOCOL_PATH="$ARTIFACT_DIR/frozen_source/configs/stage_r_phase1r_protocol.json"
+SHARDS_PATH="$ARTIFACT_DIR/frozen_source/configs/stage_r_phase1r_shards.json"
+SELECTION_ROOT="$ARTIFACT_DIR/frozen_source/results/stage_r/phase1r/selection"
+CONTROLS_ROOT="$ARTIFACT_DIR/frozen_source/results/stage_r/phase1r/controls"
+CALIBRATION_ROOT="$ARTIFACT_DIR/frozen_source/results/stage_r/phase1r/calibration"
 CALIBRATION_FILE="$CALIBRATION_ROOT/BLINDED_PHASE1R_CALIBRATION.json"
 expect_sha256 "$PROTOCOL_PATH" "$PROTOCOL_SHA256"
 expect_sha256 "$SHARDS_PATH" "$SHARDS_SHA256"

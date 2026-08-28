@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+  "amendment_kind": "outcome_blind_absolute_preflight_path_recovery",
+  "scientific_contract_unchanged": true,
+  "predecessor_run_suffix": "r7",
+  "predecessor_terminal_status": "Stopped",
+  "predecessor_job_ids": {
+    "A0": "dlc3smtqidinoyit",
+    "A1": "dlc4cm0i2fdzsmn6",
+    "B0": "dlc56ksnepqhobb2",
+    "B1": "dlc60jksq656aebz"
+  },
+  "failure_mode": "CPU preseed wrote task_mapping.tsv with canonical artifact-rooted selection paths, but the PAI launcher validated the mapping with relative selection paths; the fast preflight therefore fell through to a relative calibration path that the prerequisite validator correctly rejected as noncanonical",
+  "failure_evidence": {
+    "A0_latest_failed_attempt_sha256": "df92197fc8e7c005021e3ab97b09cb717bfd3ff23599d427f6a01ff12cfc9ced",
+    "A1_latest_failed_attempt_sha256": "77a028117f6044907e69a12eaf67acbd8eb407e9e885b674992c484f1b58598a",
+    "B0_latest_failed_attempt_sha256": "606d663539d7eadd05919e4ebcf0e0e0ceff22f00f88678beb7c23359f81a7d0",
+    "B1_latest_failed_attempt_sha256": "91ad8f37aa939af0c1237905cb4253a025df6afe9fb847cf8d2dfa472cd2ebb6",
+    "relative_path_cpu_reproduction": "task mapping drifted",
+    "pod_log_error": "missing/noncanonical file: frozen_source/results/stage_r/phase1r/calibration/BLINDED_PHASE1R_CALIBRATION.json"
+  },
+  "outcomes_inspected": false,
+  "natural_cells_observed": 0,
+  "first_work_observed": false,
+  "replacement_run_ids": {
+    "A0": "r142-stage-r-phase1r-shard-a0-20260828-idle4-r8",
+    "A1": "r142-stage-r-phase1r-shard-a1-20260828-idle4-r8",
+    "B0": "r142-stage-r-phase1r-shard-b0-20260828-idle4-r8",
+    "B1": "r142-stage-r-phase1r-shard-b1-20260828-idle4-r8"
+  },
+  "operational_change": "Use canonical ARTIFACT_DIR-rooted frozen-source paths in the PAI launcher so the preseed and worker task-mapping identities are equal and every strict prerequisite path is canonical",
+  "launcher_sha256": "17822a064828e7ee46f4f0c5e3b3080766f98de18ad979ca20b1f305a86b5cc3",
+  "tasks_changed": false,
+  "seeds_changed": false,
+  "candidate_budget_changed": false,
+  "selection_changed": false,
+  "thresholds_changed": false,
+  "analysis_protocol_changed": false,
+  "checkpoint_changed": false,
+  "resource_contract_changed": false,
+  "gpu_per_job": 4,
+  "cpu_per_job": 46,
+  "memory_per_job": "800Gi",
+  "shared_memory_per_job": "800Gi",
+  "total_gpu_limit": 16,
+  "lineage_rule": "new run ids were fixed before any replacement outcome; r7 evidence and directories remain immutable and are never mixed with r8",
+  "checkpoint_sha256": "42d571bd87f05f1182810f5a8bfa6d084c0d0dd277aff739bcf8f69868e6fb99",
+  "scientific_source_commit": "57859fcbb36776e0049ce24fb1abbadab0de46d5"
+}
