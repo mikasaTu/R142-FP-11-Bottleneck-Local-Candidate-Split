@@ -27,7 +27,17 @@ def main() -> None:
     parser.add_argument("--qpilots", required=True)
     parser.add_argument("--libero", required=True)
     parser.add_argument("--raw", required=True)
-    parser.add_argument("--strategy", choices=("single", "indexed-reset-target", "indexed-reset-all"), required=True)
+    parser.add_argument(
+        "--strategy",
+        choices=(
+            "single",
+            "indexed-reset-target",
+            "indexed-reset-all",
+            "prior-reset-only",
+            "candidate-prior-lifecycle",
+        ),
+        required=True,
+    )
     parser.add_argument("--output", required=True)
     parser.add_argument("--candidate-id", type=int, default=27)
     parser.add_argument("--init-state", type=int, default=27)
@@ -41,6 +51,7 @@ def main() -> None:
     from libero.libero import benchmark
     from qpilots_libero.environment import Task64Environment
     from r142_stage_r.phase0 import load_task_rollouts
+    from r142_stage_r.protocol import ranked_initial_states
     from r142_stage_r.runtime import pose_vector, shared_environment_seed, stable_pose_keys, task_config
 
     suite_name = "libero_10"
@@ -61,8 +72,67 @@ def main() -> None:
     environments = [Task64Environment(config, seed=0) for _ in range(count)]
     target = environments[0] if args.strategy == "single" else environments[args.candidate_id]
     common_seed = shared_environment_seed(suite_name, task_id, args.init_state)
+    ordered_states = ranked_initial_states(suite_name, task_id)
+    if args.init_state not in ordered_states:
+        raise RuntimeError(f"target init state {args.init_state} is not in the frozen Phase-0 order")
+    prior_states = ordered_states[: ordered_states.index(args.init_state)]
+    prior_replay = []
     try:
-        reset_set = environments if args.strategy == "indexed-reset-all" else [target]
+        if args.strategy in ("prior-reset-only", "candidate-prior-lifecycle"):
+            for prior_state in prior_states:
+                prior_seed = shared_environment_seed(suite_name, task_id, prior_state)
+                for environment in environments:
+                    environment.environment.seed(int(prior_seed))
+                    environment.evaluation_seed = int(prior_seed)
+                    environment.reset(prior_state)
+                if args.strategy == "candidate-prior-lifecycle":
+                    prior_matching = [
+                        candidate
+                        for candidate in rows
+                        if int(candidate["candidate_id"]) == args.candidate_id
+                        and int(candidate["init_state"]) == prior_state
+                    ]
+                    if len(prior_matching) != 1:
+                        raise RuntimeError(
+                            f"expected one prior raw parent for init {prior_state}, got {len(prior_matching)}"
+                        )
+                    prior_row = prior_matching[0]
+                    replay_length = 0
+                    replay_success = False
+                    done_step = None
+                    for prior_index, prior_action in enumerate(
+                        np.asarray(prior_row["actions"], dtype=np.float32)
+                    ):
+                        prior_trace = target.execute_actions(prior_action[None])
+                        replay_length += int(prior_trace["executed_steps"])
+                        replay_success = bool(prior_trace["success"])
+                        if bool(prior_trace["done"]):
+                            done_step = prior_index + 1
+                            break
+                    prior_replay.append(
+                        {
+                            "init_state": int(prior_state),
+                            "source_length": int(len(prior_row["actions"])),
+                            "replay_length": int(replay_length),
+                            "source_success": bool(prior_row["success"]),
+                            "replay_success": bool(replay_success),
+                            "done_step": done_step,
+                            "exact_terminal_match": bool(
+                                replay_length == len(prior_row["actions"])
+                                and replay_success == bool(prior_row["success"])
+                            ),
+                        }
+                    )
+
+        reset_set = (
+            environments
+            if args.strategy in (
+                "indexed-reset-all",
+                "prior-reset-only",
+                "candidate-prior-lifecycle",
+            )
+            else [target]
+        )
         for environment in reset_set:
             environment.environment.seed(int(common_seed))
             environment.evaluation_seed = int(common_seed)
@@ -94,7 +164,13 @@ def main() -> None:
             "init_state": args.init_state,
             "common_seed": int(common_seed),
             "environment_count": count,
-            "reset_count": len(reset_set),
+            "reset_count": len(reset_set) * (len(prior_states) + 1)
+            if args.strategy in ("prior-reset-only", "candidate-prior-lifecycle")
+            else len(reset_set),
+            "prior_init_states": [int(value) for value in prior_states],
+            "prior_replay": prior_replay,
+            "prior_replay_all_exact": bool(prior_replay)
+            and all(bool(value["exact_terminal_match"]) for value in prior_replay),
             "raw_length": int(len(row["actions"])),
             "replay_length": int(len(replay_poses)),
             "done_step": done_step,
