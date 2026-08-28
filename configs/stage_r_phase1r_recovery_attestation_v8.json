@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+  "amendment_kind": "outcome_blind_frozen_phase0_action_stream_replay_recovery",
+  "scientific_contract_unchanged": true,
+  "predecessor_run_suffix": "r9",
+  "predecessor_terminal_status": "Stopped",
+  "predecessor_job_ids": {
+    "A0": "dlc18bx98q9r9hit",
+    "A1": "dlc195w1e2vjnjok",
+    "B0": "dlc19pv85mqonoqd",
+    "B1": "dlc1attloq621ywn"
+  },
+  "failure_mode": "Duplicate padding at physical microbatch 8 did not reconstruct the original Phase-0 batched policy context; the frozen 1e-5 validator again failed closed at baseline step 0, before FIRST_WORK, any natural cell, NPZ, task marker, or outcome read",
+  "failure_evidence": {
+    "A0_zero_completion_diagnosis_sha256": "1da8a5e6592b062d75fb2c3a4d53a9731586015080b7679a8018f561cdb6f9fd",
+    "A1_zero_completion_diagnosis_sha256": "29dd8c62923addc73f8437707282e1c05ab5dd3a3b6e44c49a626779fa7718ad",
+    "B0_zero_completion_diagnosis_sha256": "f389b884a81491c7a34fed6c2d6340f00fb65b366c4bce74f2ca8b63b960a00e",
+    "B1_zero_completion_diagnosis_sha256": "0a19d443a1a193fa8ffd2f94e8ca8080d59be04a4ab273a44b626bdd8100dbff",
+    "observed_first_action_max_abs_errors": [
+      0.0020210,
+      0.0008225,
+      0.0019528
+    ]
+  },
+  "outcomes_inspected": false,
+  "natural_cells_observed": 0,
+  "natural_npz_observed": 0,
+  "task_completion_markers_observed": 0,
+  "first_work_observed": false,
+  "replacement_run_ids": {
+    "A0": "r142-stage-r-phase1r-shard-a0-20260828-idle4-r10",
+    "A1": "r142-stage-r-phase1r-shard-a1-20260828-idle4-r10",
+    "B0": "r142-stage-r-phase1r-shard-b0-20260828-idle4-r10",
+    "B1": "r142-stage-r-phase1r-shard-b1-20260828-idle4-r10"
+  },
+  "implementation_correction": "Reconstruct each selected Phase-0 parent simulator trajectory with the exact stored, hash-bound Phase-0 action stream. Do not re-infer the parent policy. Persist replay_source, policy_reexecuted=false, zero replay policy forwards/batches, source policy-forward accounting, exact source/replay action SHA equality, and action_max_abs_error=0. Descendants still discard the inherited queue and sample the frozen policy from fresh independent branch RNG.",
+  "launcher_sha256": "951c0f39564887c6246ad8fe895e37e87edf9d28e8b9be6f09f8affce61adf3b",
+  "tasks_changed": false,
+  "seeds_changed": false,
+  "candidate_budget_changed": false,
+  "selection_changed": false,
+  "thresholds_changed": false,
+  "action_replay_rtol": 0.00001,
+  "action_replay_atol": 0.00001,
+  "analysis_protocol_changed": false,
+  "checkpoint_changed": false,
+  "resource_contract_changed": false,
+  "gpu_per_job": 4,
+  "cpu_per_job": 46,
+  "memory_per_job": "800Gi",
+  "shared_memory_per_job": "800Gi",
+  "total_gpu_limit": 16,
+  "lineage_rule": "r10 run ids were fixed before any replacement outcome; r9 evidence and directories remain immutable and are never mixed with r10",
+  "checkpoint_sha256": "42d571bd87f05f1182810f5a8bfa6d084c0d0dd277aff739bcf8f69868e6fb99",
+  "scientific_source_commit": "18847dfc2dab91b18edcd296b9d7e363b5e48570",
+  "test_result": "13 passed"
+}

@@ -7,7 +7,7 @@ trap 'code=$?; printf "STAGE_R_PHASE1R_NATURAL_FAILED line=%s exit_code=%s comma
 # The final scientific source pin is intentionally supplied by the controller.
 # A PAI run must provide one exact commit, so optimization cannot silently
 # change the source used by a natural shard.
-readonly REQUIRED_SOURCE_COMMIT=c6bae0f921d30f661b63f131bb39ec04b043cc79
+readonly REQUIRED_SOURCE_COMMIT=18847dfc2dab91b18edcd296b9d7e363b5e48570
 # The committed default is the final pre-launch scientific source. A runtime
 # variable is accepted only for controlled local validation; the formal PAI
 # templates use this exact committed default.
