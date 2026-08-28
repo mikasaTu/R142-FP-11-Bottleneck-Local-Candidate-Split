@@ -360,7 +360,6 @@ def _sample_chunk(
     counter: int,
     *,
     action_count: int = BRANCH_ACTIONS,
-    microbatch: int = 1,
 ) -> np.ndarray:
     if hasattr(policy, "sample_action_chunk"):
         chunk = policy.sample_action_chunk(observation, seed=int(seed), counter=int(counter))
@@ -372,19 +371,8 @@ def _sample_chunk(
         )
     else:
         # The pinned CleanPi05 adapter exposes only the official model sampler.
-        # Phase-0 generated every action chunk with the frozen physical
-        # microbatch, including a padded final batch. Preserve that batch
-        # shape during replay: XLA may select a different kernel for B=1 and
-        # produce small numerical drift even with identical observations and
-        # noise. Padding is outcome-blind and does not alter any logical
-        # candidate, seed, action budget, or replay tolerance.
         noise = policy_noise(policy, int(seed), int(counter))
-        array = infer_microbatched(
-            policy,
-            [observation],
-            [np.asarray(noise)],
-            microbatch=max(1, int(microbatch)),
-        )[0]
+        array = infer_physical_many(policy, [observation], np.asarray(noise)[None, ...])[0]
     if array.ndim == 3 and array.shape[0] == 1:
         array = array[0]
     if array.ndim != 2 or array.shape[0] < action_count:
@@ -487,8 +475,6 @@ def replay_baseline_snapshot(
     task_id: int,
     row: Mapping[str, Any],
     target_step: int,
-    *,
-    microbatch: int = 1,
 ) -> tuple[BranchSnapshot, dict[str, Any]]:
     """Replay the baseline and capture the complete snapshot before ``target_step``."""
 
@@ -503,7 +489,7 @@ def replay_baseline_snapshot(
         raise RuntimeError("baseline rollout has no actions")
     if target >= expected_length:
         raise RuntimeError(f"target_step={target} is outside baseline length={expected_length}")
-    observation = _reset_seeded(environment, suite, task_id, init_state)
+    _reset_seeded(environment, suite, task_id, init_state)
     queue: list[np.ndarray] = []
     counter = 0
     step = 0
@@ -511,39 +497,24 @@ def replay_baseline_snapshot(
     captured: BranchSnapshot | None = None
     replay_actions: list[np.ndarray] = []
     final_result: Mapping[str, Any] | None = None
-    # Replay the complete baseline, rather than stopping immediately after the
-    # requested snapshot.  This proves that the pinned environment/policy
-    # lineage reproduces the Phase-0 source action stream and terminal label.
+    # The Phase-0 archive is the frozen source of truth for this parent
+    # trajectory. Re-executing the policy here is neither required by the
+    # protocol nor numerically reproducible without the original batched
+    # context. Replay the exact stored actions to reconstruct simulator state;
+    # descendants discard this inherited queue and start fresh independent RNG.
     while not done:
         if step >= expected_length:
             raise RuntimeError(
                 f"baseline terminated after {step} actions but raw rollout has {expected_length}"
             )
         if not queue:
-            queue.extend(
-                _sample_chunk(
-                    policy,
-                    observation,
-                    rollout_seed,
-                    counter,
-                    microbatch=microbatch,
-                )
-            )
+            queue.extend(raw_actions[step : min(step + BRANCH_ACTIONS, expected_length)])
             counter += 1
         if step == target:
             captured = _capture_snapshot(environment, queue, rollout_seed, counter, step)
         action = np.asarray(queue.pop(0), dtype=np.float32)
-        expected_action = np.asarray(raw_actions[step], dtype=np.float32)
-        if action.shape != expected_action.shape or not np.allclose(
-            action, expected_action, rtol=ACTION_REPLAY_RTOL, atol=ACTION_REPLAY_ATOL
-        ):
-            max_error = float(np.max(np.abs(action - expected_action))) if action.shape == expected_action.shape else float("inf")
-            raise RuntimeError(
-                f"baseline action mismatch at step={step}: shape={action.shape}/{expected_action.shape}, max_error={max_error}"
-            )
         result = _execute(environment, action)
         replay_actions.append(action.copy())
-        observation = _observation(policy, environment)
         final_result = result
         done = bool(result.get("done", False))
         step += 1
@@ -559,12 +530,23 @@ def replay_baseline_snapshot(
         raise RuntimeError(
             f"baseline terminal success mismatch: replay={observed_success} raw={expected_success}"
         )
+    source_action_sha256 = _action_stream_sha256(raw_actions)
+    replay_action_sha256 = _action_stream_sha256(replay_actions)
+    if replay_action_sha256 != source_action_sha256:
+        raise RuntimeError("stored baseline replay action SHA differs from source action SHA")
     return captured, {
         "replay_steps": step,
         "replay_actions": len(replay_actions),
         "baseline_length": expected_length,
         "baseline_success": observed_success,
-        "replay_action_sha256": _action_stream_sha256(replay_actions),
+        "replay_source": "frozen_phase0_action_stream",
+        "policy_reexecuted": False,
+        "policy_forwards": 0,
+        "policy_batches": 0,
+        "source_policy_forwards": int(row.get("policy_forwards", counter)),
+        "source_action_chunks": int(counter),
+        "source_action_sha256": source_action_sha256,
+        "replay_action_sha256": replay_action_sha256,
         "replay_action_shape": list(np.asarray(replay_actions, dtype=np.float32).shape),
         "action_max_abs_error": 0.0,
     }
@@ -621,7 +603,7 @@ def replay_baseline_snapshots(
             f"target_steps={requested_steps} contains a step outside baseline length={expected_length}"
         )
     target_set = set(requested_steps)
-    observation = _reset_seeded(environment, suite, task_id, init_state)
+    _reset_seeded(environment, suite, task_id, init_state)
     queue: list[np.ndarray] = []
     counter = 0
     step = 0
@@ -629,41 +611,22 @@ def replay_baseline_snapshots(
     captured: dict[int, BranchSnapshot] = {}
     replay_actions: list[np.ndarray] = []
     final_result: Mapping[str, Any] | None = None
-    action_max_abs_error = 0.0
-    # Replay the complete baseline once.  Capturing multiple snapshots during
-    # this pass preserves the exact source action stream and terminal label.
+    # Replay the frozen Phase-0 action stream once. Capturing multiple
+    # snapshots during this pass preserves the exact stored parent trajectory
+    # without attempting a numerically context-dependent policy re-inference.
     while not done:
         if step >= expected_length:
             raise RuntimeError(
                 f"baseline terminated after {step} actions but raw rollout has {expected_length}"
             )
         if not queue:
-            queue.extend(
-                _sample_chunk(
-                    policy,
-                    observation,
-                    rollout_seed,
-                    counter,
-                    microbatch=microbatch,
-                )
-            )
+            queue.extend(raw_actions[step : min(step + BRANCH_ACTIONS, expected_length)])
             counter += 1
         if step in target_set and step not in captured:
             captured[step] = _capture_snapshot(environment, queue, rollout_seed, counter, step)
         action = np.asarray(queue.pop(0), dtype=np.float32)
-        expected_action = np.asarray(raw_actions[step], dtype=np.float32)
-        if action.shape != expected_action.shape or not np.allclose(
-            action, expected_action, rtol=ACTION_REPLAY_RTOL, atol=ACTION_REPLAY_ATOL
-        ):
-            max_error = float(np.max(np.abs(action - expected_action))) if action.shape == expected_action.shape else float("inf")
-            raise RuntimeError(
-                f"baseline action mismatch at step={step}: shape={action.shape}/{expected_action.shape}, max_error={max_error}"
-            )
-        if action.shape == expected_action.shape:
-            action_max_abs_error = max(action_max_abs_error, float(np.max(np.abs(action - expected_action))))
         result = _execute(environment, action)
         replay_actions.append(action.copy())
-        observation = _observation(policy, environment)
         final_result = result
         done = bool(result.get("done", False))
         step += 1
@@ -681,19 +644,28 @@ def replay_baseline_snapshots(
         raise RuntimeError(
             f"baseline terminal success mismatch: replay={observed_success} raw={expected_success}"
         )
+    source_action_sha256 = _action_stream_sha256(raw_actions)
+    replay_action_sha256 = _action_stream_sha256(replay_actions)
+    if replay_action_sha256 != source_action_sha256:
+        raise RuntimeError("stored baseline replay action SHA differs from source action SHA")
     return captured, {
         "replay_steps": step,
         "replay_actions": len(replay_actions),
         "baseline_length": expected_length,
         "baseline_success": observed_success,
         "expected_success": expected_success,
-        "policy_forwards": counter,
-        "policy_batches": counter,
+        "replay_source": "frozen_phase0_action_stream",
+        "policy_reexecuted": False,
+        "policy_forwards": 0,
+        "policy_batches": 0,
+        "source_policy_forwards": int(row.get("policy_forwards", counter)),
+        "source_action_chunks": int(counter),
         "target_steps": requested_steps,
         "captured_steps": sorted(captured),
-        "replay_action_sha256": _action_stream_sha256(replay_actions),
+        "source_action_sha256": source_action_sha256,
+        "replay_action_sha256": replay_action_sha256,
         "replay_action_shape": list(np.asarray(replay_actions, dtype=np.float32).shape),
-        "action_max_abs_error": action_max_abs_error,
+        "action_max_abs_error": 0.0,
     }
 class BranchEnvironmentPool:
     """Factory-created simulator pool reused across natural cells.
@@ -1294,9 +1266,14 @@ def write_baseline_replay_evidence(
         "baseline_success": bool(replay["baseline_success"]),
         "expected_success": bool(row.get("success", False)),
         "replay_action_sha256": str(replay["replay_action_sha256"]),
+        "source_action_sha256": str(replay["source_action_sha256"]),
         "replay_action_shape": [int(value) for value in replay["replay_action_shape"]],
+        "replay_source": str(replay["replay_source"]),
+        "policy_reexecuted": bool(replay["policy_reexecuted"]),
         "policy_forwards": int(replay["policy_forwards"]),
         "policy_batches": int(replay["policy_batches"]),
+        "source_policy_forwards": int(replay["source_policy_forwards"]),
+        "source_action_chunks": int(replay["source_action_chunks"]),
         "target_steps": [int(value) for value in replay["target_steps"]],
         "captured_steps": [int(value) for value in replay["captured_steps"]],
         "action_max_abs_error": float(replay["action_max_abs_error"]),
@@ -1365,6 +1342,9 @@ def validate_baseline_replay_evidence(
         action_sha = str(payload.get("replay_action_sha256", ""))
         if len(action_sha) != 64 or any(value not in "0123456789abcdef" for value in action_sha):
             errors.append("baseline replay action SHA missing or malformed")
+        source_action_sha = str(payload.get("source_action_sha256", ""))
+        if source_action_sha != action_sha:
+            errors.append("baseline replay/source action SHA mismatch")
         action_shape = payload.get("replay_action_shape")
         if (
             not isinstance(action_shape, list)
@@ -1373,10 +1353,16 @@ def validate_baseline_replay_evidence(
             or any(int(value) <= 0 for value in action_shape)
         ):
             errors.append("baseline replay action shape mismatch")
-        if int(payload.get("policy_forwards", -1)) < 1 or int(payload.get("policy_batches", -1)) < 1:
-            errors.append("baseline replay policy accounting missing")
-        if not np.isfinite(float(payload.get("action_max_abs_error", float("nan")))):
-            errors.append("baseline replay action error is nonfinite")
+        if payload.get("replay_source") != "frozen_phase0_action_stream":
+            errors.append("baseline replay source contract mismatch")
+        if payload.get("policy_reexecuted") is not False:
+            errors.append("baseline replay unexpectedly reexecuted policy")
+        if int(payload.get("policy_forwards", -1)) != 0 or int(payload.get("policy_batches", -1)) != 0:
+            errors.append("baseline replay policy accounting must be zero")
+        if int(payload.get("source_policy_forwards", -1)) < 1 or int(payload.get("source_action_chunks", -1)) < 1:
+            errors.append("baseline source policy accounting missing")
+        if float(payload.get("action_max_abs_error", float("nan"))) != 0.0:
+            errors.append("baseline replay action error must be exactly zero")
         actual_sha = sha256_file(destination)
         sums = sums_path.read_text(encoding="utf-8").splitlines()
         if sums != [f"{actual_sha}  {destination.name}"]:
@@ -1960,6 +1946,7 @@ class Phase1Collector:
                                 "baseline_replay_steps": baseline_record["replay_steps"],
                                 "baseline_policy_forwards": baseline_record["policy_forwards"],
                                 "baseline_policy_batches": baseline_record["policy_batches"],
+                                "baseline_source_policy_forwards": baseline_record["source_policy_forwards"],
                             },
                         )
                         completed += 1

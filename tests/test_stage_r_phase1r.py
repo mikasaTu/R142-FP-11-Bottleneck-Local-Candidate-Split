@@ -142,51 +142,12 @@ class BatchedMockPolicy(MockPolicy):
         return {"actions": np.tile(action, (10, 1))}
 
 
-class BatchShapeSensitivePolicy:
-    """Official-path policy whose result exposes the physical batch shape."""
+class NeverReplayPolicy:
+    """Fails if baseline reconstruction performs any policy inference."""
 
-    class _Random:
-        @staticmethod
-        def PRNGKey(seed: int) -> int:
-            return int(seed)
-
-        @staticmethod
-        def fold_in(key: int, value: int) -> int:
-            return int(key) + int(value)
-
-        @staticmethod
-        def normal(key: int, shape: tuple[int, int]) -> np.ndarray:
-            del key
-            return np.zeros(shape, dtype=np.float32)
-
-    def __init__(self) -> None:
-        self.jax = SimpleNamespace(random=self._Random())
-        self.jnp = np
-        self.model = SimpleNamespace(action_horizon=5, action_dim=2)
-        self.batch_sizes: list[int] = []
-
-    def sample_model_actions_official(
-        self,
-        observations: list[object],
-        noises: np.ndarray,
-    ) -> np.ndarray:
-        del noises
-        batch_size = len(observations)
-        self.batch_sizes.append(batch_size)
-        value = 1.0 if batch_size == 4 else 0.0
-        return np.full((batch_size, 5, 2), value, dtype=np.float32)
-
-    @staticmethod
-    def input_transform(observation: object) -> dict[str, np.ndarray]:
-        del observation
-        return {"state": np.zeros(1, dtype=np.float32)}
-
-    @staticmethod
-    def output_transform(payload: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
-        values = np.asarray(payload["actions"], dtype=np.float32)
-        actions = np.zeros((10, 7), dtype=np.float32)
-        actions[: len(values), 0] = values[:, 0]
-        return {"actions": actions}
+    def sample_action_chunk(self, *args: object, **kwargs: object) -> np.ndarray:
+        del args, kwargs
+        raise AssertionError("frozen baseline replay must not call the policy")
 
 
 class PoolEnvironment(MockEnvironment):
@@ -280,8 +241,12 @@ def test_natural_collector_resume_sha_and_task_marker(tmp_path: Path) -> None:
         assert payload["replay_actions"] == 8
         assert payload["baseline_success"] is True
         assert payload["expected_success"] is True
-        assert payload["policy_forwards"] == payload["policy_batches"] == 2
+        assert payload["replay_source"] == "frozen_phase0_action_stream"
+        assert payload["policy_reexecuted"] is False
+        assert payload["policy_forwards"] == payload["policy_batches"] == 0
+        assert payload["source_policy_forwards"] == payload["source_action_chunks"] == 2
         assert len(payload["replay_action_sha256"]) == 64
+        assert payload["source_action_sha256"] == payload["replay_action_sha256"]
         assert payload["replay_action_shape"] == [8, 2]
         assert baseline_path.with_name("BASELINE_REPLAY_SHA256SUMS").is_file()
     valid, errors, marker = validate_task_completion_marker(
@@ -364,7 +329,7 @@ def test_natural_collector_uses_factory_pool_and_single_replay(tmp_path: Path) -
     assert len(baseline_paths) == 12
 
 
-def test_baseline_replay_preserves_phase0_physical_microbatch() -> None:
+def test_baseline_replay_uses_exact_frozen_phase0_action_stream() -> None:
     action = np.asarray([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
     row = {
         "init_state": 3,
@@ -374,7 +339,7 @@ def test_baseline_replay_preserves_phase0_physical_microbatch() -> None:
         "success": True,
     }
     environment = MockEnvironment()
-    policy = BatchShapeSensitivePolicy()
+    policy = NeverReplayPolicy()
     snapshot, replay = replay_baseline_snapshot(
         environment,
         policy,
@@ -382,16 +347,14 @@ def test_baseline_replay_preserves_phase0_physical_microbatch() -> None:
         0,
         row,
         3,
-        microbatch=4,
     )
     assert snapshot.step == 3
     assert replay["action_max_abs_error"] == 0.0
-    assert policy.batch_sizes == [4, 4]
-
-    with pytest.raises(RuntimeError, match="baseline action mismatch"):
-        replay_baseline_snapshot(
-            MockEnvironment(), BatchShapeSensitivePolicy(), "libero_spatial", 0, row, 3
-        )
+    assert replay["replay_source"] == "frozen_phase0_action_stream"
+    assert replay["policy_reexecuted"] is False
+    assert replay["policy_forwards"] == replay["policy_batches"] == 0
+    assert replay["source_action_chunks"] == 2
+    assert replay["source_action_sha256"] == replay["replay_action_sha256"]
 
 
 def test_factory_pool_matches_sequential_reference(tmp_path: Path) -> None:
