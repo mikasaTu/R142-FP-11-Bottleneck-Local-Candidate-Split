@@ -76,8 +76,6 @@ CALIBRATION="$ARTIFACT_DIR/frozen_source/results/stage_r/phase1r/calibration"
   > "$ARTIFACT_DIR/runtime/checkpoint_validation.json"
 "$PYTHON" "$REPO/pai/stage_r_phase1r_task_mapping.py" write "$SHARDS" "$EXECUTION" \
   "$EXECUTION_SHARD" "$SELECTION" "$ARTIFACT_DIR/runtime/task_mapping.tsv" >/dev/null
-"$PYTHON" "$REPO/pai/validate_stage_r_phase1r_preflight_bundle.py" \
-  "$ARTIFACT_DIR/runtime" "$CHECKPOINT_TREE_SHA" "$CHECKPOINT_ATTESTATION_SHA" 2254:2254 >/dev/null
 "$PYTHON" "$REPO/pai/stage_r_phase1r_task_mapping.py" validate "$SHARDS" "$EXECUTION" \
   "$EXECUTION_SHARD" "$SELECTION" "$ARTIFACT_DIR/runtime/task_mapping.tsv" >/dev/null
 "$PYTHON" - "$RUN_ID" "$EXECUTION_SHARD" <<'PY' > "$ARTIFACT_DIR/runtime/CPU_PRESEEDED_PREFLIGHT.json"
@@ -92,4 +90,7 @@ print(json.dumps({
     "scientific_contract_changed": False,
 }, indent=2, sort_keys=True))
 PY
+"$PYTHON" "$REPO/pai/validate_stage_r_phase1r_preflight_bundle.py" \
+  "$ARTIFACT_DIR/runtime" "$CHECKPOINT_TREE_SHA" "$CHECKPOINT_ATTESTATION_SHA" 2254:2254 \
+  "$RUN_ID" "$EXECUTION_SHARD" >/dev/null
 echo "CPU_PRESEEDED_PREFLIGHT_OK run_id=$RUN_ID execution_shard=$EXECUTION_SHARD"

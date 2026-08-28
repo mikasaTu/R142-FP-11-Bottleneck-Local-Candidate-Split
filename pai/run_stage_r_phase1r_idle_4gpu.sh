@@ -40,7 +40,7 @@ readonly PREREQUISITE_VALIDATOR_SHA256=9c45933f5052684fad52a90de1e05a01594db555c
 readonly TASK_MAPPING_HELPER="$REPO/pai/stage_r_phase1r_task_mapping.py"
 readonly TASK_MAPPING_HELPER_SHA256=e0dff96a034122719794441d02ba177c7f82564aae088c236eca2c5a0943f671
 readonly PREFLIGHT_BUNDLE_VALIDATOR="$REPO/pai/validate_stage_r_phase1r_preflight_bundle.py"
-readonly PREFLIGHT_BUNDLE_VALIDATOR_SHA256=095db86a1c6b3e85d5683d6b232a688b87a560ccfe45093526259cc1da57829d
+readonly PREFLIGHT_BUNDLE_VALIDATOR_SHA256=2fc83d485ebc5634e01ce3933ff9b72837b1f0a142aea292e093cfd91aeddbfc
 export PYTHONDONTWRITEBYTECODE=1
 readonly OUTPUT_ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase1r
 readonly PHASE0_MERGE_ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase0r_merged/r142-stage-r-phase0r-authoritative-20260827
@@ -103,6 +103,10 @@ git -C "$REPO" diff --cached --quiet
 
 cd "$ARTIFACT_DIR"
 mkdir -p frozen_source runtime runtime/tmp runtime/cache runtime/logs natural
+if [[ ! -s runtime/CPU_PRESEEDED_PREFLIGHT.json ]]; then
+  echo "CPU_PRESEEDED_PREFLIGHT_PENDING run_id=$RUN_ID execution_shard=$EXECUTION_SHARD" >&2
+  exit 75
+fi
 
 sha256_file() { sha256sum -- "$1" | awk '{print $1}'; }
 expect_sha256() {
@@ -236,7 +240,7 @@ expect_sha256 "$CALIBRATION_ROOT/SHA256SUMS" "$CALIBRATION_SHA256SUMS_SHA256"
 
 preflight_ready=false
 if "$PYTHON" "$PREFLIGHT_BUNDLE_VALIDATOR" runtime "$CHECKPOINT_TREE_SHA" \
-    "$CHECKPOINT_ATTESTATION_SHA256" 2254:2254 >/dev/null 2>&1 \
+    "$CHECKPOINT_ATTESTATION_SHA256" 2254:2254 "$RUN_ID" "$EXECUTION_SHARD" >/dev/null 2>&1 \
   && "$PYTHON" "$TASK_MAPPING_HELPER" validate "$SHARDS_PATH" "$EXECUTION_CONFIG" \
     "$EXECUTION_SHARD" "$SELECTION_ROOT" runtime/task_mapping.tsv >/dev/null 2>&1; then
   preflight_ready=true
@@ -274,7 +278,7 @@ fi
   "$EXECUTION_SHARD" "$SELECTION_ROOT" runtime/task_mapping.tsv >/dev/null
 fi
 "$PYTHON" "$PREFLIGHT_BUNDLE_VALIDATOR" runtime "$CHECKPOINT_TREE_SHA" \
-  "$CHECKPOINT_ATTESTATION_SHA256" 2254:2254 >/dev/null
+  "$CHECKPOINT_ATTESTATION_SHA256" 2254:2254 "$RUN_ID" "$EXECUTION_SHARD" >/dev/null
 "$PYTHON" "$TASK_MAPPING_HELPER" validate "$SHARDS_PATH" "$EXECUTION_CONFIG" \
   "$EXECUTION_SHARD" "$SELECTION_ROOT" runtime/task_mapping.tsv >/dev/null
 

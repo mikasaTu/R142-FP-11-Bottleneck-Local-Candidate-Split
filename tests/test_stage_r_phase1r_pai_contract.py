@@ -101,7 +101,7 @@ class Phase1RPAIContractTest(unittest.TestCase):
         self.assertIn("runtime/frozen_source_verified.json", text)
         extra_helpers = (
             (PAI / "stage_r_phase1r_task_mapping.py", "e0dff96a034122719794441d02ba177c7f82564aae088c236eca2c5a0943f671"),
-            (PAI / "validate_stage_r_phase1r_preflight_bundle.py", "095db86a1c6b3e85d5683d6b232a688b87a560ccfe45093526259cc1da57829d"),
+            (PAI / "validate_stage_r_phase1r_preflight_bundle.py", "2fc83d485ebc5634e01ce3933ff9b72837b1f0a142aea292e093cfd91aeddbfc"),
         )
         for helper, expected_sha in extra_helpers:
             with self.subTest(helper=helper.name):

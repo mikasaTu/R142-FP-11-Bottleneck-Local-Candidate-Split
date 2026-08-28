@@ -19,13 +19,14 @@ def load_exact(path: Path, expected: dict) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) != 5:
+    if len(sys.argv) != 7:
         raise SystemExit(
             "usage: validate_stage_r_phase1r_preflight_bundle.py "
-            "RUNTIME CHECKPOINT_TREE ATTESTATION_SHA UID:GID"
+            "RUNTIME CHECKPOINT_TREE ATTESTATION_SHA UID:GID RUN_ID EXECUTION_SHARD"
         )
     runtime = Path(sys.argv[1])
     checkpoint_tree, attestation_sha, owner = sys.argv[2:5]
+    run_id, execution_shard = sys.argv[5:7]
     expected_small = {
         "protocol_validation.json": {"protocol_id": PROTOCOL, "valid": True, "errors": []},
         "selection_validation.json": {
@@ -71,7 +72,19 @@ def main() -> None:
     marker = json.loads((runtime / "frozen_source_verified.json").read_text(encoding="utf-8"))
     if marker.get("marker_type") != "frozen_source_resume_attestation" or marker.get("owner") != owner:
         raise SystemExit("frozen-source preflight marker drifted")
-    print(json.dumps({"valid": True, "marker_count": len(expected_small) + 1}, sort_keys=True))
+    load_exact(
+        runtime / "CPU_PRESEEDED_PREFLIGHT.json",
+        {
+            "schema_version": 1,
+            "marker_type": "outcome_blind_cpu_preseeded_preflight",
+            "run_id": run_id,
+            "execution_shard": execution_shard,
+            "outcomes_read": False,
+            "natural_cells": 0,
+            "scientific_contract_changed": False,
+        },
+    )
+    print(json.dumps({"valid": True, "marker_count": len(expected_small) + 2}, sort_keys=True))
 
 
 if __name__ == "__main__":
