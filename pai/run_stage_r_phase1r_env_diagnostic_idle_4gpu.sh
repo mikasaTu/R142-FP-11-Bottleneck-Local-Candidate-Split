@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SOURCE_COMMIT=b713c182457b1abff2dac6e7f272a64811c3c92c
+readonly SOURCE_COMMIT=d1865d373a61e6db115190b27fc762269c0ef985
 readonly REPO=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split
 readonly QPILOTS=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812
 readonly QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
@@ -55,7 +55,7 @@ PY
       --strategy "$strategy" --output "$result" > "$log" 2>&1
 }
 
-run_strategy single
+run_strategy prior-reset-only
 "$PYTHON" - "$OUTPUT" "$SOURCE_COMMIT" <<'PY'
 import json, os, sys
 from pathlib import Path
@@ -67,14 +67,13 @@ if not path.exists():
         "schema_version": 1,
         "milestone": "first_complete_environment_reconstruction_strategy",
         "source_commit": source_commit,
-        "strategy": "single",
+        "strategy": "prior-reset-only",
         "uid": os.getuid(),
         "gid": os.getgid(),
     }, indent=2, sort_keys=True) + "\n")
     temporary.replace(path)
 PY
-run_strategy indexed-reset-target
-run_strategy indexed-reset-all
+run_strategy candidate-prior-lifecycle
 
 (
   cd "$OUTPUT"
@@ -89,10 +88,11 @@ run_strategy indexed-reset-all
 import hashlib, json, os, sys
 from pathlib import Path
 root, source_commit, raw_sha = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
-results = {name: json.loads((root / "results" / f"{name}.json").read_text()) for name in ("single", "indexed-reset-target", "indexed-reset-all")}
+strategies = ("prior-reset-only", "candidate-prior-lifecycle")
+results = {name: json.loads((root / "results" / f"{name}.json").read_text()) for name in strategies}
 payload = {
     "schema_version": 1,
-    "diagnostic": "phase0_parent_environment_reconstruction",
+    "diagnostic": "phase0_prior_init_lifecycle_reconstruction",
     "source_commit": source_commit,
     "raw_sha256": raw_sha,
     "candidate_id": 27,
