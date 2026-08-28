@@ -5,7 +5,7 @@ umask 077
 readonly REPO=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split
 readonly PYTHON=/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python
 readonly OUTPUT_ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase1r
-readonly SOURCE_COMMIT=57859fcbb36776e0049ce24fb1abbadab0de46d5
+readonly SOURCE_COMMIT=c6bae0f921d30f661b63f131bb39ec04b043cc79
 readonly CHECKPOINT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/openpi/r16p15/openpi-assets/checkpoints/pi05_libero
 readonly CHECKPOINT_TREE_SHA=42d571bd87f05f1182810f5a8bfa6d084c0d0dd277aff739bcf8f69868e6fb99
 readonly CHECKPOINT_ATTESTATION="$REPO/configs/stage_r_pi05_libero_checkpoint_attestation.json"

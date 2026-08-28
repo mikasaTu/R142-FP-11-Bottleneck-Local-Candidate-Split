@@ -14,7 +14,7 @@ from typing import Any
 
 
 EXPECTED_OWNER = (2254, 2254)
-SOURCE_COMMIT = "57859fcbb36776e0049ce24fb1abbadab0de46d5"
+SOURCE_COMMIT = "c6bae0f921d30f661b63f131bb39ec04b043cc79"
 RESOURCE_ID = "quotaewyznuc7b9l"
 EXECUTION_SHARDS = {"A0": "A", "A1": "A", "B0": "B", "B1": "B"}
 

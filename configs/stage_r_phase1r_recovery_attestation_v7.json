@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "protocol_id": "r142-stage-r-phase1r-human-override-v1",
+  "amendment_kind": "outcome_blind_phase0_physical_microbatch_replay_equivalence_recovery",
+  "scientific_contract_unchanged": true,
+  "predecessor_run_suffix": "r8",
+  "predecessor_terminal_status": "Stopped",
+  "predecessor_job_ids": {
+    "A0": "dlc571ngqysljysj",
+    "A1": "dlc610fm2frg1fpo",
+    "B0": "dlc6uz7re85eppi9",
+    "B1": "dlc7oxzwqafh01oi"
+  },
+  "failure_mode": "Phase-0 generated all policy chunks with physical microbatch 8, but Phase-1R baseline replay invoked the same pinned model with physical batch 1; XLA batch-shape-dependent kernels produced 6e-4 to 1.65e-3 first-action drift and the frozen 1e-5 replay validator correctly failed closed",
+  "failure_evidence": {
+    "A0_zero_completion_diagnosis_sha256": "8f572abda57d12cd62f80ed13782c83c418645832e41935e0a4334ff8a0a6b93",
+    "A1_zero_completion_diagnosis_sha256": "7415f667c822b1bc9de2d5506f66332091e7ac09dc91815cc8bcd1d994218",
+    "B0_zero_completion_diagnosis_sha256": "46fd42d51afdada7e75bba98a3630c50bb71f97f97e72a0a7cee39974b9198a8",
+    "B1_zero_completion_diagnosis_sha256": "84de60805506687f048652dd0fa6ff66dda5063d5dd992424d7a5c0e73d0f753",
+    "B1_rank12_task_log_sha256": "ff9b11542ed64d49cdd0f585f376e188c5577812ce2449c23303809712eed0ba",
+    "B1_rank13_task_log_sha256": "c41802861d1bc4264e2aebf3c474a04c7751ceaf1b2c38279c4e850b34125001",
+    "B1_rank14_task_log_sha256": "4ff8646a3de80e1eec90995260c3ab9a5ec56adb63d4d4bb164e1f72b4d04ce",
+    "observed_first_action_max_abs_errors": [
+      0.0006168819963932037,
+      0.0016168206930160522,
+      0.0016450285911560059
+    ]
+  },
+  "outcomes_inspected": false,
+  "natural_cells_observed": 0,
+  "natural_npz_observed": 0,
+  "task_completion_markers_observed": 0,
+  "first_work_observed": false,
+  "replacement_run_ids": {
+    "A0": "r142-stage-r-phase1r-shard-a0-20260828-idle4-r9",
+    "A1": "r142-stage-r-phase1r-shard-a1-20260828-idle4-r9",
+    "B0": "r142-stage-r-phase1r-shard-b0-20260828-idle4-r9",
+    "B1": "r142-stage-r-phase1r-shard-b1-20260828-idle4-r9"
+  },
+  "implementation_correction": "Replay one logical baseline with the same frozen physical microbatch 8 used by Phase-0, padding only duplicate observations/noise exactly as the existing infer_microbatched contract; keep the 1e-5 action validator unchanged",
+  "launcher_sha256": "dc2761cf1b1c3ced81f95fa0ee69dfbbe97ccb38c5f5d328875a39ba2e3ba39a",
+  "tasks_changed": false,
+  "seeds_changed": false,
+  "candidate_budget_changed": false,
+  "selection_changed": false,
+  "thresholds_changed": false,
+  "action_replay_rtol": 0.00001,
+  "action_replay_atol": 0.00001,
+  "analysis_protocol_changed": false,
+  "checkpoint_changed": false,
+  "resource_contract_changed": false,
+  "gpu_per_job": 4,
+  "cpu_per_job": 46,
+  "memory_per_job": "800Gi",
+  "shared_memory_per_job": "800Gi",
+  "total_gpu_limit": 16,
+  "lineage_rule": "r9 run ids were fixed before any replacement outcome; r8 evidence and directories remain immutable and are never mixed with r9",
+  "checkpoint_sha256": "42d571bd87f05f1182810f5a8bfa6d084c0d0dd277aff739bcf8f69868e6fb99",
+  "scientific_source_commit": "c6bae0f921d30f661b63f131bb39ec04b043cc79",
+  "test_result": "13 passed"
+}

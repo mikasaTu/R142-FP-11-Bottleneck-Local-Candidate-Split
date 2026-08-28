@@ -38,7 +38,7 @@ EXPECTED_AIMASTER = (
     "--max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure"
 )
 EXPECTED_LAUNCHER_SHA = hashlib.sha256(LAUNCHER.read_bytes()).hexdigest()
-EXPECTED_SCIENCE_COMMIT = "57859fcbb36776e0049ce24fb1abbadab0de46d5"
+EXPECTED_SCIENCE_COMMIT = "c6bae0f921d30f661b63f131bb39ec04b043cc79"
 
 
 class Phase1RPAIContractTest(unittest.TestCase):
