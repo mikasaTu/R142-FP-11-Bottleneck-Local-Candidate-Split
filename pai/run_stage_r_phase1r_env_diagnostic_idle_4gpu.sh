@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 umask 077
 
-readonly SOURCE_COMMIT=d1865d373a61e6db115190b27fc762269c0ef985
+readonly SOURCE_COMMIT=e4dc616c7d137fa5e62396f41e956327fca0de31
 readonly REPO=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split
 readonly QPILOTS=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812
 readonly QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
