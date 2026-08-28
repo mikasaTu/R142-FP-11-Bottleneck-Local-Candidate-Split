@@ -150,7 +150,7 @@ class Phase1RPAIContractTest(unittest.TestCase):
                 )
                 self.assertEqual(
                     manifest["storage"]["output_root"],
-                    "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase1r",
+                    "/mnt/cpfs/zbl-cpfs-new/CKPT/leon/r142_fp11_stage_r/phase1r",
                 )
                 worker = manifest["worker"]
                 self.assertEqual(worker["count"], 1)

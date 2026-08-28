@@ -46,7 +46,7 @@
         "options": ""
       }
     ],
-    "output_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_r/phase1r"
+    "output_root": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon/r142_fp11_stage_r/phase1r"
   },
   "worker": {
     "count": 1,
@@ -86,7 +86,7 @@
     "success_gate": "persisted_completed_evaluation_result",
     "validation_method": "static",
     "validation_status": "passed",
-    "validated_payload_sha256": "730e38c312baade49925e917f35d706cdbbbd4973a499f6e7448a29cf392104c",
+    "validated_payload_sha256": "9acf021472fa4735cb966fefb5e86f38eafc39e42d5ca6ff2d3c322fa4b3c483",
     "pai_probe_created": false,
     "contract_ready": true,
     "require_actual_idle": true,
