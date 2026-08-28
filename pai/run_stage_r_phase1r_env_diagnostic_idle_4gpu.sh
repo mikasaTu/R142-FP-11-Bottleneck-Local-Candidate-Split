@@ -55,6 +55,23 @@ PY
 }
 
 run_strategy single
+"$PYTHON" - "$OUTPUT" "$SOURCE_COMMIT" <<'PY'
+import json, os, sys
+from pathlib import Path
+root, source_commit = Path(sys.argv[1]), sys.argv[2]
+path = root / "FIRST_WORK.json"
+if not path.exists():
+    temporary = root / ".FIRST_WORK.json.tmp"
+    temporary.write_text(json.dumps({
+        "schema_version": 1,
+        "milestone": "first_complete_environment_reconstruction_strategy",
+        "source_commit": source_commit,
+        "strategy": "single",
+        "uid": os.getuid(),
+        "gid": os.getgid(),
+    }, indent=2, sort_keys=True) + "\n")
+    temporary.replace(path)
+PY
 run_strategy indexed-reset-target
 run_strategy indexed-reset-all
 
@@ -82,12 +99,16 @@ payload = {
     "results": results,
     "uid": os.getuid(),
     "gid": os.getgid(),
+    "decision": "DIAGNOSTIC_COMPLETE_NO_SCIENTIFIC_UNBLINDING",
 }
-path = root / "COMPLETED_DIAGNOSTIC.json"
-temporary = root / ".COMPLETED_DIAGNOSTIC.json.tmp"
-temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
-temporary.replace(path)
+for name in ("COMPLETED_DIAGNOSTIC.json", "COMPLETED_EVALUATION_RESULT.json"):
+    path = root / name
+    temporary = root / f".{name}.tmp"
+    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    temporary.replace(path)
 PY
 sha256sum "$OUTPUT/COMPLETED_DIAGNOSTIC.json" >> "$OUTPUT/SHA256SUMS"
+sha256sum "$OUTPUT/COMPLETED_EVALUATION_RESULT.json" >> "$OUTPUT/SHA256SUMS"
 sync -f "$OUTPUT/COMPLETED_DIAGNOSTIC.json"
+sync -f "$OUTPUT/COMPLETED_EVALUATION_RESULT.json"
 sync -f "$OUTPUT/SHA256SUMS"
