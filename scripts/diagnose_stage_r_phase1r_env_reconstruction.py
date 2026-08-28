@@ -68,7 +68,8 @@ def main() -> None:
     if len(matching) != 1:
         raise RuntimeError(f"expected one raw parent, got {len(matching)}")
     row = matching[0]
-    count = 1 if args.strategy == "single" else 32
+    target_history_strategy = args.strategy in ("prior-reset-only", "candidate-prior-lifecycle")
+    count = 1 if args.strategy == "single" or target_history_strategy else 32
     environments = [Task64Environment(config, seed=0) for _ in range(count)]
     target = environments[0] if args.strategy == "single" else environments[args.candidate_id]
     common_seed = shared_environment_seed(suite_name, task_id, args.init_state)
@@ -164,6 +165,7 @@ def main() -> None:
             "init_state": args.init_state,
             "common_seed": int(common_seed),
             "environment_count": count,
+            "prior_environment_scope": "target_only" if target_history_strategy else None,
             "reset_count": len(reset_set) * (len(prior_states) + 1)
             if args.strategy in ("prior-reset-only", "candidate-prior-lifecycle")
             else len(reset_set),
