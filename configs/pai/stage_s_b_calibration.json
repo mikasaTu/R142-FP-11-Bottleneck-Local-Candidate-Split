@@ -6,8 +6,8 @@
   "resource_alias": "idle-a800-robot-stage-s-graphics-8gpu",
   "workspace_id": "179169",
   "provenance": {
-    "contract_source_job_id": "dlct3tq8a7z5lsdd",
-    "resource_source_job_id": "dlc1k4y4965q71yw",
+    "contract_source_job_id": "dlckjz66iwcv38gw",
+    "resource_source_job_id": "dlckjz66iwcv38gw",
     "submission_method": "cli_create",
     "pai_clone_performed": false,
     "source_role": "readback_reference"

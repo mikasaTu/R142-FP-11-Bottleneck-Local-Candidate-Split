@@ -121,6 +121,13 @@ def test_r7_completion_sha_and_flattened_state_input_are_mandatory() -> None:
 def test_source_provenance_compute_and_daily_resume_contract() -> None:
     config = _config()
     evidence = config["evidence"]
+    assert config["provenance"] == {
+        "contract_source_job_id": "dlckjz66iwcv38gw",
+        "resource_source_job_id": "dlckjz66iwcv38gw",
+        "submission_method": "cli_create",
+        "pai_clone_performed": False,
+        "source_role": "readback_reference",
+    }
     assert evidence["stage_s_source_commit"] == "afe353bbc5997355f35cb0c77c5446fd4df5f1e3"
     assert evidence["qpilots_commit"] == "eacf47b981e3b22357f8a74902f8dad8cfcfa375"
     assert evidence["openpi_commit"] == "54cbaee6ae0c010a1ed431871cdaa8f4684ac709"
