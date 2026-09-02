@@ -9,14 +9,12 @@ umask 077
 
 NEW_ROOT=/mnt/cpfs/zbl-cpfs-new
 USER_ROOT=$NEW_ROOT/USERS/leon
-# The registry binds the independent C runtime explicitly.  Do not fall back
-# to the research repository name: that checkout is not a deployable runtime
-# and may not exist on a worker.
-STAGE_S_C_PROJECT_DIR="${STAGE_S_C_PROJECT_DIR:?registry must inject the independent C runtime clone path}"
-[[ "$STAGE_S_C_PROJECT_DIR" == /* ]] || {
-  echo "C runtime clone path must be absolute: $STAGE_S_C_PROJECT_DIR" >&2
-  exit 43
-}
+# The registry resource contract permits only its exact graphics pod env.
+# Keep the scientific/runtime identity in this immutable payload + companion
+# registry manifest instead of injecting custom pod environment variables.
+STAGE_S_C_PROJECT_DIR=$USER_ROOT/code/r142-stage-s-c-runtime-20260903
+STAGE_S_C_REGISTRY_CONFIG=$USER_ROOT/code/r142-stage-s-pai-20260902/stage_s_c_undertrained.json
+STAGE_S_SOURCE_COMMIT=7575da585be31eb369a604d90048b338bbbf2c92
 PROJECT_DIR=$(realpath -e -- "$STAGE_S_C_PROJECT_DIR") || {
   echo "C runtime clone path does not exist: $STAGE_S_C_PROJECT_DIR" >&2
   exit 43
@@ -27,9 +25,25 @@ QPILOTS=$USER_ROOT/code/QPILOTS-r16p15-stage1-task64-20260812
 OPENPI=$QPILOTS/third_party/openpi
 EXPECTED_QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
 EXPECTED_OPENPI_COMMIT=54cbaee6ae0c010a1ed431871cdaa8f4684ac709
-STAGE_S_SOURCE_COMMIT="${STAGE_S_SOURCE_COMMIT:?controller must inject the exact frozen Stage-S source commit}"
-STAGE_S_C_PAYLOAD_SHA256="${STAGE_S_C_PAYLOAD_SHA256:?controller must inject the exact payload SHA256}"
-export STAGE_S_SOURCE_COMMIT STAGE_S_C_PAYLOAD_SHA256
+PAYLOAD_FILE=$(realpath -e -- "$0") || { echo "cannot resolve invoked C payload" >&2; exit 43; }
+CONFIG_FILE=$(realpath -e -- "$STAGE_S_C_REGISTRY_CONFIG") || {
+  echo "missing external C registry companion config: $STAGE_S_C_REGISTRY_CONFIG" >&2
+  exit 43
+}
+STAGE_S_C_PAYLOAD_SHA256=$($PYTHON_BIN - "$CONFIG_FILE" <<'PY'
+import json
+import pathlib
+import sys
+
+runtime = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))["runtime"]
+command_sha = runtime.get("command_file_sha256")
+payload_sha = runtime.get("payload_sha256")
+if not isinstance(command_sha, str) or command_sha != payload_sha:
+    raise SystemExit("registry payload SHA fields are missing or disagree")
+print(payload_sha)
+PY
+)
+export STAGE_S_SOURCE_COMMIT STAGE_S_C_PAYLOAD_SHA256 STAGE_S_C_REGISTRY_CONFIG
 BASE_JAX=$USER_ROOT/cache/r142_stage_s/pi05_base
 BASE_PT=$USER_ROOT/cache/r142_stage_s/pi05_base_pytorch
 ASSETS=$USER_ROOT/cache/openpi/r16p15/openpi-assets/checkpoints
@@ -130,14 +144,8 @@ for checkout in "$PROJECT_DIR" "$QPILOTS" "$OPENPI"; do
     exit 43
   }
 done
-PAYLOAD_FILE="$PROJECT_DIR/scripts/stage_s_c_undertrained_pai.sh"
-CONFIG_FILE="$PROJECT_DIR/configs/pai/stage_s_c_undertrained.json"
 [[ -f "$PAYLOAD_FILE" && -f "$CONFIG_FILE" ]] || {
-  echo "missing C registry payload/config under bound runtime: $PROJECT_DIR" >&2
-  exit 43
-}
-[[ "$(realpath -e -- "$PAYLOAD_FILE")" == "$(realpath -e -- "$0")" ]] || {
-  echo "bound C runtime does not contain the invoked payload at its configured relative path" >&2
+  echo "missing invoked C payload or companion registry config" >&2
   exit 43
 }
 [[ "$STAGE_S_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || {
@@ -178,10 +186,8 @@ project_dir = runtime.get("project_dir")
 if project_dir != os.environ.get("STAGE_S_C_PROJECT_DIR"):
     raise SystemExit("registry project_dir does not match STAGE_S_C_PROJECT_DIR")
 command_file = runtime.get("command_file")
-if command_file != project_dir + "/" + runtime.get("command_file_relative", ""):
-    raise SystemExit("registry command_file does not match project_dir + command_file_relative")
-if runtime.get("command_file_relative") != "scripts/stage_s_c_undertrained_pai.sh":
-    raise SystemExit("registry command_file_relative is not the checked-in C payload")
+if command_file != str(pathlib.Path(sys.argv[1]).with_name("stage_s_c_undertrained_pai.sh")):
+    raise SystemExit("registry command_file is not beside the companion config")
 command_sha = runtime.get("command_file_sha256")
 payload_sha = runtime.get("payload_sha256")
 if not isinstance(command_sha, str) or not isinstance(payload_sha, str) or command_sha != payload_sha:
@@ -210,7 +216,7 @@ done
 # mutation.  This records the exact bindings checked above; it is not a
 # substitute for the source, cleanliness, and digest checks.
 "$PYTHON_BIN" - "$STATUS_ROOT/RUNTIME_IDENTITY.json" "$PROJECT_DIR" "$QPILOTS" "$OPENPI" \
-  "$STAGE_S_SOURCE_COMMIT" "$EXPECTED_QPILOTS_COMMIT" "$EXPECTED_OPENPI_COMMIT" "$STAGE_S_C_PAYLOAD_SHA256" <<'PY'
+  "$STAGE_S_SOURCE_COMMIT" "$EXPECTED_QPILOTS_COMMIT" "$EXPECTED_OPENPI_COMMIT" "$STAGE_S_C_PAYLOAD_SHA256" "$PAYLOAD_FILE" <<'PY'
 import hashlib
 import json
 import os
@@ -218,8 +224,8 @@ import pathlib
 import sys
 
 destination = pathlib.Path(sys.argv[1])
-project, qpilots, openpi, stage_commit, qpilots_commit, openpi_commit, payload_sha = sys.argv[2:]
-payload_file = pathlib.Path(project) / "scripts/stage_s_c_undertrained_pai.sh"
+project, qpilots, openpi, stage_commit, qpilots_commit, openpi_commit, payload_sha, payload_path = sys.argv[2:]
+payload_file = pathlib.Path(payload_path)
 record = {
     "schema": "r142-stage-s-c-runtime-identity-v1",
     "project_dir": project,

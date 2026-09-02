@@ -341,23 +341,17 @@ def test_registry_v2_payload_binds_pinned_runtime_and_stages() -> None:
     assert payload["runtime"]["project_dir"] == \
         "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903"
     assert payload["runtime"]["project_dir_env"] == "STAGE_S_C_PROJECT_DIR"
-    assert payload["runtime"]["command_file"] == (
-        payload["runtime"]["project_dir"] + "/" + payload["runtime"]["command_file_relative"]
-    )
+    assert payload["runtime"]["command_file"] == \
+        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained_pai.sh"
+    assert payload["runtime"]["companion_config"] == \
+        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained.json"
     assert payload["runtime"]["payload_sha256_env"] == "STAGE_S_C_PAYLOAD_SHA256"
     assert payload["runtime"]["stage_s_source_commit_env"] == "STAGE_S_SOURCE_COMMIT"
     assert payload["runtime"]["qpilots_commit"] == "eacf47b981e3b22357f8a74902f8dad8cfcfa375"
     assert payload["runtime"]["openpi_commit"] == OPENPI_COMMIT
-    assert payload["runtime"]["required_env_names"] == [
-        "PAI_CANARY_RUN_ID",
-        "STAGE_S_SOURCE_COMMIT",
-        "STAGE_S_C_PROJECT_DIR",
-        "STAGE_S_C_PAYLOAD_SHA256",
-    ]
-    assert payload["runtime"]["pod_env"]["STAGE_S_C_PROJECT_DIR"] == payload["runtime"]["project_dir"]
-    assert payload["runtime"]["pod_env"]["STAGE_S_C_PAYLOAD_SHA256"] == payload["runtime"]["payload_sha256"]
-    assert payload["runtime"]["pod_env"]["STAGE_S_SOURCE_COMMIT"] == "7575da585be31eb369a604d90048b338bbbf2c92"
-    assert payload["runtime"]["pod_env"]["NVIDIA_DRIVER_CAPABILITIES"] == "compute,utility,graphics"
+    assert payload["runtime"]["pod_env"] == {
+        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
+    }
     assert payload["evidence"]["idle_8gpu_contract"] == "generic_formal_idle_8gpu_v1"
     assert payload["evidence"]["kind"].endswith("_formal_training")
     assert payload["evidence"]["success_gate"] == "persisted_step_and_loss"
