@@ -13,7 +13,7 @@ revision mismatch:
 
 | input | path / revision |
 |---|---|
-| Stage-S runtime | `/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-a-runtime-20260903` @ `ea06996168bd460c98cb3e2ee77b929aafced12e` |
+| Stage-S runtime | `/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-a-runtime-20260903` @ `047f15c5cbad99e76ac47e2ce608a40bae22c49e` |
 | RoboTwin | `cache/r142_stage_s/runtime/RoboTwin` @ `13c3c47ff4312dd62484bcd51be034af55c062d1` |
 | CuRobo | `cache/r142_stage_s/runtime/RoboTwin/envs/curobo` @ `d64c4b005459db10c5dd867d8b30a87d5bda9bdb` |
 | Evo-1 | `code/r142_stage_s_deps/Evo-1` @ `5fd14b015013c4fd0aacf5f8f48f868ca9b870a2` |
