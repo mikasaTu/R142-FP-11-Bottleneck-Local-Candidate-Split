@@ -13,6 +13,7 @@ from r142_stage_s.libero import (
     C_RETAIN_STEPS,
     CALIBRATION_CANDIDATE_COUNT,
     CALIBRATION_INITIAL_STATES,
+    CALIBRATION_SEED,
     CALIBRATION_TASK_IDS,
     MAIN_CANDIDATE_COUNT,
     PROXIMITY_MAGNITUDES,
@@ -20,6 +21,7 @@ from r142_stage_s.libero import (
     VariantGenerationError,
     audit_undertrained_checkpoint_set,
     audit_c_checkpoint_schedule,
+    aggregate_calibration_shards,
     build_b_variant_matrix,
     build_pai_stage_s_payload,
     build_b_variant_suite,
@@ -29,7 +31,11 @@ from r142_stage_s.libero import (
     family_is_complete,
     generate_b_variant,
     run_pooled_calibration,
+    run_calibration_shard,
+    run_stage_s_calibration_episode,
     stable_seed,
+    verify_calibration_aggregate,
+    verify_calibration_shard,
     validate_restore_same_action,
     write_family_atomic,
     write_pooled_calibration,
@@ -275,6 +281,138 @@ def test_calibration_persists_aggregate_only() -> None:
             Path("/tmp/never-written-stage-s.json"),
             {**result, "family": {"success": True}},
         )
+
+
+def test_real_stage_s_calibration_shards_are_idempotent_and_aggregate_only(tmp_path: Path) -> None:
+    settings = ["s0", "s1", "s2", "s3"]
+    root = tmp_path / "calibration"
+    calls: list[tuple[int, str, int, int, int, int]] = []
+
+    def evaluator(
+        setting_index: int,
+        setting: str,
+        task_id: int,
+        init_state: int,
+        candidate_id: int,
+        trial_seed: int,
+    ) -> bool:
+        calls.append((setting_index, setting, task_id, init_state, candidate_id, trial_seed))
+        return (trial_seed % 7) == 0
+
+    rank0 = run_calibration_shard(
+        evaluator,
+        settings,
+        root,
+        calibration_seed=CALIBRATION_SEED,
+        world_size=2,
+        rank=0,
+        substrate="B",
+        sources=["variant0", "variant1", "variant2", "variant3"],
+    )
+    assert rank0["status"] == "completed"
+    assert len(calls) == 512
+    assert all(set(row) == {"setting", "successes", "total", "pooled_success"} for row in rank0["payload"]["rows"])
+    assert [row["total"] for row in rank0["payload"]["rows"]] == [128] * 4
+
+    # Replaying an already marked rank is a read-only verification and must
+    # not execute any evaluator calls again.
+    repeated = run_calibration_shard(
+        evaluator,
+        settings,
+        root,
+        calibration_seed=CALIBRATION_SEED,
+        world_size=2,
+        rank=0,
+        substrate="B",
+        sources=["variant0", "variant1", "variant2", "variant3"],
+    )
+    assert repeated["status"] == "already_complete"
+    assert len(calls) == 512
+
+    rank1 = run_calibration_shard(
+        evaluator,
+        settings,
+        root,
+        calibration_seed=CALIBRATION_SEED,
+        world_size=2,
+        rank=1,
+        substrate="B",
+        sources=["variant0", "variant1", "variant2", "variant3"],
+    )
+    assert rank1["status"] == "completed"
+    assert len(calls) == 1024
+    assert verify_calibration_shard(
+        root / "shards" / "rank-00000",
+        settings,
+        calibration_seed=CALIBRATION_SEED,
+        world_size=2,
+        rank=0,
+    )["rows"]
+    assert verify_calibration_shard(
+        root / "shards" / "rank-00001",
+        settings,
+        calibration_seed=CALIBRATION_SEED,
+        world_size=2,
+        rank=1,
+    )["rows"]
+    aggregate = aggregate_calibration_shards(
+        root,
+        settings,
+        calibration_seed=CALIBRATION_SEED,
+        world_size=2,
+    )
+    assert [row["total"] for row in aggregate["rows"]] == [256] * 4
+    report = root / "CALIBRATION_RESULT.json"
+    checked = verify_calibration_aggregate(
+        report,
+        settings,
+        calibration_seed=CALIBRATION_SEED,
+        world_size=2,
+    )
+    assert checked["rows"] == aggregate["rows"]
+    assert (root / "SHA256SUMS").is_file()
+    assert (root / "COMPLETED_CALIBRATION.json").is_file()
+    assert (root / "shards" / "rank-00000" / "COMPLETED_SHARD.json").is_file()
+    def keys(value: object) -> set[str]:
+        if isinstance(value, dict):
+            result = {str(key).lower() for key in value}
+            for child in value.values():
+                result.update(keys(child))
+            return result
+        if isinstance(value, list):
+            result: set[str] = set()
+            for child in value:
+                result.update(keys(child))
+            return result
+        return set()
+
+    persisted_keys = keys(json.loads(report.read_text(encoding="utf-8")))
+    assert not persisted_keys.intersection({"genealogy", "trajectory", "actions", "poses", "s2", "s3", "s4", "s5"})
+
+
+def test_stage_s_calibration_episode_runs_until_real_done() -> None:
+    environments: list[FakeSnapshotEnvironment] = []
+
+    def factory(**kwargs: object) -> FakeSnapshotEnvironment:
+        del kwargs
+        environment = FakeSnapshotEnvironment()
+        environments.append(environment)
+        return environment
+
+    success = run_stage_s_calibration_episode(
+        factory,
+        FakePolicy(),
+        setting_index=0,
+        task_id=0,
+        init_state=0,
+        candidate_id=0,
+        calibration_seed=CALIBRATION_SEED,
+        max_steps=4,
+    )
+    assert success is True
+    assert len(environments) == 1
+    assert environments[0].step == 2
+    assert environments[0].close_calls == 1
 
 
 def test_stage_r_snapshot_same_action_is_exact() -> None:
