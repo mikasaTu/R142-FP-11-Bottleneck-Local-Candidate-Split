@@ -71,3 +71,8 @@ __all__ = [
     "write_completion",
     "write_sha256sums",
 ]
+
+from .analysis import matched_time_tau_curve
+
+if "matched_time_tau_curve" not in __all__:
+    __all__.append("matched_time_tau_curve")

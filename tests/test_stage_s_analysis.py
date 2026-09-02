@@ -151,14 +151,17 @@ def test_s5_requires_fresh_seed_and_counts_rescues() -> None:
     base = _rows([0, 1] + [16] * 8)
     extended = []
     for family in range(10):
-        for candidate in range(64):
+        original = [row for row in base if row["family_id"] == family]
+        for row in original:
+            extended.append(dict(row))
+        for candidate in range(32):
             extended.append(
                 {
                     "family_id": family,
-                    "candidate_id": f"ext-{family}-{candidate}",
-                    "seed": 500000 + family * 100 + candidate,
+                    "candidate_id": f"fresh-{family}-{candidate}",
+                    "seed": 600000 + family * 100 + candidate,
                     "fresh_seed": True,
-                    "success": candidate < (2 if family == 0 else 16),
+                    "success": candidate < (2 if family == 0 else (1 if family == 1 else 0)),
                 }
             )
     result = compute_s5(base, extended)
@@ -196,3 +199,108 @@ def test_completion_and_sha_manifests_are_fail_closed(tmp_path: Path) -> None:
     assert verify_completion_bundle(tmp_path)["valid"]
     (tmp_path / "result.json").write_text(json.dumps({"success": 0}))
     assert not verify_completion_bundle(tmp_path)["valid"]
+
+
+# Corrected fixtures: N=64 contains the original seed identities plus 32 new
+# seeds. The late definition is intentionally used by the tests above too.
+def _rows(success_counts: list[int], *, horizon: int = 10) -> list[dict]:
+    output = []
+    for family, count in enumerate(success_counts):
+        for candidate in range(BASE_CANDIDATE_COUNT):
+            output.append(
+                {
+                    "family_id": family,
+                    "task_id": family % 2,
+                    "candidate_id": f"{family}-{candidate}",
+                    "seed": 500000 + family * 100 + candidate,
+                    "success": candidate < count,
+                    "poses": np.zeros((horizon, 2), dtype=np.float64),
+                }
+            )
+    return output
+
+
+def test_tau_is_separate_for_each_task_and_matched_control_step() -> None:
+    zero = np.zeros((3, 2), dtype=np.float64)
+    task0_other = zero.copy()
+    task0_other[1] = [0.2, 0.0]
+    task0_other[2] = [0.4, 0.0]
+    task1_other = zero.copy()
+    task1_other[1] = [2.0, 0.0]
+    task1_other[2] = [4.0, 0.0]
+    rows = [
+        {"task_id": 0, "success": True, "poses": zero},
+        {"task_id": 0, "success": True, "poses": task0_other},
+        {"task_id": 1, "success": True, "poses": zero},
+        {"task_id": 1, "success": True, "poses": task1_other},
+    ]
+    from r142_stage_s.analysis import matched_time_tau_curve
+
+    curves = matched_time_tau_curve(rows, workspace_scale=[1.0, 1.0])
+    assert np.allclose(curves[0], [0.0, 0.1414213562, 0.2828427125])
+    assert np.allclose(curves[1], [0.0, 1.4142135624, 2.8284271247])
+    assert not np.isclose(curves[0][1], curves[1][1])
+
+
+def test_s3_uses_the_near_family_task_tau_curve() -> None:
+    refs = [
+        {"task_id": 0, "success": True, "poses": np.zeros((3, 2))},
+        {"task_id": 0, "success": True, "poses": np.asarray([[0, 0], [0.2, 0], [0.2, 0]], dtype=float)},
+        {"task_id": 1, "success": True, "poses": np.zeros((3, 2))},
+        {"task_id": 1, "success": True, "poses": np.asarray([[0, 0], [2.0, 0], [2.0, 0]], dtype=float)},
+    ]
+    rollouts = []
+    for family, task in [(10, 0), (11, 1)]:
+        for candidate in range(32):
+            pose = np.zeros((3, 2), dtype=float)
+            if candidate >= 16:
+                pose[1:] = 1.0
+            rollouts.append(
+                {
+                    "family_id": family,
+                    "task_id": task,
+                    "candidate_id": f"{family}-{candidate}",
+                    "success": False,
+                    "poses": pose,
+                }
+            )
+    result = compute_s3(rollouts, successful_episodes=refs, workspace_scale=[1, 1])
+    by_task = {row["task_id"]: row for row in result["t_div_records"]}
+    assert by_task["0"]["t_div"] == 1
+    assert by_task["1"]["t_div"] == 2
+    assert set(result["tau_by_task"]) == {"0", "1"}
+    assert result["tau_source"] == "successful_same_task_matched_time"
+
+
+def test_s5_accepts_only_32_added_disjoint_seeds() -> None:
+    base = _rows([0] + [16] * 9)
+    extended = [dict(row) for row in base]
+    for family in range(10):
+        extended.extend(
+            {
+                "family_id": family,
+                "candidate_id": f"new-{family}-{candidate}",
+                "seed": 900000 + family * 100 + candidate,
+                "fresh_seed": True,
+                "success": False,
+            }
+            for candidate in range(32)
+        )
+    result = compute_s5(base, extended)
+    assert result["total_candidate_count"] == 64
+    assert result["added_fresh_candidate_count"] == 32
+    assert result["fresh_seed_verified"]
+    assert result["rescue_fraction"] == 0.0
+    assert result["pass"]
+
+
+def test_decision_prunes_failed_headline_before_deeper_gate() -> None:
+    a = _all_fail("S2")
+    b = _all_fail("S3")
+    b["S3"] = {"pass": False, "origin_dominant": False}
+    c = _all_fail("S1")
+    assert decide_stage_s({"A": a, "B": b, "C": c}, positive_control_pass=True) == "UNRECOVERABLE_FAILURES"
+    a2 = _all_fail("S1")
+    b2 = _all_fail("S3")
+    b2["S3"] = {"pass": False, "origin_dominant": True}
+    assert decide_stage_s({"A": a2, "B": b2, "C": c}, positive_control_pass=True) == "COLLAPSE_AT_ORIGIN"

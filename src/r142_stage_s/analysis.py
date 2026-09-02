@@ -378,8 +378,14 @@ def matched_time_tau(
     return float(np.quantile(np.asarray(values, dtype=np.float64), float(quantile)))
 
 
-def _first_crossing(curve: np.ndarray, tau: float) -> int | None:
-    indices = np.flatnonzero(np.isfinite(curve) & (curve > float(tau)))
+def _first_crossing(curve: np.ndarray, tau: float | Sequence[float]) -> int | None:
+    threshold = np.asarray(tau, dtype=np.float64)
+    if threshold.ndim == 0:
+        threshold = np.full(curve.shape, float(threshold), dtype=np.float64)
+    elif threshold.shape != curve.shape:
+        raise ValueError("tau curve must have the same length as D(t)")
+    valid = np.isfinite(curve) & np.isfinite(threshold) & (curve > threshold)
+    indices = np.flatnonzero(valid)
     return None if len(indices) == 0 else int(indices[0])
 
 
@@ -866,3 +872,426 @@ __all__ = [
     "s4_oracle_vs_random",
     "s5_budget_rescue",
 ]
+
+def matched_time_tau_curve(
+    successful_episodes: Any,
+    *,
+    workspace_bounds: Any | None = None,
+    workspace_scale: Any | None = None,
+    quantile: float = TAU_QUANTILE,
+) -> dict[object, np.ndarray]:
+    """Derive a separate tau(t) curve for every task.
+
+    Distances are computed only between successful episodes with the same
+    task_id and the same control step t. The quantile is taken across matched
+    episode pairs at each t; values from different tasks or times are never
+    pooled into a scalar threshold.
+    """
+
+    if not 0.0 < float(quantile) < 1.0:
+        raise ValueError("tau quantile must lie strictly between 0 and 1")
+    rows = _rows_with_trajectories(successful_episodes, successful_only=True)
+    grouped: dict[object, list[np.ndarray]] = defaultdict(list)
+    for row in rows:
+        grouped[_task_id(row)].append(_trajectory(row))
+    curves: dict[object, np.ndarray] = {}
+    for task, trajectories in grouped.items():
+        if len(trajectories) < 2:
+            continue
+        dimension = trajectories[0].shape[1]
+        if any(array.shape[1] != dimension for array in trajectories):
+            raise ValueError("successful same-task trajectories have inconsistent dimensions")
+        scale = _workspace_scale(
+            dimension, workspace_bounds=workspace_bounds, workspace_scale=workspace_scale
+        )
+        horizon = max(len(array) for array in trajectories)
+        curve = np.full(horizon, np.nan, dtype=np.float64)
+        for step in range(horizon):
+            at_risk = [array[step] for array in trajectories if step < len(array)]
+            if len(at_risk) >= 2:
+                values = _pairwise_rms(np.asarray(at_risk), scale)
+                curve[step] = float(np.quantile(values, float(quantile)))
+        curves[task] = curve
+    return curves
+
+
+def _task_tau_curve(
+    tau_curves: Mapping[object, Any] | None,
+    task: object,
+    horizon: int,
+    *,
+    fallback: float | None = None,
+) -> np.ndarray | None:
+    if tau_curves is None:
+        if fallback is None:
+            return None
+        return np.repeat(float(fallback), horizon).astype(np.float64)
+    value = tau_curves.get(task)
+    if value is None:
+        value = tau_curves.get(_json_key(task))
+    if value is None:
+        value = tau_curves.get("__all_tasks__")
+    if value is None:
+        return None
+    array = np.asarray(value, dtype=np.float64)
+    if array.ndim == 0:
+        return np.repeat(float(array), horizon).astype(np.float64)
+    if array.ndim != 1 or array.size < horizon:
+        raise ValueError("task tau curve must be one-dimensional and cover the episode")
+    return array[:horizon]
+
+
+
+
+# Protocol corrections kept at module tail so older report imports remain
+# source-compatible while all public names below resolve to the corrected
+# implementations.
+
+def compute_s3(
+    data: Any,
+    *,
+    tau: float | None = None,
+    successful_episodes: Any | None = None,
+    tau_curves: Mapping[object, Any] | None = None,
+    workspace_bounds: Any | None = None,
+    workspace_scale: Any | None = None,
+    n: int = BASE_CANDIDATE_COUNT,
+) -> dict[str, Any]:
+    """Evaluate S3 with task- and control-step-matched tau(t)."""
+
+    groups = group_families(data)
+    family_collapse_metrics(groups, n=n)
+    near_groups = {
+        family: group
+        for family, group in groups.items()
+        if sum(_success(row) for row in group) <= NEAR_ALL_FAIL_MAX_SUCCESS
+    }
+    if successful_episodes is None:
+        successful_episodes = [
+            row for group in groups.values() for row in group if _success(row)
+        ]
+    tau_source = "explicit_scalar"
+    if tau_curves is None:
+        if tau is None:
+            tau_curves = matched_time_tau_curve(
+                successful_episodes,
+                workspace_bounds=workspace_bounds,
+                workspace_scale=workspace_scale,
+            )
+            tau_source = "successful_same_task_matched_time"
+        else:
+            tau_curves = {"__all_tasks__": float(tau)}
+    records: list[dict[str, Any]] = []
+    tau_by_task: dict[str, list[float]] = {}
+    for family, group in sorted(near_groups.items(), key=lambda item: str(item[0])):
+        if not group:
+            continue
+        trajectories = [_trajectory(row) for row in group]
+        task = _task_id(group[0])
+        task_tau = _task_tau_curve(
+            tau_curves, task, max(len(array) for array in trajectories)
+        )
+        if task_tau is None:
+            continue
+        onset = divergence_onset(
+            trajectories,
+            task_tau,
+            workspace_bounds=workspace_bounds,
+            workspace_scale=workspace_scale,
+        )
+        tau_by_task[_json_key(task)] = task_tau.tolist()
+        records.append(
+            {
+                "family_id": _json_key(family),
+                "task_id": _json_key(task),
+                "tau_curve": task_tau.tolist(),
+                **onset,
+            }
+        )
+    fractions = [float(row["fraction"]) for row in records if row["fraction"] is not None]
+    origins = [row for row in records if row["t_div"] == 0]
+    origin_fraction = float(len(origins) / len(records)) if records else None
+    median_fraction = float(np.median(np.asarray(fractions))) if fractions else None
+    pass_gate = bool(
+        records
+        and median_fraction is not None
+        and median_fraction >= S3_MIN_MEDIAN_DIVERGENCE_FRACTION
+        and origin_fraction is not None
+        and origin_fraction < S3_MAX_ORIGIN_FRACTION
+    )
+    return {
+        "tau": None if tau is None else float(tau),
+        "tau_by_task": tau_by_task,
+        "tau_source": tau_source,
+        "tau_quantile": TAU_QUANTILE,
+        "near_all_fail_family_count": len(near_groups),
+        "t_div_records": records,
+        "median_t_div_fraction": median_fraction,
+        "origin_t_div_count": len(origins),
+        "origin_t_div_fraction": origin_fraction,
+        "origin_dominant": bool(
+            origin_fraction is not None and origin_fraction >= S3_MAX_ORIGIN_FRACTION
+        ),
+        "pass": pass_gate,
+    }
+
+
+def _seed_identifier(row: object) -> object | None:
+    if not isinstance(row, Mapping):
+        return None
+    return _read_field(row, "seed", "candidate_seed", "rollout_seed", "candidate_id")
+
+
+def _extension_freshness(
+    base_rows: Sequence[object] | None,
+    extended_rows: Sequence[object] | None,
+) -> tuple[bool, int]:
+    """Verify a 32+32 extension without charging an accidental 96 candidates."""
+
+    if base_rows is None or extended_rows is None:
+        return False, 0
+    if len(base_rows) != BASE_CANDIDATE_COUNT or len(extended_rows) != EXTENDED_CANDIDATE_COUNT:
+        return False, 0
+    base_ids = [_seed_identifier(row) for row in base_rows]
+    extended_ids = [_seed_identifier(row) for row in extended_rows]
+    if any(value is None for value in base_ids + extended_ids):
+        return False, 0
+    if len(set(base_ids)) != BASE_CANDIDATE_COUNT:
+        return False, 0
+    if len(set(extended_ids)) != EXTENDED_CANDIDATE_COUNT:
+        return False, 0
+    base_set = set(base_ids)
+    extended_set = set(extended_ids)
+    # The total-N=64 run must contain the original N=32 exactly once plus
+    # exactly 32 new seeds. It must not be a second disjoint N=64 run.
+    if not base_set.issubset(extended_set):
+        return False, 0
+    added_ids = extended_set - base_set
+    if len(added_ids) != BASE_CANDIDATE_COUNT:
+        return False, 0
+    base_success = {
+        identifier: _success(row) for identifier, row in zip(base_ids, base_rows)
+    }
+    extended_success = {
+        identifier: _success(row) for identifier, row in zip(extended_ids, extended_rows)
+    }
+    if any(base_success[identifier] != extended_success[identifier] for identifier in base_set):
+        return False, 0
+    # If a producer emits a fresh flag, it is an auditable assertion for only
+    # the added candidates. No flag is required when disjoint seed identity
+    # proves freshness directly.
+    added_flags = [
+        _read_field(row, "fresh_seed", "fresh")
+        for identifier, row in zip(extended_ids, extended_rows)
+        if identifier in added_ids
+    ]
+    if any(flag is not None and not bool(flag) for flag in added_flags):
+        return False, 0
+    return True, len(added_ids)
+
+
+def compute_s5(
+    base_data: Any,
+    extended_data: Any,
+    *,
+    n_base: int = BASE_CANDIDATE_COUNT,
+    n_extended: int = EXTENDED_CANDIDATE_COUNT,
+) -> dict[str, Any]:
+    """Evaluate fresh-seed N32->64 rescue using a 32+32 total."""
+
+    if int(n_base) != BASE_CANDIDATE_COUNT or int(n_extended) != EXTENDED_CANDIDATE_COUNT:
+        raise ValueError("Stage-S S5 is frozen at N=32 versus N=64")
+    base = _summary_groups(
+        base_data,
+        n_base,
+        aliases=("success_count_32", "base_success_count", "successes_32"),
+    )
+    extended = _summary_groups(
+        extended_data,
+        n_extended,
+        aliases=("success_count_64", "extended_success_count", "successes_64"),
+    )
+    near_families = [
+        family for family, (count, _) in base.items()
+        if count <= NEAR_ALL_FAIL_MAX_SUCCESS
+    ]
+    if not near_families:
+        return {
+            "near_all_fail_family_count": 0,
+            "rescued_family_count": 0,
+            "rescue_fraction": None,
+            "fresh_seed_verified": False,
+            "total_candidate_count": EXTENDED_CANDIDATE_COUNT,
+            "added_fresh_candidate_count": BASE_CANDIDATE_COUNT,
+            "pass": False,
+        }
+    rescued = 0
+    freshness_values: list[bool] = []
+    added_counts: list[int] = []
+    for family in near_families:
+        if family not in extended:
+            raise ValueError(f"extended N=64 data lacks base family {family!r}")
+        extended_count, extended_rows = extended[family]
+        if extended_count > NEAR_ALL_FAIL_MAX_SUCCESS:
+            rescued += 1
+        fresh_ok, added_count = _extension_freshness(base[family][1], extended_rows)
+        freshness_values.append(fresh_ok)
+        added_counts.append(added_count)
+    fresh_verified = bool(freshness_values) and all(freshness_values)
+    rescue_fraction = float(rescued / len(near_families))
+    return {
+        "near_all_fail_family_count": len(near_families),
+        "rescued_family_count": rescued,
+        "rescue_fraction": rescue_fraction,
+        "fresh_seed_verified": fresh_verified,
+        "total_candidate_count": EXTENDED_CANDIDATE_COUNT,
+        "added_fresh_candidate_count": sorted(set(added_counts))[0] if added_counts else 0,
+        "pass": bool(fresh_verified and rescue_fraction < S5_MAX_RESCUE_FRACTION),
+    }
+
+
+def evaluate_substrate(
+    rollouts: Any,
+    *,
+    probes: Sequence[Mapping[str, Any]],
+    extended_rollouts: Any,
+    tau: float | None = None,
+    tau_curves: Mapping[object, Any] | None = None,
+    successful_episodes: Any | None = None,
+    workspace_bounds: Any | None = None,
+    workspace_scale: Any | None = None,
+) -> dict[str, Any]:
+    """Compute all five gates from one completed substrate screen."""
+
+    s1 = compute_s1(rollouts)
+    s2 = compute_s2(rollouts)
+    s3 = compute_s3(
+        rollouts,
+        tau=tau,
+        tau_curves=tau_curves,
+        successful_episodes=successful_episodes,
+        workspace_bounds=workspace_bounds,
+        workspace_scale=workspace_scale,
+    )
+    s4 = compute_s4(probes)
+    s5 = compute_s5(rollouts, extended_rollouts)
+    gates = {"S1": s1, "S2": s2, "S3": s3, "S4": s4, "S5": s5}
+    return {
+        **gates,
+        "s1": s1,
+        "s2": s2,
+        "s3": s3,
+        "s4": s4,
+        "s5": s5,
+        "pass": bool(all(bool(value["pass"]) for value in gates.values())),
+    }
+
+
+def decide_stage_s(
+    substrates: Mapping[str, Mapping[str, Any]],
+    *,
+    positive_control_pass: bool | Mapping[str, Any],
+) -> str:
+    """Emit one code using gate-depth pruning across viable A/B substrates."""
+
+    required = {"A", "B", "C"}
+    missing = required - set(substrates)
+    if missing:
+        raise ValueError(f"substrate results missing {sorted(missing)}")
+    if isinstance(positive_control_pass, Mapping):
+        positive_ok = bool(positive_control_pass.get("pass", False))
+    else:
+        positive_ok = bool(positive_control_pass)
+    if not positive_ok:
+        return "PIPELINE_INVALID"
+    if _full_pass(substrates["A"]) or _full_pass(substrates["B"]):
+        return "SUBSTRATE_QUALIFIED"
+    if _full_pass(substrates["C"]):
+        return "WEAK_SUBSTRATE_ONLY"
+    if all(not bool(_gate_value(substrates[name], "S1").get("pass", False)) for name in required):
+        return "NO_SUBSTRATE_AT_TARGET_DIFFICULTY"
+
+    active = [
+        substrates[name]
+        for name in ("A", "B")
+        if bool(_gate_value(substrates[name], "S1").get("pass", False))
+    ]
+    if not active:
+        # C passed S1 but did not pass all gates; there is no headline
+        # substrate to continue, and the target-difficulty code is inapplicable.
+        return "UNRECOVERABLE_FAILURES"
+
+    gate_to_code = {
+        "S2": "NO_FAMILY_COLLAPSE",
+        "S3": "COLLAPSE_AT_ORIGIN",
+        "S4": "UNRECOVERABLE_FAILURES",
+        "S5": "BUDGET_SUFFICES",
+    }
+    for gate in ("S2", "S3", "S4", "S5"):
+        survivors = [
+            item for item in active if bool(_gate_value(item, gate).get("pass", False))
+        ]
+        if survivors:
+            active = survivors
+            continue
+        if gate == "S3":
+            origin_dominant = any(
+                bool(_gate_value(item, "S3").get("origin_dominant", False))
+                for item in active
+            )
+            if origin_dominant:
+                return "COLLAPSE_AT_ORIGIN"
+            return "UNRECOVERABLE_FAILURES"
+        return gate_to_code[gate]
+    return "SUBSTRATE_QUALIFIED"
+
+
+# Rebind aliases after the corrected definitions.
+compute_tau_curves = matched_time_tau_curve
+s4_oracle_vs_random = compute_s4
+s5_budget_rescue = compute_s5
+decide = decide_stage_s
+
+if "matched_time_tau_curve" not in __all__:
+    __all__.append("matched_time_tau_curve")
+
+
+def _extension_freshness(
+    base_rows: Sequence[object] | None,
+    extended_rows: Sequence[object] | None,
+) -> tuple[bool, int]:
+    """Verify a 32+32 seed extension; success labels are measured anew at N=64."""
+
+    if base_rows is None or extended_rows is None:
+        return False, 0
+    if len(base_rows) != BASE_CANDIDATE_COUNT or len(extended_rows) != EXTENDED_CANDIDATE_COUNT:
+        return False, 0
+    base_ids = [_seed_identifier(row) for row in base_rows]
+    extended_ids = [_seed_identifier(row) for row in extended_rows]
+    if any(value is None for value in base_ids + extended_ids):
+        return False, 0
+    if len(set(base_ids)) != BASE_CANDIDATE_COUNT:
+        return False, 0
+    if len(set(extended_ids)) != EXTENDED_CANDIDATE_COUNT:
+        return False, 0
+    base_set = set(base_ids)
+    extended_set = set(extended_ids)
+    # N=64 consists of the original N=32 identities plus exactly 32 new,
+    # disjoint identities. This is the only freshness requirement.
+    if not base_set.issubset(extended_set):
+        return False, 0
+    added_ids = extended_set - base_set
+    if len(added_ids) != BASE_CANDIDATE_COUNT:
+        return False, 0
+    added_flags = [
+        _read_field(row, "fresh_seed", "fresh")
+        for identifier, row in zip(extended_ids, extended_rows)
+        if identifier in added_ids
+    ]
+    if any(flag is not None and not bool(flag) for flag in added_flags):
+        return False, 0
+    return True, len(added_ids)
+
+
+if "matched_time_tau_curve" not in __all__:
+    __all__.append("matched_time_tau_curve")
