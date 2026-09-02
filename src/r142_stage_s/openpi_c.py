@@ -1563,10 +1563,36 @@ def _audit_data_preflight(path: str | Path) -> tuple[dict[str, Any] | None, list
         {key: value for key, value in payload.items() if key != "payload_sha256"}
     ):
         return payload, ["C data preflight payload hash mismatch"]
+    if payload.get("schema") != "r142-stage-s-c-data-preflight-v2":
+        return payload, ["C data preflight schema lacks the dependency compatibility audit"]
     dataset = payload.get("dataset")
     norm_stats = payload.get("norm_stats")
-    if not isinstance(dataset, dict) or not isinstance(norm_stats, dict):
+    official = payload.get("official_bindings")
+    compatibility = official.get("lerobot_compatibility") if isinstance(official, dict) else None
+    if not isinstance(dataset, dict) or not isinstance(norm_stats, dict) or not isinstance(compatibility, dict):
         return None, ["C data preflight lacks dataset/norm_stats provenance"]
+    if compatibility.get("valid") is not True:
+        errors.append("C data preflight dependency compatibility audit is not valid")
+    from .lerobot_compat import (
+        COMPATIBILITY_CONTRACT,
+        PINNED_DATASETS_VERSION,
+        PINNED_LEROBOT_COMMIT,
+        PINNED_LEROBOT_VERSION,
+        SUPPORTED_COLUMN_DATASETS_VERSION,
+    )
+
+    if compatibility.get("contract") != COMPATIBILITY_CONTRACT:
+        errors.append("C data preflight dependency contract mismatch")
+    if compatibility.get("lerobot_version") != PINNED_LEROBOT_VERSION:
+        errors.append("C data preflight LeRobot version mismatch")
+    if compatibility.get("lerobot_commit") != PINNED_LEROBOT_COMMIT:
+        errors.append("C data preflight LeRobot source commit mismatch")
+    expected_modes = {
+        PINNED_DATASETS_VERSION: "native-pinned-datasets",
+        SUPPORTED_COLUMN_DATASETS_VERSION: "datasets-column-scalar-bridge",
+    }
+    if expected_modes.get(compatibility.get("datasets_version")) != compatibility.get("mode"):
+        errors.append("C data preflight datasets version/mode mismatch")
     if dataset.get("repo_id") != LIBERO_DATASET_REPO:
         errors.append("C data preflight dataset repo mismatch")
     if dataset.get("revision") != LIBERO_DATASET_REVISION:

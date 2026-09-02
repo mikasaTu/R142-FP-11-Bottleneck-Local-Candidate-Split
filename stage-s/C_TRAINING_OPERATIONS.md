@@ -21,6 +21,27 @@ all 1699 entries with `sha256sum -c`; it does not rewrite the data tree.
 Missing metadata is an immediate failure and cannot fall back to
 `snapshot_download`.
 
+### LeRobot/datasets compatibility gate
+
+The pinned OpenPI lock resolves LeRobot `0.1.0` at commit
+`0cf864870cf29f4738d3ade893e6fd13fbd7cdb5` and `datasets==3.6.0`. The
+observed dev14 image has the same LeRobot source but `datasets==4.8.4`.
+That API exposes a scalar `datasets.arrow_dataset.Column` for `timestamp` and
+`episode_index`, while this LeRobot constructor passes the column container
+to `torch.stack`; PyTorch accepts the scalar tensors but not the Column
+container. The preflight therefore constructs one real episode with a
+constructor-scoped bridge that materializes only a non-empty scalar-real
+Column (or tuples already containing scalar tensors). It restores
+`torch.stack` immediately after construction, writes no dataset/parquet
+bytes, and records the actual versions, LeRobot source URL, mode, and bridge
+status in `DATA_PREFLIGHT.json` and subsequent runtime markers.
+
+Only the native pinned `datasets==3.6.0` path or this exact `datasets==4.8.4`
+scalar-column bridge is accepted. Unknown versions, an unrecognized
+LeRobot constructor ABI, non-scalar/mixed columns, or a missing source
+provenance fail closed; no silent v2.0 data conversion or dependency fallback
+is permitted.
+
 The base checkpoint's norm stats are intentionally staged without mutating the
 base artifact. The source is
 `.../pi05_libero/assets/physical-intelligence/libero/norm_stats.json`, while
@@ -46,7 +67,7 @@ gate.
 RUNTIME_PROJECT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903
 STAGE_S_C_PROJECT_DIR=$RUNTIME_PROJECT
 STAGE_S_SOURCE_COMMIT=7575da585be31eb369a604d90048b338bbbf2c92
-STAGE_S_C_PAYLOAD_SHA256=49eebae79d178c239d9f5343ef6c3624eef149b65c6a74754617a507cfc8fd90
+STAGE_S_C_PAYLOAD_SHA256=3b0dedbaeb4da2dae9bb9553ba7463a649114b1008a23b8d18c517df8378604f
 PAI_CANARY_RUN_ID=<registry-injected run id>
 OPENPI=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi
 OPENPI_PYTHON=/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python

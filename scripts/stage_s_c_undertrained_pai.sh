@@ -25,6 +25,10 @@ QPILOTS=$USER_ROOT/code/QPILOTS-r16p15-stage1-task64-20260812
 OPENPI=$QPILOTS/third_party/openpi
 EXPECTED_QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
 EXPECTED_OPENPI_COMMIT=54cbaee6ae0c010a1ed431871cdaa8f4684ac709
+# The OpenPI lock expects datasets 3.6.0.  This image has 4.8.4, so the
+# runtime may use only the audited scalar-Column bridge; unknown versions fail
+# closed in the preflight and worker.  Keep this contract in every marker.
+STAGE_S_C_LEROBOT_COMPAT_CONTRACT='lerobot==0.1.0@0cf864870cf29f4738d3ade893e6fd13fbd7cdb5; datasets==3.6.0 native or datasets==4.8.4 scalar-column bridge'
 PAYLOAD_FILE=$(realpath -e -- "$0") || { echo "cannot resolve invoked C payload" >&2; exit 43; }
 CONFIG_FILE=$(realpath -e -- "$STAGE_S_C_REGISTRY_CONFIG") || {
   echo "missing external C registry companion config: $STAGE_S_C_REGISTRY_CONFIG" >&2
@@ -43,7 +47,7 @@ if not isinstance(command_sha, str) or command_sha != payload_sha:
 print(payload_sha)
 PY
 )
-export STAGE_S_SOURCE_COMMIT STAGE_S_C_PAYLOAD_SHA256 STAGE_S_C_REGISTRY_CONFIG
+export STAGE_S_SOURCE_COMMIT STAGE_S_C_PAYLOAD_SHA256 STAGE_S_C_REGISTRY_CONFIG STAGE_S_C_LEROBOT_COMPAT_CONTRACT
 BASE_JAX=$USER_ROOT/cache/r142_stage_s/pi05_base
 BASE_PT=$USER_ROOT/cache/r142_stage_s/pi05_base_pytorch
 ASSETS=$USER_ROOT/cache/openpi/r16p15/openpi-assets/checkpoints
@@ -90,6 +94,7 @@ payload = {
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
     "stage_s_source_commit": os.environ.get("STAGE_S_SOURCE_COMMIT"),
     "launcher_payload_sha256": os.environ.get("STAGE_S_C_PAYLOAD_SHA256"),
+    "lerobot_compatibility_contract": os.environ.get("STAGE_S_C_LEROBOT_COMPAT_CONTRACT"),
     "project_dir": os.environ.get("STAGE_S_C_PROJECT_DIR"),
     "evidence_path": evidence or None,
     "evidence_sha256": (
@@ -105,6 +110,7 @@ if data_preflight and pathlib.Path(data_preflight).is_file():
         data_payload = json.loads(pathlib.Path(data_preflight).read_text(encoding="utf-8"))
         dataset = data_payload.get("dataset", {})
         norm_stats = data_payload.get("norm_stats", {})
+        compatibility = data_payload.get("official_bindings", {}).get("lerobot_compatibility", {})
         payload.update(
             {
                 "dataset_repo_id": dataset.get("repo_id"),
@@ -113,6 +119,10 @@ if data_preflight and pathlib.Path(data_preflight).is_file():
                 "dataset_manifest_file_sha256": dataset.get("manifest_file_sha256"),
                 "norm_stats_sha256": norm_stats.get("staged_sha256"),
                 "norm_stats_source_sha256": norm_stats.get("source_sha256"),
+                "lerobot_version": compatibility.get("lerobot_version"),
+                "lerobot_commit": compatibility.get("lerobot_commit"),
+                "datasets_version": compatibility.get("datasets_version"),
+                "lerobot_compatibility_mode": compatibility.get("mode"),
             }
         )
     except (OSError, json.JSONDecodeError, TypeError):
@@ -299,6 +309,8 @@ record = {
     "norm_stats_source_sha256": norm_stats["source_sha256"],
     "norm_stats_staged_path": norm_stats["staged_path"],
     "norm_stats_sha256": norm_stats["staged_sha256"],
+    "lerobot_compatibility_contract": os.environ.get("STAGE_S_C_LEROBOT_COMPAT_CONTRACT"),
+    "lerobot_compatibility": data["official_bindings"]["lerobot_compatibility"],
 }
 if record["payload_sha256"] != record["payload_sha256_observed"]:
     raise SystemExit("runtime identity payload digest changed during admission")

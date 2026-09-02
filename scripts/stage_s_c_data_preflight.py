@@ -34,6 +34,7 @@ from r142_stage_s.openpi_c import (  # noqa: E402
     audit_libero_dataset_snapshot,
     stage_libero_norm_stats,
 )
+from r142_stage_s.lerobot_compat import smoke_test_lerobot_dataset  # noqa: E402
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -88,6 +89,12 @@ def _load_official_bindings(openpi_root: Path, dataset_root: Path, staged_assets
     if metadata.total_tasks != int(LIBERO_DATASET_EXPECTED_INFO["total_tasks"]):
         raise RuntimeError(f"LeRobot metadata task count mismatch: {metadata.total_tasks}")
 
+    # Exercise the real LeRobot constructor before any training process is
+    # launched.  This catches the datasets-4.8 Column ABI mismatch while the
+    # bridge remains scoped to the constructor and records the actual package
+    # provenance/mechanism in the preflight marker.
+    dataset_smoke = smoke_test_lerobot_dataset(dataset_root, LIBERO_DATASET_REVISION, episode_index=0)
+
     # The official config is loaded from the pinned OpenPI checkout.  Replacing
     # only assets_base_dir leaves the model/data/optimizer scientific choices
     # untouched while testing the actual DataConfigFactory resolver.
@@ -117,6 +124,11 @@ def _load_official_bindings(openpi_root: Path, dataset_root: Path, staged_assets
         "dataset_metadata_revision": metadata.revision,
         "dataset_total_episodes": metadata.total_episodes,
         "dataset_total_tasks": metadata.total_tasks,
+        "lerobot_compatibility": dataset_smoke["dependency_contract"],
+        "dataset_constructor_smoke": {
+            key: dataset_smoke[key]
+            for key in ("episode_index", "length", "revision", "root")
+        },
     }
 
 
@@ -136,7 +148,7 @@ def _execute(args: argparse.Namespace) -> dict[str, Any]:
         raise RuntimeError("LIBERO norm-stat staging failed: " + "; ".join(norm_stats["errors"]))
     official = _load_official_bindings(args.openpi_root.expanduser().resolve(), dataset_root, staged_assets)
     record = {
-        "schema": "r142-stage-s-c-data-preflight-v1",
+        "schema": "r142-stage-s-c-data-preflight-v2",
         "status": "COMPLETED",
         "dataset": snapshot,
         "norm_stats": norm_stats,

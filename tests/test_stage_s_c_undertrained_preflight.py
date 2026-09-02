@@ -18,12 +18,20 @@ from r142_stage_s.openpi_c import (
     stage_libero_norm_stats,
 )
 import r142_stage_s.openpi_c as openpi_c
+import r142_stage_s.lerobot_compat as lerobot_compat
+from r142_stage_s.lerobot_compat import (
+    COMPATIBILITY_CONTRACT,
+    PINNED_LEROBOT_COMMIT,
+    PINNED_LEROBOT_VERSION,
+    _stack_scalar_column,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "scripts" / "stage_s_c_undertrained_pai.sh"
 PREFLIGHT = ROOT / "scripts" / "stage_s_c_data_preflight.py"
 TRAIN = ROOT / "scripts" / "stage_s_libero_c_train.py"
+WORKER = ROOT / "scripts" / "stage_s_libero_c_train_worker.py"
 CONFIG = ROOT / "configs" / "pai" / "stage_s_c_undertrained.json"
 
 
@@ -138,6 +146,7 @@ def test_training_gate_rechecks_text_checksum_manifest(tmp_path: Path, monkeypat
     norm_sha = hashlib.sha256(staged_norm.read_bytes()).hexdigest()
     preflight_path = tmp_path / "DATA_PREFLIGHT.json"
     payload = {
+        "schema": "r142-stage-s-c-data-preflight-v2",
         "status": "COMPLETED",
         "dataset": {
             "repo_id": LIBERO_DATASET_REPO,
@@ -151,6 +160,19 @@ def test_training_gate_rechecks_text_checksum_manifest(tmp_path: Path, monkeypat
             "staged_path": str(staged_norm),
             "source_sha256": norm_sha,
             "staged_sha256": norm_sha,
+        },
+        "official_bindings": {
+            "lerobot_compatibility": {
+                "valid": True,
+                "contract": (
+                    "lerobot==0.1.0@0cf864870cf29f4738d3ade893e6fd13fbd7cdb5; "
+                    "datasets==3.6.0 native or datasets==4.8.4 scalar-column bridge"
+                ),
+                "lerobot_version": "0.1.0",
+                "lerobot_commit": "0cf864870cf29f4738d3ade893e6fd13fbd7cdb5",
+                "datasets_version": "4.8.4",
+                "mode": "datasets-column-scalar-bridge",
+            }
         },
     }
     payload["payload_sha256"] = openpi_c._canonical_sha256(payload)
@@ -178,6 +200,54 @@ def test_launcher_and_training_wrapper_bind_offline_data_gate() -> None:
     assert "LeRobotDatasetMetadata" in preflight
     assert "official pi05_libero config did not load local norm_stats" in preflight
     assert "data_preflight_path" in train
+    assert "install_column_compat_bridge" in WORKER.read_text(encoding="utf-8")
+
+
+def test_column_bridge_converts_only_scalar_dataset_columns() -> None:
+    class Column(list):
+        pass
+
+    class ScalarTensor:
+        ndim = 0
+
+    class FakeTorch:
+        Tensor = ScalarTensor
+
+        @staticmethod
+        def as_tensor(values):
+            return ("tensor", list(values))
+
+    calls = []
+
+    def original_stack(values, *args, **kwargs):
+        calls.append((values, args, kwargs))
+        return "native"
+
+    assert _stack_scalar_column(original_stack, FakeTorch, Column, Column([0.0, 1.0])) == (
+        "tensor",
+        [0.0, 1.0],
+    )
+    assert _stack_scalar_column(original_stack, FakeTorch, Column, [0.0, 1.0]) == "native"
+    assert calls == [([0.0, 1.0], (), {})]
+    assert _stack_scalar_column(
+        original_stack, FakeTorch, Column, Column([ScalarTensor(), ScalarTensor()])
+    ) == "native"
+    assert isinstance(calls[-1][0], tuple)
+    with pytest.raises(TypeError, match="scalar real"):
+        _stack_scalar_column(original_stack, FakeTorch, Column, Column([[0.0], [1.0]]))
+
+
+def test_dependency_contract_fails_closed_on_unknown_provenance(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_distribution(package: str) -> dict[str, object]:
+        if package == "lerobot":
+            return {"version": PINNED_LEROBOT_VERSION, "direct_url": {}, "source_text": "other-source"}
+        return {"version": "4.8.5", "direct_url": {}, "source_text": ""}
+
+    monkeypatch.setattr(lerobot_compat, "_distribution_source", fake_distribution)
+    contract = lerobot_compat.runtime_dependency_contract()
+    assert contract["valid"] is False
+    assert contract["mode"] == "unsupported"
+    assert any(PINNED_LEROBOT_COMMIT in error or "outside the frozen" in error for error in contract["errors"])
 
 
 def test_config_preserves_graphics_contract_and_records_data_contract() -> None:
@@ -199,6 +269,8 @@ def test_config_preserves_graphics_contract_and_records_data_contract() -> None:
     assert config["evidence"]["seed"] == 42
     assert config["evidence"]["retained_checkpoint_steps"] == [1000, 3000, 6000, 10000]
     assert config["evidence"]["dataset_manifest_path"].endswith("DATASET_SHA256SUMS")
+    assert config["evidence"]["dependency_compatibility_contract"] == COMPATIBILITY_CONTRACT
+    assert config["evidence"]["lerobot_expected_commit"] == PINNED_LEROBOT_COMMIT
 
 
 @pytest.mark.parametrize("path", [LAUNCHER, PREFLIGHT, TRAIN])
