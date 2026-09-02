@@ -94,17 +94,18 @@ were found; unrelated small LIBERO actors and critics do not satisfy the
 same-policy contract and are not substituted.
 
 `scripts/stage_s_libero_c.py` emits a fail-closed audit and the real OpenPI
-PyTorch launcher contract:
+PyTorch launcher contract. The frozen calibration steps are 1000, 3000,
+6000, and 10000, so the launcher saves every 1000 steps and ends at 10001:
 
 ```text
 cd <QPILOTS>/third_party/openpi && torchrun --standalone --nproc_per_node=4 \
   scripts/train_pytorch.py pi05_libero \
   --exp_name r142_stage_s_c_undertrained \
-  --checkpoint_dir <output> --save_interval 5000
+  --checkpoint-dir <output> --save-interval 1000 --num-train-steps 10001
 ```
 
 The contract labels all C-derived output `WEAK_SUBSTRATE`, requires exactly
-four unique real checkpoints with declared steps below 60,000, and explicitly
+four unique real checkpoints with declared steps below 30,000, and explicitly
 sets interpolation and artificial degradation to false.  It does not submit
 the launcher.  **C status: unavailable pending four exact real checkpoints.**
 

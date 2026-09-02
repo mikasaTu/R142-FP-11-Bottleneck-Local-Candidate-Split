@@ -212,5 +212,11 @@ def test_c_requires_four_exact_real_undertrained_checkpoints(tmp_path: Path) -> 
     assert contract["label"] == "WEAK_SUBSTRATE"
     assert contract["launcher"]["no_pai_submit_performed"] is True
     assert "train_pytorch.py" in contract["launcher"]["shell"]
+    command = contract["launcher"]["command"]
+    assert command[command.index("--save-interval") + 1] == "1000"
+    assert command[command.index("--num-train-steps") + 1] == "10001"
+    too_late = paths[0] / "CHECKPOINT_PROVENANCE.json"
+    too_late.write_text(json.dumps({"repository": "openpi/pi05_libero", "global_step": 30000}))
+    assert audit_undertrained_checkpoint_set(paths)["valid"] is False
     bad = audit_undertrained_checkpoint_set(paths[:3])
     assert bad["valid"] is False

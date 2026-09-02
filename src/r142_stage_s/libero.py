@@ -47,7 +47,7 @@ CALIBRATION_TARGET_SUCCESS = 0.45
 MAIN_ACTION_HORIZON = 10
 REPLAN_STEPS = 5
 SNAPSHOT_REPLAY_TOLERANCE = 1e-9
-FULL_PI05_LIBERO_TRAINING_STEPS = 60_000
+FULL_PI05_LIBERO_TRAINING_STEPS = 30_000
 UNDERTRAINED_CHECKPOINT_COUNT = 4
 
 # The four B settings are measured in the table's XY coordinate system.  They
@@ -1165,8 +1165,10 @@ def build_c_training_launcher_contract(
         "r142_stage_s_c_undertrained",
         "--checkpoint_dir",
         str(Path(output_root).resolve()),
-        "--save_interval",
-        "5000",
+        "--save-interval",
+        "1000",
+        "--num-train-steps",
+        "10001",
     ]
     return {
         "protocol_id": STAGE_S_PROTOCOL_ID,
