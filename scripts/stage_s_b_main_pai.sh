@@ -14,7 +14,7 @@ readonly OPENPI="$DEP_ROOT/third_party/openpi"
 readonly LIBERO="$OPENPI/third_party/libero"
 readonly PY="$ROOT/envs/openpi_py311/bin/python"
 readonly RUNTIME_REPO="$CODE_ROOT/r142-stage-s-bc-main-runtime-20260903"
-readonly SOURCE_COMMIT=1f5263e6092b16e96e9ffd1d9ec0d3160c054267
+readonly SOURCE_COMMIT=b9c4f2eced140fb2b4711bdbfd86439cec41e291
 readonly QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
 readonly OPENPI_COMMIT=54cbaee6ae0c010a1ed431871cdaa8f4684ac709
 readonly LIBERO_COMMIT=f78abd68ee283de9f9be3c8f7e2a9ad60246e95c
@@ -171,6 +171,13 @@ PHASE=identity
 [[ "$(stat -c '%u:%g' "$OUT")" == 2254:2254 ]]
 [[ "$(stat -c '%a' "$OUT")" == 700 ]]
 [[ "$(nvidia-smi -L | wc -l)" -eq 8 ]]
+mapfile -t GPU_INDEXES < <(nvidia-smi --query-gpu=index --format=csv,noheader,nounits)
+[[ "${#GPU_INDEXES[@]}" -eq "$WORLD_SIZE" ]]
+for index in "${GPU_INDEXES[@]}"; do
+  [[ "$index" =~ ^[0-9]+$ ]]
+done
+export CUDA_VISIBLE_DEVICES
+CUDA_VISIBLE_DEVICES="$(IFS=,; echo "${GPU_INDEXES[*]}")"
 [[ -x "$PY" ]]
 [[ -d "$RUNTIME_REPO/.git" && ! -L "$RUNTIME_REPO" ]]
 [[ "$(git -C "$RUNTIME_REPO" rev-parse HEAD)" == "$SOURCE_COMMIT" ]]
@@ -205,7 +212,7 @@ PY
 [[ "$(sha256sum "$0" | awk '{print $1}')" == "$CONFIG_PAYLOAD_SHA256" ]]
 
 PHASE=runtime_import
-export PYTHONPATH="$RUNTIME_REPO/src:$RUNTIME_REPO:$DEP_ROOT:$OPENPI:$LIBERO"
+export PYTHONPATH="$RUNTIME_REPO/src:$RUNTIME_REPO:$DEP_ROOT:$OPENPI/src:$OPENPI:$LIBERO"
 export PYOPENGL_PLATFORM=egl
 export MUJOCO_GL=egl
 export EGL_PLATFORM=device
@@ -256,7 +263,7 @@ fi
 PHASE=main_screen
 if [[ "$SUBSTRATE" == B ]]; then
   "$PY" -m torch.distributed.run --standalone --nnodes=1 --nproc_per_node=8 \
-    "$RUNTIME_REPO/scripts/stage_s_libero_main.py" \
+    "$RUNTIME_REPO/scripts/stage_s_gpu_rank_entry.py" "$RUNTIME_REPO/scripts/stage_s_libero_main.py" \
     --substrate B --output "$OUT" \
     --qpilots-root "$DEP_ROOT" --libero-root "$LIBERO" \
     --checkpoint "$POLICY_CHECKPOINT" \
@@ -267,7 +274,7 @@ if [[ "$SUBSTRATE" == B ]]; then
     --max-steps 520 --validate-snapshots --source-commit "$SOURCE_COMMIT"
 else
   "$PY" -m torch.distributed.run --standalone --nnodes=1 --nproc_per_node=8 \
-    "$RUNTIME_REPO/scripts/stage_s_libero_main.py" \
+    "$RUNTIME_REPO/scripts/stage_s_gpu_rank_entry.py" "$RUNTIME_REPO/scripts/stage_s_libero_main.py" \
     --substrate C --output "$OUT" \
     --qpilots-root "$DEP_ROOT" --libero-root "$LIBERO" \
     --calibration-report "$REPORT" --protocol-acceptance "$PROTOCOL_ACCEPTANCE" \
