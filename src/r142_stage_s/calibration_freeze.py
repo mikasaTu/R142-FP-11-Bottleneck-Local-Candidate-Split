@@ -20,7 +20,7 @@ import json
 import os
 import re
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Mapping, Sequence
 
 
@@ -28,6 +28,15 @@ CALIBRATION_FREEZE_SCHEMA = "r142-stage-s-calibration-freeze-v1"
 CALIBRATION_RESULT_SCHEMA = "r142-stage-s-calibration-result-v1"
 PROTOCOL_ACCEPTANCE_SCHEMA = "r142-stage-s-protocol-acceptance-v1"
 STAGE_S_PROTOCOL_ID = "r142-stage-s-v1"
+C_TRAINING_ACCEPTANCE_SCHEMA = "r142-stage-s-c-training-acceptance-v1"
+C_TRAINING_COMPLETION_SCHEMA = "r142-stage-s-c-training-completion-v1"
+C_TRAINING_OPENPI_COMMIT = "54cbaee6ae0c010a1ed431871cdaa8f4684ac709"
+C_TRAINING_SOURCE = {
+    "stage_s_commit": "7575da585be31eb369a604d90048b338bbbf2c92",
+    "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
+    "openpi_commit": C_TRAINING_OPENPI_COMMIT,
+    "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
+}
 CALIBRATION_TARGET = 0.45
 CALIBRATION_SEED = 142042
 CALIBRATION_WORLD_SIZE = 8
@@ -402,9 +411,219 @@ def _read_calibration_source(
     return result, marker, payload, marker_payload, rows
 
 
+def _lineage_reference(
+    lineage_file: Path,
+    value: object,
+    *,
+    label: str,
+    directory: bool | None = None,
+) -> Path:
+    """Resolve a path from a lineage object without following an input symlink."""
+
+    if not isinstance(value, (str, Path)) or not value:
+        raise CalibrationFreezeError(f"C lineage lacks {label}")
+    candidate = Path(value).expanduser()
+    if not candidate.is_absolute():
+        candidate = lineage_file.parent / candidate
+    return _path(candidate, label=label, directory=directory)
+
+
+def _validate_c_training_acceptance(
+    lineage_file: Path,
+    payload: Mapping[str, Any],
+) -> tuple[Path, dict[str, Any], list[Mapping[str, Any]]]:
+    """Normalize the current C ``ACCEPTED_C_TRAINING.json`` contract.
+
+    The training launcher publishes one acceptance object, rather than the
+    older wrapper-shaped lineage accepted by ``_lineage_completion``.  The
+    object binds terminal training, the full checkpoint/log manifests, and
+    the four native model hashes.  We verify both the manifest contents and
+    the per-checkpoint hash map here; the latter is what lets the freeze
+    report select a concrete file while preserving the common C main-loader
+    schema.
+    """
+
+    _reject_result_leakage(payload, where=f"{lineage_file}")
+    if payload.get("schema") != C_TRAINING_ACCEPTANCE_SCHEMA:
+        raise CalibrationFreezeError("C accepted training lineage schema mismatch")
+    if (
+        payload.get("status") != "ACCEPTED"
+        or payload.get("label") != "WEAK_SUBSTRATE"
+        or payload.get("pai_terminal_status") != "Succeeded"
+    ):
+        raise CalibrationFreezeError("C accepted training lineage is not an accepted weak-substrate terminal result")
+    accepted_run_id = payload.get("accepted_run_id")
+    if not isinstance(accepted_run_id, str) or re.fullmatch(
+        r"r142-stage-s-c-undertrained-20260903-r[0-9]+", accepted_run_id
+    ) is None:
+        raise CalibrationFreezeError("C accepted training lineage run id mismatch")
+    job_id = payload.get("job_id")
+    if not isinstance(job_id, str) or re.fullmatch(r"dlc[0-9a-z]+", job_id) is None:
+        raise CalibrationFreezeError("C accepted training lineage job id mismatch")
+
+    source = payload.get("source")
+    if source != C_TRAINING_SOURCE:
+        raise CalibrationFreezeError("C accepted training lineage source commits mismatch")
+
+    checkpoint_steps = payload.get("checkpoint_steps")
+    if checkpoint_steps != list(C_STEPS):
+        raise CalibrationFreezeError("C accepted training checkpoint schedule mismatch")
+    if payload.get("full_reference_step") != 30000:
+        raise CalibrationFreezeError("C accepted training full reference step mismatch")
+    if payload.get("no_interpolation") is not True or payload.get("artificial_degradation") is not False:
+        raise CalibrationFreezeError("C accepted training lineage permits interpolation or artificial degradation")
+
+    checkpoint_root = _lineage_reference(
+        lineage_file,
+        payload.get("checkpoint_root"),
+        label="C checkpoint_root",
+        directory=True,
+    )
+    completion_path = _lineage_reference(
+        lineage_file,
+        payload.get("checkpoint_completion"),
+        label="C checkpoint_completion",
+        directory=False,
+    )
+    checkpoint_manifest = _lineage_reference(
+        lineage_file,
+        payload.get("checkpoint_sha256_manifest"),
+        label="C checkpoint SHA256SUMS",
+        directory=False,
+    )
+    log_root = _lineage_reference(
+        lineage_file,
+        payload.get("log_root"),
+        label="C log_root",
+        directory=True,
+    )
+    log_manifest = _lineage_reference(
+        lineage_file,
+        payload.get("log_sha256_manifest"),
+        label="C log SHA256SUMS",
+        directory=False,
+    )
+    pipeline_path = _lineage_reference(
+        lineage_file,
+        payload.get("training_pipeline_completion"),
+        label="C training_pipeline_completion",
+        directory=False,
+    )
+
+    for child, parent, label in (
+        (completion_path, checkpoint_root, "C checkpoint completion"),
+        (checkpoint_manifest, checkpoint_root, "C checkpoint SHA256SUMS"),
+        (log_manifest, log_root, "C log SHA256SUMS"),
+    ):
+        try:
+            child.relative_to(parent)
+        except ValueError as exc:
+            raise CalibrationFreezeError(f"{label} escapes its declared root") from exc
+
+    expected_digests = {
+        "checkpoint_completion_sha256": completion_path,
+        "checkpoint_sha256_manifest_digest": checkpoint_manifest,
+        "log_sha256_manifest_digest": log_manifest,
+    }
+    for field, artifact in expected_digests.items():
+        expected = _full_sha(payload.get(field), where=f"C accepted training {field}")
+        if _sha256(artifact) != expected:
+            raise CalibrationFreezeError(f"C accepted training {field} mismatch")
+
+    # The acceptance object itself is the immutable source of the four
+    # selected-file bindings.  Require exactly the four frozen relative
+    # names, and require the same names/hashes to occur in the checkpoint
+    # bundle manifest.  This catches both a moved checkpoint and a stale
+    # acceptance JSON even when the JSON's own digest is externally signed.
+    expected_paths = {f"{step}/model.safetensors" for step in C_STEPS}
+    checkpoint_hashes = payload.get("checkpoint_hashes")
+    if not isinstance(checkpoint_hashes, Mapping) or set(checkpoint_hashes) != expected_paths:
+        raise CalibrationFreezeError("C accepted training must carry exactly four checkpoint model hashes")
+    normalized_hashes: dict[str, str] = {}
+    for relative_name in sorted(expected_paths):
+        if not isinstance(relative_name, str):  # defensive: keys came from JSON
+            raise CalibrationFreezeError("C accepted checkpoint hash path is not a string")
+        relative = PurePosixPath(relative_name)
+        if (
+            relative.is_absolute()
+            or ".." in relative.parts
+            or relative_name != relative.as_posix()
+        ):
+            raise CalibrationFreezeError(f"C accepted checkpoint hash path is unsafe: {relative_name}")
+        normalized_hashes[relative_name] = _full_sha(
+            checkpoint_hashes[relative_name],
+            where=f"C accepted checkpoint hash {relative_name}",
+        )
+
+    manifest_rows = _manifest_rows(checkpoint_manifest)
+    manifest_by_path: dict[str, str] = {}
+    for expected, relative in manifest_rows:
+        if relative in manifest_by_path:
+            raise CalibrationFreezeError(f"duplicate C checkpoint SHA manifest path: {relative}")
+        manifest_by_path[relative] = expected
+    for relative_name, expected in normalized_hashes.items():
+        if manifest_by_path.get(relative_name) != expected:
+            raise CalibrationFreezeError(
+                f"C checkpoint SHA manifest does not bind {relative_name} to its accepted hash"
+            )
+
+    # Recheck the complete checkpoint and log bundles.  This is intentionally
+    # fail-closed and may be I/O-heavy for a real model bundle, but it is the
+    # only way to ensure a terminal marker has not outlived a mutated file.
+    _verify_manifest(checkpoint_manifest, root=checkpoint_root)
+    _verify_manifest(log_manifest, root=log_root)
+
+    by_step: list[Mapping[str, Any]] = []
+    for step in C_STEPS:
+        relative_name = f"{step}/model.safetensors"
+        checkpoint = _lineage_reference(
+            lineage_file,
+            checkpoint_root / Path(*PurePosixPath(relative_name).parts),
+            label=f"C checkpoint {step}",
+            directory=False,
+        )
+        if _sha256(checkpoint) != normalized_hashes[relative_name]:
+            raise CalibrationFreezeError(f"C checkpoint {step} artifact hash mismatch")
+        by_step.append({"step": step, "path": str(checkpoint), "sha256": normalized_hashes[relative_name]})
+
+    completion_path, completion = _read_json(completion_path, label="C training completion marker")
+    if completion.get("schema") != C_TRAINING_COMPLETION_SCHEMA or completion.get("status") != "COMPLETED":
+        raise CalibrationFreezeError("C accepted training completion is not COMPLETED")
+    if completion.get("openpi_commit") != C_TRAINING_OPENPI_COMMIT:
+        raise CalibrationFreezeError("C accepted training completion OpenPI commit mismatch")
+    if completion.get("config_name") != "pi05_libero" or completion.get("seed") != 42:
+        raise CalibrationFreezeError("C accepted training completion config/seed mismatch")
+    if completion.get("terminal_global_step") != 10001 or completion.get("checkpoint_steps") != list(C_STEPS):
+        raise CalibrationFreezeError("C accepted training completion terminal/checkpoint schedule mismatch")
+    audit = completion.get("checkpoint_audit")
+    if not isinstance(audit, Mapping) or audit.get("valid") is not True:
+        raise CalibrationFreezeError("C accepted training completion checkpoint audit is not valid")
+
+    pipeline_path, pipeline = _read_json(pipeline_path, label="C training pipeline completion")
+    if pipeline.get("status") != "COMPLETED" or pipeline.get("stage") != "terminal":
+        raise CalibrationFreezeError("C training pipeline marker is not terminal COMPLETED")
+    if pipeline.get("run_id") != accepted_run_id:
+        raise CalibrationFreezeError("C training pipeline run id mismatch")
+    evidence_value = pipeline.get("evidence_path")
+    if not isinstance(evidence_value, str) or not evidence_value:
+        raise CalibrationFreezeError("C training pipeline marker lacks evidence_path")
+    evidence_candidate = Path(evidence_value).expanduser()
+    if not evidence_candidate.is_absolute():
+        evidence_candidate = pipeline_path.parent / evidence_candidate
+    evidence_path = _path(evidence_candidate, label="C training pipeline evidence", directory=False)
+    if evidence_path != completion_path:
+        raise CalibrationFreezeError("C training pipeline marker does not bind COMPLETED_C_TRAINING")
+    if pipeline.get("evidence_sha256") != _sha256(completion_path):
+        raise CalibrationFreezeError("C training pipeline evidence SHA mismatch")
+
+    return completion_path, completion, by_step
+
+
 def _lineage_completion(path: Path, payload: Mapping[str, Any]) -> tuple[Path, dict[str, Any], list[Mapping[str, Any]]]:
     """Normalize either a direct C completion marker or an explicit wrapper."""
 
+    if payload.get("schema") == C_TRAINING_ACCEPTANCE_SCHEMA:
+        return _validate_c_training_acceptance(path, payload)
     if payload.get("schema") == "r142-stage-s-c-training-completion-v1":
         completion_path, completion = path, payload
         audit = completion.get("checkpoint_audit")
@@ -443,9 +662,9 @@ def _lineage_completion(path: Path, payload: Mapping[str, Any]) -> tuple[Path, d
 def _checkpoint_lineage(lineage_path: str | Path) -> tuple[Path, str, dict[int, tuple[Path, str]]]:
     lineage_file, lineage = _read_json(lineage_path, label="C accepted training lineage")
     completion_path, completion, entries = _lineage_completion(lineage_file, lineage)
-    if completion.get("status") != "COMPLETED" or completion.get("schema") != "r142-stage-s-c-training-completion-v1":
+    if completion.get("status") != "COMPLETED" or completion.get("schema") != C_TRAINING_COMPLETION_SCHEMA:
         raise CalibrationFreezeError("C lineage completion is not accepted terminal training")
-    if completion.get("openpi_commit") != "54cbaee6ae0c010a1ed431871cdaa8f4684ac709":
+    if completion.get("openpi_commit") != C_TRAINING_OPENPI_COMMIT:
         raise CalibrationFreezeError("C lineage OpenPI commit mismatch")
     if completion.get("config_name") != "pi05_libero" or completion.get("seed") != 42:
         raise CalibrationFreezeError("C lineage config/seed mismatch")
@@ -803,6 +1022,10 @@ __all__ = [
     "CALIBRATION_RESULT_SCHEMA",
     "CALIBRATION_TARGET",
     "CalibrationFreezeError",
+    "C_TRAINING_ACCEPTANCE_SCHEMA",
+    "C_TRAINING_COMPLETION_SCHEMA",
+    "C_TRAINING_OPENPI_COMMIT",
+    "C_TRAINING_SOURCE",
     "FROZEN_SUMMARY",
     "PROTOCOL_ACCEPTANCE_SCHEMA",
     "SEED_PLAN",

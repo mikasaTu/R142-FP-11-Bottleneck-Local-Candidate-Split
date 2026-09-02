@@ -11,6 +11,8 @@ from r142_stage_s.calibration_freeze import (
     B_SETTINGS,
     B_VARIANT_RUN_ID,
     C_SETTINGS,
+    C_TRAINING_ACCEPTANCE_SCHEMA,
+    C_TRAINING_SOURCE,
     CALIBRATION_RESULT_SCHEMA,
     CALIBRATION_SEED,
     CALIBRATION_TARGET,
@@ -154,6 +156,92 @@ def _make_terminal_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]
     return b_result, b_marker, c_result, c_marker, completion
 
 
+def _make_current_c_acceptance(tmp_path: Path) -> tuple[Path, Path]:
+    """Build the current accepted-training schema with real small artifacts."""
+
+    checkpoint_root = tmp_path / "current_c" / "checkpoints"
+    model_paths: dict[int, Path] = {}
+    for step in (1000, 3000, 6000, 10000):
+        model = checkpoint_root / str(step) / "model.safetensors"
+        model.parent.mkdir(parents=True, exist_ok=True)
+        model.write_bytes(f"accepted-model-step-{step}".encode("ascii"))
+        model_paths[step] = model
+    checkpoint_manifest = _write_manifest(
+        checkpoint_root,
+        "SHA256SUMS",
+        list(model_paths.values()),
+    )
+
+    completion = checkpoint_root / "COMPLETED_C_TRAINING.json"
+    _write_json(
+        completion,
+        {
+            "schema": "r142-stage-s-c-training-completion-v1",
+            "status": "COMPLETED",
+            "openpi_commit": C_TRAINING_SOURCE["openpi_commit"],
+            "config_name": "pi05_libero",
+            "seed": 42,
+            "terminal_global_step": 10001,
+            "checkpoint_steps": [1000, 3000, 6000, 10000],
+            "checkpoint_audit": {"valid": True},
+            "sha256sums": str(checkpoint_manifest),
+            "sha256sums_sha256": _sha(checkpoint_manifest),
+        },
+    )
+
+    log_root = tmp_path / "current_c" / "logs"
+    log_file = log_root / "train.log"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    log_file.write_text("terminal training evidence\n", encoding="utf-8")
+    log_manifest = _write_manifest(log_root, "SHA256SUMS", [log_file])
+
+    accepted_run_id = "r142-stage-s-c-undertrained-20260903-r99"
+    pipeline = tmp_path / "current_c" / "c_status" / "COMPLETED_C_PIPELINE.json"
+    _write_json(
+        pipeline,
+        {
+            "schema": "r142-stage-s-c-training-pipeline-v1",
+            "status": "COMPLETED",
+            "stage": "terminal",
+            "run_id": accepted_run_id,
+            "evidence_path": str(completion),
+            "evidence_sha256": _sha(completion),
+        },
+    )
+
+    acceptance = tmp_path / "current_c" / "ACCEPTED_C_TRAINING.json"
+    _write_json(
+        acceptance,
+        {
+            "schema": C_TRAINING_ACCEPTANCE_SCHEMA,
+            "status": "ACCEPTED",
+            "label": "WEAK_SUBSTRATE",
+            "pai_terminal_status": "Succeeded",
+            "accepted_run_id": accepted_run_id,
+            "job_id": "dlctestcurrentc99",
+            "source": dict(C_TRAINING_SOURCE),
+            "checkpoint_root": str(checkpoint_root),
+            "checkpoint_completion": str(completion),
+            "checkpoint_sha256_manifest": str(checkpoint_manifest),
+            "checkpoint_sha256_manifest_digest": _sha(checkpoint_manifest),
+            "log_root": str(log_root),
+            "log_sha256_manifest": str(log_manifest),
+            "log_sha256_manifest_digest": _sha(log_manifest),
+            "training_pipeline_completion": str(pipeline),
+            "checkpoint_completion_sha256": _sha(completion),
+            "checkpoint_steps": [1000, 3000, 6000, 10000],
+            "full_reference_step": 30000,
+            "no_interpolation": True,
+            "artificial_degradation": False,
+            "checkpoint_hashes": {
+                f"{step}/model.safetensors": _sha(model_paths[step])
+                for step in (1000, 3000, 6000, 10000)
+            },
+        },
+    )
+    return acceptance, model_paths[10000]
+
+
 def _protocol_markdown(commit: str) -> str:
     return f"""# Stage-S protocol
 
@@ -198,6 +286,39 @@ def test_terminal_selection_and_loader_schema(tmp_path: Path) -> None:
     assert len(reports["C"]["selected_checkpoint_sha256"]) == 64
     assert reports["B"]["source_result_sha256"] == _sha(paths[0])
     assert reports["C"]["source_completion_marker_sha256"] == _sha(paths[3])
+
+
+def test_current_accepted_training_schema_is_native_lineage(tmp_path: Path) -> None:
+    paths = _make_terminal_inputs(tmp_path)
+    acceptance, selected_model = _make_current_c_acceptance(tmp_path)
+    reports = freeze_calibration_reports(
+        b_result=paths[0],
+        b_completion_marker=paths[1],
+        c_result=paths[2],
+        c_completion_marker=paths[3],
+        c_lineage=acceptance,
+        b_report=tmp_path / "accepted-out" / "b" / "CALIBRATION_REPORT.json",
+        c_report=tmp_path / "accepted-out" / "c" / "CALIBRATION_REPORT.json",
+    )
+    assert reports["C"]["selected_setting"] == "step_10000"
+    assert reports["C"]["selected_checkpoint"] == str(selected_model.resolve())
+    assert reports["C"]["selected_checkpoint_sha256"] == _sha(selected_model)
+
+
+def test_current_accepted_training_artifact_tamper_fails_closed(tmp_path: Path) -> None:
+    paths = _make_terminal_inputs(tmp_path)
+    acceptance, selected_model = _make_current_c_acceptance(tmp_path)
+    selected_model.write_bytes(b"tampered-model")
+    with pytest.raises(CalibrationFreezeError, match="SHA manifest digest mismatch|checkpoint .*hash"):
+        freeze_calibration_reports(
+            b_result=paths[0],
+            b_completion_marker=paths[1],
+            c_result=paths[2],
+            c_completion_marker=paths[3],
+            c_lineage=acceptance,
+            b_report=tmp_path / "accepted-tamper-out-b.json",
+            c_report=tmp_path / "accepted-tamper-out-c.json",
+        )
 
 
 def test_result_tamper_and_forbidden_lookahead_fail_closed(tmp_path: Path) -> None:

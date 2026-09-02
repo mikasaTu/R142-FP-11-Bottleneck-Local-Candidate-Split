@@ -13,9 +13,18 @@ does not call PAI, run LIBERO, or inspect S2--S5 data.
    four pooled row fields; any downstream field is a hard failure.
 3. B's completion marker names the frozen
    `r142-stage-s-b-variants-20260903-r7` bundle and all eight rank marker
-   digests. C's accepted training lineage is the pinned OpenPI
+   digests. C's accepted training lineage is the current
+   `ACCEPTED_C_TRAINING.json` schema
+   (`r142-stage-s-c-training-acceptance-v1`), with
+   `status=ACCEPTED`, `label=WEAK_SUBSTRATE`, terminal PAI status
+   `Succeeded`, and the pinned OpenPI
    `54cbaee6ae0c010a1ed431871cdaa8f4684ac709`, `pi05_libero`, seed 42,
-   terminal step 10001, with all four exact early checkpoints.
+   terminal step 10001, with all four exact early checkpoints. Its
+   checkpoint/log manifests are rechecked from their declared roots, and
+   every `checkpoint_hashes` model entry must match both the file and the
+   bundle manifest. The legacy direct completion marker is supported only
+   for backward-compatible fixtures and receives equivalent terminal and
+   artifact checks.
 4. The GitHub-backed checkout already contains the full commit that added
    `stage-s/PROTOCOL.md`. The markdown must declare S1--S5 thresholds,
    `D(t)` normalization, the same-task matched-t tau 95th percentile,
@@ -54,4 +63,6 @@ artifact SHA, protocol commit, protocol markdown SHA, and the literal frozen
 summary. Changing any source result, marker, selected artifact, report, or
 markdown invalidates the acceptance object; rerun the freezer only from a new
 terminal evidence set. This branch intentionally contains no current result
-JSON and does not submit or resume any PAI job.
+JSON and does not submit or resume any PAI job. Rechecking the complete C
+checkpoint bundle is intentionally I/O-heavy for a real model directory; that
+cost is part of the fail-closed lineage gate rather than a scientific result.

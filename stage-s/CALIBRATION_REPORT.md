@@ -22,6 +22,21 @@ OpenPI training lineage at commit
 `54cbaee6ae0c010a1ed431871cdaa8f4684ac709`, seed 42, terminal step 10001,
 and all four real checkpoint artifacts with independently verified manifests.
 
+For C, the native lineage input is the current
+`ACCEPTED_C_TRAINING.json` (`r142-stage-s-c-training-acceptance-v1`) schema.
+It must be `status=ACCEPTED`, `label=WEAK_SUBSTRATE`, and
+`pai_terminal_status=Succeeded`, with exact Stage-S/QPILOTS/OpenPI/LIBERO
+source pins. The freezer follows its `checkpoint_completion`,
+`training_pipeline_completion`, `checkpoint_sha256_manifest`, and
+`log_sha256_manifest` references, verifies their declared SHA-256 values and
+terminal bindings, then rechecks every manifest member. The four exact
+`checkpoint_hashes` entries (`<step>/model.safetensors`) must agree with both
+the checkpoint files and the checkpoint bundle manifest. A stale marker or
+mutated model therefore cannot produce a C report. The older direct
+`COMPLETED_C_TRAINING.json`/`checkpoint_audit.checkpoints` form remains
+accepted for fixture/backward compatibility, but it is held to the same
+terminal OpenPI, schedule, and artifact checks.
+
 ## Generated report shape
 
 At runtime, the tool atomically writes:
