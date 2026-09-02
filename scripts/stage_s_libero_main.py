@@ -93,6 +93,19 @@ def _artifact_sha256(path: Path) -> str:
     raise SystemExit(f"checkpoint artifact is missing or symlinked: {path}")
 
 
+def _atomic_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        temporary.write_text(text, encoding="utf-8")
+        with temporary.open("rb") as stream:
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
 def _reject_lookahead(value: object, *, path: str = "report") -> None:
     if isinstance(value, dict):
         for key, child in value.items():
@@ -321,6 +334,15 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit(f"rank completed without a complete family: {path}")
     summary_path = args.output / f"{args.substrate}_MAIN_SUMMARY_RANK-{rank:04d}.json"
     atomic_json(summary_path, result)
+    rank_manifest_path = args.output / f"SHA256SUMS_{args.substrate}_MAIN_RANK-{rank:04d}"
+    output_root = args.output.resolve()
+    manifest_lines = [f"{_sha256(summary_path)}  {summary_path.name}"]
+    for family_path in result["family_paths"]:
+        family_marker = Path(family_path) / "COMPLETED_FAMILY.json"
+        manifest_lines.append(
+            f"{_sha256(family_marker)}  {family_marker.resolve().relative_to(output_root).as_posix()}"
+        )
+    _atomic_text(rank_manifest_path, "\n".join(manifest_lines) + "\n")
     rank_marker = {
         "status": "COMPLETED",
         "marker_type": "completed_stage_s_main_rank",
@@ -332,6 +354,7 @@ def main(argv: list[str] | None = None) -> int:
         "candidate_budget": int(args.candidate_count),
         "families": result["family_paths"],
         "summary": summary_path.name,
+        "sha256sums": rank_manifest_path.name,
         "source_commit": args.source_commit,
         "substrate_annotation": "WEAK_SUBSTRATE" if args.substrate == "C" else None,
         "calibration_report": str(args.calibration_report.resolve()) if args.calibration_report else None,
