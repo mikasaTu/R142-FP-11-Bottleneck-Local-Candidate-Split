@@ -315,6 +315,11 @@ def test_protocol_freeze_and_acceptance_tamper_detection(tmp_path: Path) -> None
         substrate="B",
         calibration_report=tmp_path / "out" / "b" / "CALIBRATION_REPORT.json",
     )
+    read_frozen_protocol(
+        acceptance_path,
+        substrate="C",
+        calibration_report=tmp_path / "out" / "c" / "CALIBRATION_REPORT.json",
+    )
     acceptance_path.parent.joinpath("PROTOCOL.md").write_text("tampered", encoding="utf-8")
     with pytest.raises(CalibrationFreezeError, match="markdown"):
         read_frozen_protocol(

@@ -103,6 +103,8 @@ _FORBIDDEN_RESULT_KEYS = frozenset(
         "nearallfail",
         "rho",
         "divergence",
+        "t_div",
+        "tdiv",
         "overdispersion",
         "recovery",
         "recover",
@@ -114,7 +116,7 @@ _FORBIDDEN_RESULT_KEYS = frozenset(
         "poses",
     }
 )
-_FORBIDDEN_RESULT_SUBSTRINGS = ("near_fail", "nearallfail", "diverg", "overdisp", "recover", "rho")
+_FORBIDDEN_RESULT_SUBSTRINGS = ("near_fail", "nearallfail", "diverg", "t_div", "tdiv", "overdisp", "recover", "rho")
 _ALLOWED_FREEZE_METADATA_KEYS = frozenset({"no_s2_s5_peeking"})
 
 
