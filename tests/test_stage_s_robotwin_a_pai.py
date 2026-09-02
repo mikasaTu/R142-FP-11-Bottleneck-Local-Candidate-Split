@@ -15,6 +15,8 @@ LAUNCHER = ROOT / "scripts" / "stage_s_robotwin_a_pai.sh"
 SERVER = ROOT / "scripts" / "stage_s_robotwin_evo_server.py"
 FINALIZER = ROOT / "scripts" / "stage_s_robotwin_finalize.py"
 CONFIG = ROOT / "configs" / "pai" / "stage_s_robotwin_a.json"
+ASSET_LAUNCHER = ROOT / "scripts" / "stage_s_asset_preflight.sh"
+ASSET_CONFIG = ROOT / "configs" / "pai" / "stage_s_asset_preflight.json"
 
 
 def test_launcher_is_valid_shell_and_binds_all_eight_pairs() -> None:
@@ -89,6 +91,50 @@ def test_config_freezes_real_resource_and_evaluation_contract() -> None:
     assert config["evidence"]["validated_payload_sha256"] == hashlib.sha256(
         LAUNCHER.read_bytes()
     ).hexdigest()
+
+
+def test_asset_preflight_flash_attn_install_avoids_cross_filesystem_rename() -> None:
+    subprocess.run(["bash", "-n", str(ASSET_LAUNCHER)], check=True)
+    text = ASSET_LAUNCHER.read_text(encoding="utf-8")
+    assert 'FLASH_ATTN_TMP="$PIP_CACHE/flash-attn-tmp/$RUN_ID"' in text
+    assert 'TMPDIR="$FLASH_ATTN_TMP" PIP_NO_CACHE_DIR=1 MAX_JOBS=32' in text
+    assert "--no-cache-dir flash-attn --no-build-isolation" in text
+    assert 'stat -c \'%d\' "$FLASH_ATTN_TMP"' in text
+    assert 'stat -c \'%d\' "$PIP_CACHE"' in text
+    assert '"flash_attn_install"' in text
+    assert '"tmpdir_under_new_root": str(flash_tmp).startswith' in text
+    assert "export HOME" not in text
+    assert "HOME=" not in text
+
+    config = json.loads(ASSET_CONFIG.read_text(encoding="utf-8"))
+    runtime = config["runtime"]
+    evidence = config["evidence"]
+    digest = hashlib.sha256(ASSET_LAUNCHER.read_bytes()).hexdigest()
+    assert runtime["command_file_sha256"] == digest
+    assert runtime["payload_sha256"] == digest
+    assert config["evidence"]["validated_payload_sha256"] == digest
+    assert evidence["first_work_evidence_path"].endswith(
+        "/assets/{{RUN_ID}}/FIRST_WORK.json"
+    )
+    assert evidence["explicit_user_resource_authorization"]["scope"] == "{{RUN_ID}}"
+    assert runtime["flash_attn_install"] == {
+        "package": "flash-attn",
+        "cache_policy": "disabled",
+        "pip_flag": "--no-cache-dir",
+        "tmpdir_template": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pip/flash-attn-tmp/<run_id>",
+        "tmpdir_same_filesystem_as_pip_cache": True,
+        "home_unchanged": True,
+    }
+    assert config["evidence"]["asset_manifest_contract"] == {
+        "completion_marker": "COMPLETED_ASSET_PREFLIGHT.json",
+        "integrity_manifest": "SHA256SUMS",
+        "required_flash_attn_install": {
+            "cache_policy": "disabled",
+            "pip_no_cache_dir": True,
+            "tmpdir_under_new_root": True,
+            "home_unchanged": True,
+        },
+    }
 
 
 def test_server_wrapper_keeps_released_inference_and_external_dispatch() -> None:

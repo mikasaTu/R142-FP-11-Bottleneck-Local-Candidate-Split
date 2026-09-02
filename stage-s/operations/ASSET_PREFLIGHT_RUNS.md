@@ -16,3 +16,28 @@ This is operational evidence only. Queueing, `Running`, `FIRST_WORK.json`, or a 
 | `r142-stage-s-a-assets-20260902-r13` | pending submission | prepared | Retains the r12 package mirror and adds the reachable `hf-mirror.com` endpoint with explicit metadata/download timeouts for the exact immutable checkpoint revision. It reuses only the explicit persistent cache; completion still requires terminal PAI success plus `COMPLETED_ASSET_PREFLIGHT.json` and `SHA256SUMS` verification. |
 
 The payload does not run scientific rollouts. Its only purpose is to pin and verify the exact RoboTwin/Evo-1/CuRobo sources, the published checkpoint revision, required assets, independent environments, GPU/graphics visibility, and imports before any calibration or main-screen rollout.
+
+## Flash-attn cross-filesystem repair
+
+The asset launcher now installs only `flash-attn` with `--no-cache-dir` and
+`PIP_NO_CACHE_DIR=1`. Its `TMPDIR` is the run-scoped directory
+`/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pip/flash-attn-tmp/<run_id>`;
+the launcher verifies that this directory and the persistent pip-cache parent
+have the same filesystem device before the build. This addresses the observed
+pip wheel-cache `Errno 18` rename without changing `HOME` or any scientific
+source/checkpoint/task contract. `COMPLETED_ASSET_PREFLIGHT.json` records the
+cache policy and temporary-root evidence, and the normal completion
+`SHA256SUMS` remains mandatory.
+
+## Safe r16 recovery recommendation
+
+After the static checks and canonical registry validation pass, use a fresh
+run ID `r142-stage-s-a-assets-20260902-r16`; do not reuse r13 or any stopped
+run. Submit only outside the Beijing no-job windows (`09:30--09:40` and
+`19:30--19:40`, Asia/Shanghai), retain the exact same artifact/cache roots on
+every idle restart, and bind monitoring to the newly returned JobId. Treat
+`FIRST_WORK.json`, `Running`, queueing, or a partial cache as incomplete. The
+run qualifies only after terminal PAI success, a complete
+`COMPLETED_ASSET_PREFLIGHT.json`, and a passing asset-root `SHA256SUMS`; if it
+is preempted, resume the same run/artifact directory rather than creating a
+new scientific lineage.

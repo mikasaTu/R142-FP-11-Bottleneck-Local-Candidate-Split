@@ -31,8 +31,8 @@
   },
   "runtime": {
     "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_asset_preflight.sh",
-    "command_file_sha256": "52697d290e99d0a7ca3ded9b0d37e5f714cc466395b51a765186e1d1d170390c",
-    "payload_sha256": "52697d290e99d0a7ca3ded9b0d37e5f714cc466395b51a765186e1d1d170390c",
+    "command_file_sha256": "6016cde88954c8df36c797e3ddbce6a462b4b421afbb3e72ca91060aae76233d",
+    "payload_sha256": "6016cde88954c8df36c797e3ddbce6a462b4b421afbb3e72ca91060aae76233d",
     "uid": 2254,
     "gid": 2254,
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
@@ -40,6 +40,14 @@
     "create_artifact_dir": true,
     "recursive_repair": false,
     "secret_env_names": [],
+    "flash_attn_install": {
+      "package": "flash-attn",
+      "cache_policy": "disabled",
+      "pip_flag": "--no-cache-dir",
+      "tmpdir_template": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pip/flash-attn-tmp/<run_id>",
+      "tmpdir_same_filesystem_as_pip_cache": true,
+      "home_unchanged": true
+    },
     "pod_env": {"NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"},
     "write_paths": [
       "{{ARTIFACT_DIR}}",
@@ -69,18 +77,28 @@
     "pai_probe_created": false,
     "validation_status": "passed",
     "validation_method": "static",
-    "validated_payload_sha256": "52697d290e99d0a7ca3ded9b0d37e5f714cc466395b51a765186e1d1d170390c",
+    "validated_payload_sha256": "6016cde88954c8df36c797e3ddbce6a462b4b421afbb3e72ca91060aae76233d",
     "expected_first_work_uid": 2254,
     "expected_first_work_gid": 2254,
-    "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/r142-stage-s-a-assets-20260902-r13/FIRST_WORK.json",
+    "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/{{RUN_ID}}/FIRST_WORK.json",
     "runtime_gpu_smoke_only": true,
+    "asset_manifest_contract": {
+      "completion_marker": "COMPLETED_ASSET_PREFLIGHT.json",
+      "integrity_manifest": "SHA256SUMS",
+      "required_flash_attn_install": {
+        "cache_policy": "disabled",
+        "pip_no_cache_dir": true,
+        "tmpdir_under_new_root": true,
+        "home_unchanged": true
+      }
+    },
     "evo_commit": "5fd14b015013c4fd0aacf5f8f48f868ca9b870a2",
     "robotwin_commit": "13c3c47ff4312dd62484bcd51be034af55c062d1",
     "curobo_commit": "d64c4b005459db10c5dd867d8b30a87d5bda9bdb",
     "checkpoint_revision": "ce8c583724706fbf7a03c17237761c65bf6813a7",
     "explicit_user_resource_authorization": {
       "date": "2026-09-02",
-      "scope": "r142-stage-s-a-assets-20260902-r13",
+      "scope": "{{RUN_ID}}",
       "user_request": "PAI 4-16 A800, robot idle pool, 88 CPU and 1.4 TB ceiling",
       "current_quota_name": "exp-robot",
       "resource_id": "quota1ssrabud0bh",

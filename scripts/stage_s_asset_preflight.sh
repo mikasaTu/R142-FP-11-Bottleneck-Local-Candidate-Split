@@ -13,15 +13,24 @@ TOOLS_ENV="$ROOT/cache/r142_stage_s/envs/tools_py311"
 RT_ENV="$ROOT/cache/r142_stage_s/envs/robotwin_py310"
 EVO_ENV="$ROOT/cache/r142_stage_s/envs/evo1_py310"
 PIP_CACHE="$ROOT/cache/r142_stage_s/pip"
+FLASH_ATTN_TMP="$PIP_CACHE/flash-attn-tmp/$RUN_ID"
 PIP_INDEX_URL="${PIP_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple}"
 HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
-mkdir -p "$OUT" "$MODEL" "$PIP_CACHE"
+mkdir -p "$OUT" "$MODEL" "$PIP_CACHE" "$FLASH_ATTN_TMP"
 export PIP_CACHE_DIR="$PIP_CACHE"
 export PIP_INDEX_URL
 export PIP_DEFAULT_TIMEOUT=120
 export HF_ENDPOINT
 export HF_HUB_DOWNLOAD_TIMEOUT=300
 export HF_HUB_ETAG_TIMEOUT=60
+
+# pip's wheel cache is on CPFS while its default temporary build directory is
+# commonly pod-local /tmp.  A flash-attn build can therefore hit Errno 18 when
+# pip renames a cached wheel across filesystems.  Keep only this wheel's build
+# temporary files on the same CPFS device and disable its cache entirely; HOME
+# remains inherited and is never rewritten.
+[[ "$(realpath -e "$FLASH_ATTN_TMP")" == "$FLASH_ATTN_TMP" ]]
+[[ "$(stat -c '%d' "$FLASH_ATTN_TMP")" == "$(stat -c '%d' "$PIP_CACHE")" ]]
 
 blocked_window() {
   local hm
@@ -109,7 +118,10 @@ if [[ ! -x "$EVO_ENV/bin/python" ]]; then
   "$TOOLS_ENV/bin/uv" venv --seed --python 3.10 "$EVO_ENV"
 fi
 "$EVO_ENV/bin/pip" install --retries 8 -r "$DEPS/Evo-1/Evo_1/requirements.txt"
-MAX_JOBS=32 "$EVO_ENV/bin/pip" install --retries 8 flash-attn --no-build-isolation
+# Do not let this wheel use the persistent pip cache.  TMPDIR is deliberately
+# below the same CPFS root so build/install renames never cross filesystems.
+TMPDIR="$FLASH_ATTN_TMP" PIP_NO_CACHE_DIR=1 MAX_JOBS=32 \
+  "$EVO_ENV/bin/pip" install --retries 8 --no-cache-dir flash-attn --no-build-isolation
 
 rm -rf "$RT/policy/Evo1.tmp"
 cp -a "$DEPS/Evo-1/RoboTwin_evaluation/policy/Evo1" "$RT/policy/Evo1.tmp"
@@ -134,9 +146,9 @@ if command -v vulkaninfo >/dev/null 2>&1; then vulkaninfo --summary >"$OUT/vulka
 for file in config.json norm_stats.json mp_rank_00_model_states.pt; do [[ -s "$MODEL/$file" ]]; done
 find "$MODEL" -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum >"$MODEL/SHA256SUMS"
 
-python3 - "$OUT/COMPLETED_ASSET_PREFLIGHT.json" "$MODEL" "$actual_gpus" <<'PY'
+python3 - "$OUT/COMPLETED_ASSET_PREFLIGHT.json" "$MODEL" "$actual_gpus" "$FLASH_ATTN_TMP" <<'PY'
 import hashlib, json, os, pathlib, sys, time
-path, model, gpus = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), int(sys.argv[3])
+path, model, gpus, flash_tmp = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), int(sys.argv[3]), pathlib.Path(sys.argv[4])
 payload = {
   "status": "COMPLETED",
   "job_id": os.getenv("PAI_TASK_JOB_ID"),
@@ -146,6 +158,14 @@ payload = {
   "robotwin_commit": "13c3c47ff4312dd62484bcd51be034af55c062d1",
   "evo_commit": "5fd14b015013c4fd0aacf5f8f48f868ca9b870a2",
   "curobo_commit": "d64c4b005459db10c5dd867d8b30a87d5bda9bdb",
+  "flash_attn_install": {
+    "package": "flash-attn",
+    "cache_policy": "disabled",
+    "pip_no_cache_dir": True,
+    "tmpdir": str(flash_tmp),
+    "tmpdir_under_new_root": str(flash_tmp).startswith("/mnt/cpfs/zbl-cpfs-new/"),
+    "home_unchanged": True,
+  },
   "completed_at": time.time(),
 }
 tmp = path.with_suffix(path.suffix + ".tmp")
