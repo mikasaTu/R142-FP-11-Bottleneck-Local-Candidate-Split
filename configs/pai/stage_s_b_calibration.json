@@ -3,7 +3,7 @@
   "kind": "pytorchjob",
   "name_prefix": "r142-stage-s-b-calibration",
   "description": "R142 Stage-S B pooled-success calibration; eight fixed ranks, real LIBERO simulator, aggregate-only output",
-  "resource_alias": "idle-a800-robot-native3-8gpu",
+  "resource_alias": "idle-a800-robot-stage-s-graphics-8gpu",
   "workspace_id": "179169",
   "provenance": {
     "contract_source_job_id": "dlct3tq8a7z5lsdd",
@@ -45,9 +45,9 @@
     "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04"
   },
   "runtime": {
-    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-runtime-20260902/scripts/stage_s_libero_b_calibration_pai.sh",
-    "command_file_sha256": "6ac55999b6d919f26acca23f4c29e192b0b398ac81df755b5ee83d45a3134119",
-    "payload_sha256": "6ac55999b6d919f26acca23f4c29e192b0b398ac81df755b5ee83d45a3134119",
+    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_libero_b_calibration_pai.sh",
+    "command_file_sha256": "a9c1db905e1dbc9c7c732fbe62b279130142233d1b4873fdc1e7cc965b429d49",
+    "payload_sha256": "a9c1db905e1dbc9c7c732fbe62b279130142233d1b4873fdc1e7cc965b429d49",
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
     "uid": 2254,
     "gid": 2254,
@@ -77,7 +77,7 @@
     "contract_ready": true,
     "validation_method": "static",
     "validation_status": "passed",
-    "validated_payload_sha256": "6ac55999b6d919f26acca23f4c29e192b0b398ac81df755b5ee83d45a3134119",
+    "validated_payload_sha256": "a9c1db905e1dbc9c7c732fbe62b279130142233d1b4873fdc1e7cc965b429d49",
     "pai_probe_created": false,
     "explicit_user_resource_authorization": {
       "resource_id": "quota1ssrabud0bh",
@@ -128,7 +128,7 @@
       "completion_and_sha_required": true
     },
     "source_provenance": {
-      "stage_s_repo": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-runtime-20260902",
+      "stage_s_repo": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-bcal-runtime-20260903",
       "qpilots_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812",
       "openpi_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi",
       "libero_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi/third_party/libero"
@@ -141,7 +141,7 @@
       "shared_memory_gib": 1525,
       "rank_world_size_fixed": 8,
       "resource_pool": "exp-robot",
-      "resource_alias": "idle-a800-robot-native3-8gpu",
+      "resource_alias": "idle-a800-robot-stage-s-graphics-8gpu",
       "resource_id": "quota1ssrabud0bh"
     },
     "resume_contract": {

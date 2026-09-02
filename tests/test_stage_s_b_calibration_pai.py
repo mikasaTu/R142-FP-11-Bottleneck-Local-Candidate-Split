@@ -35,7 +35,15 @@ def test_config_binds_launcher_hash_and_registry_contract() -> None:
     assert runtime["payload_sha256"] == digest
     assert runtime["command_file_sha256"] == digest
     assert evidence["validated_payload_sha256"] == digest
-    assert config["resource_alias"] == "idle-a800-robot-native3-8gpu"
+    assert config["resource_alias"] == "idle-a800-robot-stage-s-graphics-8gpu"
+    assert runtime["command_file"] == (
+        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/"
+        "stage_s_libero_b_calibration_pai.sh"
+    )
+    assert evidence["source_provenance"]["stage_s_repo"] == (
+        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/"
+        "r142-stage-s-bcal-runtime-20260903"
+    )
     assert config["worker"] == {
         "count": 1,
         "gpu": 8,
@@ -106,6 +114,8 @@ def test_r7_completion_sha_and_flattened_state_input_are_mandatory() -> None:
         assert required in text
     assert "B variant completion marker is not completed" in text
     assert "r7 consumed artifact escapes variant root" in text
+    assert "r142-stage-s-bcal-runtime-20260903" in text
+    assert "r142-stage-s-runtime-20260902" not in text
 
 
 def test_source_provenance_compute_and_daily_resume_contract() -> None:
@@ -123,7 +133,7 @@ def test_source_provenance_compute_and_daily_resume_contract() -> None:
         "shared_memory_gib": 1525,
         "rank_world_size_fixed": 8,
         "resource_pool": "exp-robot",
-        "resource_alias": "idle-a800-robot-native3-8gpu",
+        "resource_alias": "idle-a800-robot-stage-s-graphics-8gpu",
         "resource_id": "quota1ssrabud0bh",
     }
     assert evidence["resume_contract"] == {

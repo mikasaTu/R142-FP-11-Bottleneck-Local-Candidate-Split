@@ -16,7 +16,7 @@ readonly WORLD_SIZE=8
 
 # Pinned real Stage-R/LIBERO source trees. A dirty tree or commit drift is
 # refused before the first simulator import.
-readonly STAGE_S_REPO="$ROOT/code/r142-stage-s-runtime-20260902"
+readonly STAGE_S_REPO="$ROOT/code/r142-stage-s-bcal-runtime-20260903"
 readonly STAGE_S_SOURCE_COMMIT=afe353bbc5997355f35cb0c77c5446fd4df5f1e3
 readonly QPILOTS="$ROOT/code/QPILOTS-r16p15-stage1-task64-20260812"
 readonly QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
@@ -381,7 +381,7 @@ payload = {
         "memory_gib": 1525,
         "shared_memory_gib": 1525,
         "resource_pool": "exp-robot",
-        "resource_alias": "idle-a800-robot-native3-8gpu",
+        "resource_alias": "idle-a800-robot-stage-s-graphics-8gpu",
         "resource_id": "quota1ssrabud0bh",
     },
     "persistence": {
