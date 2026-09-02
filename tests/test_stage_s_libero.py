@@ -330,5 +330,8 @@ def test_c_schedule_and_idle_payload_are_fail_closed(tmp_path: Path) -> None:
     assert payload["resource"]["gpu"] == 8
     assert payload["resource"]["cpu"] == 88
     assert payload["resource"]["memory_gib"] == 1525
+    assert payload["resource"]["resource_alias"] == "idle-a800-robot-stage-s-graphics-8gpu"
+    assert payload["resource"]["resource_id"] == "quota1ssrabud0bh"
+    assert payload["resource"]["quota_name"] == "exp-robot"
     assert payload["daily_no_job_windows"][0]["timezone"] == "Asia/Shanghai"
     assert payload["checkpoint_contract"]["retain_and_audit_steps"] == list(C_RETAIN_STEPS)

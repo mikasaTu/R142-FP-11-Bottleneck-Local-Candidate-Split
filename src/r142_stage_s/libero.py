@@ -41,7 +41,7 @@ LIBERO_SUITE = "libero_10"
 TASK_COUNT = 10
 MAIN_INITIAL_STATE_COUNT = 16
 MAIN_CANDIDATE_COUNT = 32
-CALIBRATION_TASK_IDS = (0, 1, 2, 3)
+CALIBRATION_TASK_IDS = (0, 3, 6, 9)
 CALIBRATION_INITIAL_STATES = tuple(range(8))
 CALIBRATION_CANDIDATE_COUNT = 8
 CALIBRATION_TARGET_SUCCESS = 0.45
@@ -69,6 +69,9 @@ B_INIT_STATE_SEED_BASE = 142011
 PAI_MAX_GPU = 8
 PAI_MAX_CPU = 88
 PAI_MAX_MEMORY_GIB = 1525
+PAI_ROBOT_IDLE_RESOURCE_ALIAS = "idle-a800-robot-stage-s-graphics-8gpu"
+PAI_ROBOT_IDLE_RESOURCE_ID = "quota1ssrabud0bh"
+PAI_ROBOT_IDLE_QUOTA_NAME = "exp-robot"
 
 # The four B settings are measured in the table's XY coordinate system.  They
 # are frozen here rather than selected after observing any S2--S5 statistic.
@@ -2050,8 +2053,9 @@ def build_pai_stage_s_payload(
         "resource": {
             "resource_pool": str(resource_pool),
             "pool_family": "robot",
-            "resource_alias": "idle-a800",
-            "resource_id": "quotaewyznuc7b9l",
+            "resource_alias": PAI_ROBOT_IDLE_RESOURCE_ALIAS,
+            "resource_id": PAI_ROBOT_IDLE_RESOURCE_ID,
+            "quota_name": PAI_ROBOT_IDLE_QUOTA_NAME,
             "oversold_type": "AcceptQuotaOverSold",
             "worker": 1,
             "gpu": PAI_MAX_GPU,
