@@ -77,7 +77,29 @@ export PYOPENGL_PLATFORM=egl
 export MUJOCO_GL=egl
 export EGL_PLATFORM=device
 export XDG_CACHE_HOME="$OUT/xdg-cache"
-mkdir -p "$XDG_CACHE_HOME"
+export LIBERO_CONFIG_PATH="$OUT/libero-config"
+mkdir -p "$XDG_CACHE_HOME" "$LIBERO_CONFIG_PATH"
+
+# Pinned LIBERO prompts on first import when ~/.libero/config.yaml is absent.
+# A PAI task is non-interactive, so materialize the exact source-tree paths
+# explicitly instead of accepting an implicit per-node HOME state.
+"$PYTHON" - "$LIBERO_CONFIG_PATH/config.yaml" "$LIBERO" <<'PY'
+import json, os, pathlib, sys
+path, libero = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+root = libero / "libero" / "libero"
+payload = {
+    "benchmark_root": str(root),
+    "bddl_files": str(root / "bddl_files"),
+    "init_states": str(root / "init_files"),
+    "datasets": str(libero / "libero" / "datasets"),
+    "assets": str(root / "assets"),
+}
+tmp = path.with_suffix(path.suffix + ".tmp")
+with tmp.open("w", encoding="utf-8") as f:
+    json.dump(payload, f, sort_keys=True, indent=2)
+    f.write("\n"); f.flush(); os.fsync(f.fileno())
+os.replace(tmp, path)
+PY
 
 cd "$REPO"
 "$PYTHON" scripts/stage_s_libero_b.py \
