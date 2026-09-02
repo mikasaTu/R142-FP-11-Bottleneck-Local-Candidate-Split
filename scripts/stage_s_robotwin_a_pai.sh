@@ -20,12 +20,11 @@ CLIENT_PY="$ROOT/cache/r142_stage_s/envs/robotwin_py310/bin/python"
 SERVER_PY="$ROOT/cache/r142_stage_s/envs/evo1_py310/bin/python"
 OUT="$ROOT/logs/r142_fp11_stage_s/a_main/$RUN_ID"
 BASE_PORT="${STAGE_S_EVO_SERVER_BASE_PORT:-19000}"
-readonly FROZEN_SOURCE_COMMIT="c2bd51db6de0e22d09827d06460cbac8d47bb6ae"
+readonly FROZEN_SOURCE_COMMIT="ea06996168bd460c98cb3e2ee77b929aafced12e"
 STAGE_S_SOURCE_COMMIT="${STAGE_S_SOURCE_COMMIT:-$FROZEN_SOURCE_COMMIT}"
-readonly ASSET_PREFLIGHT_RUN_ID="r142-stage-s-a-assets-20260902-r15"
-ASSET_PREFLIGHT_DIR="$ROOT/logs/r142_fp11_stage_s/assets/$ASSET_PREFLIGHT_RUN_ID"
 readonly FROZEN_PROTOCOL_PATH="$ROOT/stage_s/protocol/FROZEN_PROTOCOL.json"
-export STAGE_S_SOURCE_COMMIT
+readonly ACCEPTED_ASSET_PREFLIGHT_PATH="$ROOT/stage_s/protocol/ACCEPTED_A_ASSET_PREFLIGHT.json"
+export STAGE_S_SOURCE_COMMIT FROZEN_PROTOCOL_PATH ACCEPTED_ASSET_PREFLIGHT_PATH
 
 SERVER_PIDS=()
 CLIENT_PIDS=()
@@ -76,6 +75,8 @@ print(json.dumps({
     "job_id": os.environ.get("PAI_TASK_JOB_ID"),
     "run_id": os.environ.get("PAI_STAGE_S_RUN_ID") or os.environ.get("PAI_CANARY_RUN_ID"),
     "source_commit": os.environ.get("STAGE_S_SOURCE_COMMIT"),
+    "frozen_protocol_path": os.environ.get("FROZEN_PROTOCOL_PATH"),
+    "accepted_asset_preflight_path": os.environ.get("ACCEPTED_ASSET_PREFLIGHT_PATH"),
     "time": time.time(),
 }, sort_keys=True))
 PY
@@ -147,6 +148,7 @@ trap on_error ERR
 [[ -f "$REPO/scripts/stage_s_robotwin_main.py" ]]
 [[ -f "$REPO/scripts/stage_s_robotwin_finalize.py" ]]
 [[ -f "$REPO/src/r142_stage_s/frozen_protocol.py" ]]
+[[ -f "$REPO/src/r142_stage_s/asset_acceptance.py" ]]
 [[ -d "$ROBOTWIN_ROOT/assets" ]]
 
 # Every A main incarnation reads the same stable CPFS authority before a
@@ -157,33 +159,18 @@ trap on_error ERR
 "$CLIENT_PY" "$REPO/src/r142_stage_s/frozen_protocol.py" \
   --path "$FROZEN_PROTOCOL_PATH" >/dev/null
 
-# The r15 asset preflight is a hard prerequisite for the formal screen.  Its
-# output is immutable evidence from the separate asset job; a FIRST_WORK file,
-# a running job, or a partial cache never satisfies this gate.
-[[ -d "$ASSET_PREFLIGHT_DIR" ]]
-[[ -s "$ASSET_PREFLIGHT_DIR/COMPLETED_ASSET_PREFLIGHT.json" ]]
-[[ -s "$ASSET_PREFLIGHT_DIR/SHA256SUMS" ]]
-(
-  cd "$ASSET_PREFLIGHT_DIR"
-  sha256sum --check --quiet SHA256SUMS
-)
-python3 - "$ASSET_PREFLIGHT_DIR/COMPLETED_ASSET_PREFLIGHT.json" <<'PY'
-import json, pathlib, sys
-marker = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-expected = {
-    "status": "COMPLETED",
-    "gpus": 8,
-    "model_revision": "ce8c583724706fbf7a03c17237761c65bf6813a7",
-    "robotwin_commit": "13c3c47ff4312dd62484bcd51be034af55c062d1",
-    "evo_commit": "5fd14b015013c4fd0aacf5f8f48f868ca9b870a2",
-    "curobo_commit": "d64c4b005459db10c5dd867d8b30a87d5bda9bdb",
-}
-for key, value in expected.items():
-    if marker.get(key) != value:
-        raise SystemExit(f"asset preflight r15 mismatch: {key}={marker.get(key)!r}")
-if not marker.get("job_id"):
-    raise SystemExit("asset preflight r15 marker lacks terminal PAI JobId")
-PY
+# The stable acceptance pointer is the only asset prerequisite for A main.
+# It is written atomically by the controller only after an asset Job is in
+# terminal Succeeded and its completion/SHA evidence has been re-verified.
+# This gate dynamically rechecks the accepted run/job, source commits,
+# including the accepted run id and accepted PAI JobId,
+# checkpoint revision, and live asset/model SHA256SUMS.  FIRST_WORK, Running,
+# partial output, or an old hardcoded run directory never satisfies it.
+# The referenced output must include COMPLETED_ASSET_PREFLIGHT.json and SHA256SUMS.
+[[ -s "$ACCEPTED_ASSET_PREFLIGHT_PATH" ]]
+"$CLIENT_PY" "$REPO/src/r142_stage_s/asset_acceptance.py" \
+  --path "$ACCEPTED_ASSET_PREFLIGHT_PATH" \
+  --checkpoint-dir "$CHECKPOINT_DIR" >/dev/null
 
 for file in config.json norm_stats.json mp_rank_00_model_states.pt SHA256SUMS; do
   [[ -s "$CHECKPOINT_DIR/$file" ]]
@@ -205,7 +192,10 @@ mkdir -p "$XDG_CACHE_HOME"
 if [[ -f "$OUT/COMPLETED_EVALUATION_RESULT.json" && -f "$OUT/SHA256SUMS" ]]; then
   "$CLIENT_PY" "$REPO/scripts/stage_s_robotwin_finalize.py" \
     --output-root "$OUT" --run-id "$RUN_ID" \
-    --job-id "${PAI_TASK_JOB_ID:-}" --source-commit "$STAGE_S_SOURCE_COMMIT"
+    --job-id "${PAI_TASK_JOB_ID:-}" --source-commit "$STAGE_S_SOURCE_COMMIT" \
+    --frozen-protocol "$FROZEN_PROTOCOL_PATH" \
+    --accepted-asset-preflight "$ACCEPTED_ASSET_PREFLIGHT_PATH" \
+    --checkpoint-dir "$CHECKPOINT_DIR"
   [[ "$(stat -c '%u:%g' "$OUT/COMPLETED_EVALUATION_RESULT.json")" == 2254:2254 ]]
   [[ "$(stat -c '%u:%g' "$OUT/SHA256SUMS")" == 2254:2254 ]]
   trap - ERR
@@ -341,7 +331,8 @@ for rank in $(seq 0 7); do
       --server-url "ws://127.0.0.1:$port" \
       --rank "$rank" --world-size "$WORLD_SIZE" \
       --families-per-task 16 --candidates 32 --seed-base 14211 \
-      --frozen-protocol "$FROZEN_PROTOCOL_PATH"
+      --frozen-protocol "$FROZEN_PROTOCOL_PATH" \
+      --accepted-asset-preflight "$ACCEPTED_ASSET_PREFLIGHT_PATH"
   ) >"$OUT/logs/client-rank-$(printf '%04d' "$rank").log" 2>&1 &
   CLIENT_PIDS[$rank]=$!
 done
@@ -369,7 +360,9 @@ SERVER_PIDS=()
 "$CLIENT_PY" "$REPO/scripts/stage_s_robotwin_finalize.py" \
   --output-root "$OUT" --run-id "$RUN_ID" \
   --job-id "${PAI_TASK_JOB_ID:-}" --source-commit "$STAGE_S_SOURCE_COMMIT" \
-  --frozen-protocol "$FROZEN_PROTOCOL_PATH"
+  --frozen-protocol "$FROZEN_PROTOCOL_PATH" \
+  --accepted-asset-preflight "$ACCEPTED_ASSET_PREFLIGHT_PATH" \
+  --checkpoint-dir "$CHECKPOINT_DIR"
 [[ -f "$OUT/COMPLETED_EVALUATION_RESULT.json" && -f "$OUT/SHA256SUMS" ]]
 [[ "$(stat -c '%u:%g' "$OUT/COMPLETED_EVALUATION_RESULT.json")" == 2254:2254 ]]
 [[ "$(stat -c '%u:%g' "$OUT/SHA256SUMS")" == 2254:2254 ]]

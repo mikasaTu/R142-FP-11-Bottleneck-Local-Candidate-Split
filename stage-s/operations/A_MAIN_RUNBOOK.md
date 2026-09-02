@@ -13,7 +13,7 @@ revision mismatch:
 
 | input | path / revision |
 |---|---|
-| Stage-S runtime | `/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-a-runtime-20260903` @ `c2bd51db6de0e22d09827d06460cbac8d47bb6ae` |
+| Stage-S runtime | `/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-a-runtime-20260903` @ `ea06996168bd460c98cb3e2ee77b929aafced12e` |
 | RoboTwin | `cache/r142_stage_s/runtime/RoboTwin` @ `13c3c47ff4312dd62484bcd51be034af55c062d1` |
 | CuRobo | `cache/r142_stage_s/runtime/RoboTwin/envs/curobo` @ `d64c4b005459db10c5dd867d8b30a87d5bda9bdb` |
 | Evo-1 | `code/r142_stage_s_deps/Evo-1` @ `5fd14b015013c4fd0aacf5f8f48f868ca9b870a2` |
@@ -25,11 +25,18 @@ Evo server source remains unmodified. Each server imports the released
 Stage-S dispatcher handles only the three versioned exact-replay controls.
 
 The formal screen also has a hard asset gate. Before any server or client is
-started, `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/r142-stage-s-a-assets-20260902-r15/`
-must contain `COMPLETED_ASSET_PREFLIGHT.json` and a verified `SHA256SUMS`.
-The marker must report terminal `COMPLETED`, eight GPUs, and the exact Evo,
-RoboTwin, CuRobo, and checkpoint revisions above. A `FIRST_WORK.json`, an
-active/queued PAI job, or a partial cache does not satisfy this gate.
+started, the launcher must read the stable CPFS acceptance pointer
+`/mnt/cpfs/zbl-cpfs-new/USERS/leon/stage_s/protocol/ACCEPTED_A_ASSET_PREFLIGHT.json`.
+The controller may create this file atomically only after one asset-preflight
+PAI Job reaches terminal `Succeeded` and its exact output directory contains
+`COMPLETED_ASSET_PREFLIGHT.json` plus a verified `SHA256SUMS`. The launcher
+then dynamically rechecks the accepted run id and JobId, marker/manifest byte
+hashes, exact Evo/RoboTwin/CuRobo source commits, exact checkpoint revision,
+and the live model `SHA256SUMS` under the runtime checkpoint directory. A
+`FIRST_WORK.json`, an active/queued/`Running` PAI job, a partial cache, or a
+hardcoded historical run directory does not satisfy this gate. The accepted
+record and all rechecked fields are persisted in every rank manifest,
+completion marker, and aggregate result.
 
 The A main launcher also reads the stable CPFS authority
 `/mnt/cpfs/zbl-cpfs-new/USERS/leon/stage_s/protocol/FROZEN_PROTOCOL.json`
@@ -38,7 +45,8 @@ before starting any Evo server. It must report `status=FROZEN`, a full
 calibration reports, and the frozen Stage-S threshold, seed, task, and budget
 summary. The launcher and each rank client fail closed on any missing,
 symlinked, malformed, or hash-mismatched authority. The rank run manifest and
-`COMPLETED_A_RANK-<rank>.json` persist the complete protocol fingerprint;
+`COMPLETED_A_RANK-<rank>.json` persist the complete protocol and accepted asset
+fingerprints;
 the aggregate result repeats it and re-verifies the stable authority.
 
 ## Eight-GPU ownership
@@ -112,14 +120,18 @@ configs/pai/stage_s_robotwin_a.json
 ```
 
 The launcher hard-codes the independent runtime path and rejects every source
-revision except `c2bd51db6de0e22d09827d06460cbac8d47bb6ae`. It also passes the
-stable protocol authority path to every rank and to the aggregate verifier.
-Do not submit while
-the r15 asset preflight lacks terminal PAI `Succeeded`,
-`COMPLETED_ASSET_PREFLIGHT.json`, and a verified asset `SHA256SUMS`; all three
-conditions are required even if the cache appears populated. Do not submit a
-PAI probe: static and bounded dev14 contract tests are sufficient for this
-launcher; the next PAI operation is the formal A screen.
+revision except the source commit recorded in the config. It passes both the
+stable protocol authority and stable accepted-asset authority to every rank
+and to the aggregate verifier. Do not submit while
+`ACCEPTED_A_ASSET_PREFLIGHT.json` is missing or while its accepted run/job is
+not backed by terminal PAI `Succeeded`, `COMPLETED_ASSET_PREFLIGHT.json`, a
+verified asset `SHA256SUMS`, and a live checkpoint `SHA256SUMS` matching the
+declared source/model pins. In the current CPFS readback, r15 is stopped with
+only `FIRST_WORK.json`, r16 has no Job and is sealed, and r17 JobId
+`dlc17mybd6alknp3` is only `Running`; none can be used to create the accepted
+pointer. Do not submit a PAI probe: static and bounded dev14 contract tests
+are sufficient for this launcher; the next PAI operation is the formal A
+screen after the controller writes the stable acceptance record.
 
 After a formal attempt, preserve the exact JobId, raw failure/log evidence,
 and output directory. A replacement may reuse the same output directory only
