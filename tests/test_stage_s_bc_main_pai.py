@@ -8,6 +8,13 @@ from pathlib import Path
 
 import pytest
 
+from r142_stage_s.main_protocol import (
+    FROZEN_SUMMARY,
+    PROTOCOL_ACCEPTANCE_SCHEMA,
+    STAGE_S_PROTOCOL_ID,
+    FrozenProtocolError,
+    read_frozen_protocol,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -16,6 +23,99 @@ MAIN = ROOT / "scripts" / "stage_s_libero_main.py"
 
 def _payload(name: str) -> Path:
     return ROOT / "scripts" / name
+
+
+def _protocol_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
+    protocol_root = tmp_path / "stage_s" / "protocol"
+    protocol_root.mkdir(parents=True)
+    git_commit = "1" * 40
+    protocol_md = protocol_root / "PROTOCOL.md"
+    protocol_md.write_text(f"# Frozen Stage-S protocol\nProtocol Git commit: {git_commit}\n", encoding="utf-8")
+    b_report = tmp_path / "b-CALIBRATION_REPORT.json"
+    b_report.write_text(
+        json.dumps(
+            {
+                "selected_setting": "proximity_0.08m",
+                "variant_run_id": "r142-stage-s-b-variants-20260903-r7",
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    c_report = tmp_path / "c-CALIBRATION_REPORT.json"
+    c_checkpoint = tmp_path / "c-selected-checkpoint"
+    c_report.write_text(
+        json.dumps(
+            {
+                "selected_checkpoint": str(c_checkpoint),
+                "selected_checkpoint_sha256": "a" * 64,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    acceptance = {
+        "schema": PROTOCOL_ACCEPTANCE_SCHEMA,
+        "status": "FROZEN",
+        "protocol_id": STAGE_S_PROTOCOL_ID,
+        "acceptance": {
+            "status": "ACCEPTED",
+            "frozen": True,
+            "protocol_id": STAGE_S_PROTOCOL_ID,
+            "protocol_git_commit": git_commit,
+            "protocol_md_path": str(protocol_md),
+            "protocol_md_sha256": hashlib.sha256(protocol_md.read_bytes()).hexdigest(),
+            "frozen_summary": FROZEN_SUMMARY,
+            "calibration_reports": {
+                "B": {
+                    "report_path": str(b_report),
+                    "report_sha256": hashlib.sha256(b_report.read_bytes()).hexdigest(),
+                    "selected_setting": "proximity_0.08m",
+                    "variant_run_id": "r142-stage-s-b-variants-20260903-r7",
+                },
+                "C": {
+                    "report_path": str(c_report),
+                    "report_sha256": hashlib.sha256(c_report.read_bytes()).hexdigest(),
+                    "selected_checkpoint": str(c_checkpoint),
+                    "selected_checkpoint_sha256": "a" * 64,
+                },
+            },
+        },
+    }
+    acceptance_path = protocol_root / "FROZEN_PROTOCOL.json"
+    acceptance_path.write_text(json.dumps(acceptance, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return acceptance_path, b_report, c_report
+
+
+def test_frozen_protocol_acceptance_is_read_and_bound_to_calibration(tmp_path: Path) -> None:
+    acceptance, b_report, _ = _protocol_fixture(tmp_path)
+    result = read_frozen_protocol(acceptance, substrate="B", calibration_report=b_report)
+    assert result["protocol_git_commit"] == "1" * 40
+    assert result["protocol_md_sha256"] == hashlib.sha256((acceptance.parent / "PROTOCOL.md").read_bytes()).hexdigest()
+    assert result["calibration_binding"]["selected_setting"] == "proximity_0.08m"
+
+
+def test_frozen_protocol_missing_acceptance_fails_closed(tmp_path: Path) -> None:
+    _, b_report, _ = _protocol_fixture(tmp_path)
+    with pytest.raises(FrozenProtocolError, match="missing or symlinked"):
+        read_frozen_protocol(tmp_path / "missing" / "FROZEN_PROTOCOL.json", substrate="B", calibration_report=b_report)
+
+
+def test_frozen_protocol_tampered_markdown_or_commit_fails_closed(tmp_path: Path) -> None:
+    acceptance, b_report, _ = _protocol_fixture(tmp_path)
+    protocol_md = acceptance.parent / "PROTOCOL.md"
+    protocol_md.write_text(protocol_md.read_text(encoding="utf-8") + "tampered\n", encoding="utf-8")
+    with pytest.raises(FrozenProtocolError, match="PROTOCOL.md SHA-256 mismatch"):
+        read_frozen_protocol(acceptance, substrate="B", calibration_report=b_report)
+
+    acceptance, b_report, _ = _protocol_fixture(tmp_path / "commit-tamper")
+    payload = json.loads(acceptance.read_text(encoding="utf-8"))
+    payload["acceptance"]["protocol_git_commit"] = "2" * 40
+    acceptance.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(FrozenProtocolError, match="Git commit is not recorded"):
+        read_frozen_protocol(acceptance, substrate="B", calibration_report=b_report)
 
 
 @pytest.mark.parametrize("substrate", ["b", "c"])

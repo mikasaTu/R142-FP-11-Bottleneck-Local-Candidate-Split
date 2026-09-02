@@ -30,6 +30,11 @@ from r142_stage_s.libero import (
     task_spec,
     validate_regenerated_initial_states,
 )
+from r142_stage_s.main_protocol import (
+    DEFAULT_PROTOCOL_ACCEPTANCE_PATH,
+    FrozenProtocolError,
+    read_frozen_protocol,
+)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -49,6 +54,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-steps", type=int, default=1000)
     parser.add_argument("--validate-snapshots", action="store_true")
     parser.add_argument("--calibration-report", type=Path, help="frozen pooled-only B/C calibration report; required for B/C")
+    parser.add_argument(
+        "--protocol-acceptance",
+        type=Path,
+        default=DEFAULT_PROTOCOL_ACCEPTANCE_PATH,
+        help="stable CPFS FROZEN_PROTOCOL.json acceptance artifact; required for B/C",
+    )
     parser.add_argument("--rank", type=int, default=None, help="rank shard; defaults to LOCAL_RANK")
     parser.add_argument("--world-size", type=int, default=None, help="rank count; defaults to WORLD_SIZE")
     parser.add_argument("--weak-substrate", action="store_true", help="required for C and persisted in every family metadata/report")
@@ -233,6 +244,17 @@ def main(argv: list[str] | None = None) -> int:
         variant_root=args.variant_root,
         checkpoint=args.checkpoint,
     )
+    frozen_protocol = None
+    if args.substrate in {"B", "C"}:
+        try:
+            frozen_protocol = read_frozen_protocol(
+                args.protocol_acceptance,
+                substrate=args.substrate,
+                calibration_report=args.calibration_report,
+                freeze_report=freeze_report,
+            )
+        except FrozenProtocolError as exc:
+            raise SystemExit(f"frozen protocol acceptance gate failed closed: {exc}") from exc
     # From this point on the calibration report, not a caller-provided path,
     # is the sole checkpoint/variant source of truth.
     args.checkpoint = resolved_checkpoint
@@ -256,6 +278,7 @@ def main(argv: list[str] | None = None) -> int:
         "variant_root": str(resolved_variant_root.resolve()) if resolved_variant_root else None,
         "checkpoint": str(resolved_checkpoint.resolve()) if resolved_checkpoint else None,
         "calibration_report": str(args.calibration_report.resolve()) if args.calibration_report else None,
+        "protocol_acceptance": frozen_protocol,
         "substrate_annotation": "WEAK_SUBSTRATE" if args.substrate == "C" else None,
         "source_commit": args.source_commit,
         "replay_gate": "restore -> same action -> next-state <= 1e-9; Python/NumPy/Torch CPU/CUDA/policy RNG plus history/action queue",
@@ -305,6 +328,22 @@ def main(argv: list[str] | None = None) -> int:
         "policy_rng_streams": "python_numpy_torch_cpu_torch_cuda_policy",
         "calibration_report": str(args.calibration_report.resolve()) if args.calibration_report else None,
     }
+    if frozen_protocol is not None:
+        # ``write_family_atomic`` reserves its base metadata keys.  Carry the
+        # protocol identity/hash fields into every family without attempting
+        # to overwrite the family-level protocol_id/schema fields.
+        metadata_extra.update(
+            {
+                key: frozen_protocol[key]
+                for key in (
+                    "protocol_acceptance_path",
+                    "protocol_acceptance_sha256",
+                    "protocol_git_commit",
+                    "protocol_md_path",
+                    "protocol_md_sha256",
+                )
+            }
+        )
     if args.substrate == "C":
         metadata_extra["substrate_annotation"] = "WEAK_SUBSTRATE"
     result = run_main_screen(
@@ -360,6 +399,19 @@ def main(argv: list[str] | None = None) -> int:
         "calibration_report": str(args.calibration_report.resolve()) if args.calibration_report else None,
         "replay_gate": "restore -> same action -> next-state <= 1e-9",
     }
+    if frozen_protocol is not None:
+        rank_marker.update(
+            {
+                key: frozen_protocol[key]
+                for key in (
+                    "protocol_acceptance_path",
+                    "protocol_acceptance_sha256",
+                    "protocol_git_commit",
+                    "protocol_md_path",
+                    "protocol_md_sha256",
+                )
+            }
+        )
     atomic_json(args.output / f"COMPLETED_{args.substrate}_MAIN_RANK-{rank:04d}.json", rank_marker)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
