@@ -24,14 +24,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from r142_stage_s.libero import atomic_json  # noqa: E402
 from r142_stage_s.openpi_c import (  # noqa: E402
     CONVERSION_COMPLETION_NAME,
+    DEFAULT_OPENPI_PYTHON,
     OPENPI_COMMIT,
     OPENPI_CONFIG_NAME,
     TRAINING_START_NAME,
+    TRAINING_FAILED_NAME,
     TRAINING_TERMINAL_NAME,
+    _status_marker,
     assert_outside_blackout,
     audit_base_download,
     audit_openpi_checkout,
-    build_c_chain_contract,
     build_patched_training_command,
     DEFAULT_PI05_ASSETS_BASE_DIR,
     finalize_training,
@@ -46,7 +48,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--checkpoint-base-dir", type=Path, required=True)
     parser.add_argument("--log-root", type=Path, required=True)
     parser.add_argument("--assets-base-dir", type=Path, default=Path(DEFAULT_PI05_ASSETS_BASE_DIR))
-    parser.add_argument("--python", default="python")
+    parser.add_argument("--python", default=DEFAULT_OPENPI_PYTHON)
     parser.add_argument("--resume", action="store_true")
     return parser
 
@@ -55,10 +57,9 @@ def _has_numeric_checkpoint(path: Path) -> bool:
     return any(child.is_dir() and child.name.isdigit() for child in path.iterdir()) if path.is_dir() else False
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+def _execute(args: argparse.Namespace) -> int:
     now = assert_outside_blackout()
-    source_audit = audit_openpi_checkout(args.openpi_root)
+    source_audit = audit_openpi_checkout(args.openpi_root, python=args.python)
     if not source_audit["ready"]:
         raise SystemExit("OpenPI source audit failed: " + "; ".join(source_audit["errors"]))
     base_audit = audit_base_download(args.base_jax_root)
@@ -86,6 +87,7 @@ def main(argv: list[str] | None = None) -> int:
         checkpoint_base_dir=checkpoint_base,
         resume=args.resume,
         assets_base_dir=args.assets_base_dir,
+        python=args.python,
     )
     args.log_root.mkdir(parents=True, exist_ok=True)
     start = {
@@ -106,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
         if previous.get("openpi_commit") != OPENPI_COMMIT or previous.get("config_name") != OPENPI_CONFIG_NAME:
             raise SystemExit("existing training start record belongs to a different source/config")
     else:
-        atomic_json(start_path, start)
+        _status_marker(start_path, start)
 
     environment = dict(os.environ)
     environment.setdefault("WANDB_MODE", "disabled")
@@ -116,7 +118,7 @@ def main(argv: list[str] | None = None) -> int:
         completed = True
     finally:
         if completed:
-            atomic_json(
+            _status_marker(
                 args.log_root / TRAINING_TERMINAL_NAME,
                 {
                     "schema": "r142-stage-s-c-training-terminal-v1",
@@ -136,6 +138,35 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(json.dumps(marker, indent=2, sort_keys=True))
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    try:
+        return _execute(args)
+    except BaseException as exc:
+        # Persist a hashable terminal failure record.  If finalization already
+        # wrote a detailed failure marker, preserve it rather than replacing
+        # its checkpoint-audit evidence with this outer exception summary.
+        try:
+            args.log_root.mkdir(parents=True, exist_ok=True)
+            failure_path = args.log_root / TRAINING_FAILED_NAME
+            if not failure_path.exists():
+                _status_marker(
+                    failure_path,
+                    {
+                        "schema": "r142-stage-s-c-training-failure-v1",
+                        "status": "FAILED",
+                        "stage": "training",
+                        "openpi_commit": OPENPI_COMMIT,
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                        "resume": bool(args.resume),
+                    },
+                )
+        except OSError:
+            pass
+        raise
 
 
 if __name__ == "__main__":

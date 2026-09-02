@@ -22,6 +22,7 @@ def _repo_src() -> Path:
 sys.path.insert(0, str(_repo_src()))
 
 from r142_stage_s.openpi_c import (  # noqa: E402
+    DEFAULT_OPENPI_PYTHON,
     audit_base_download,
     build_conversion_contract,
     download_base_checkpoint,
@@ -49,7 +50,7 @@ def _parser() -> argparse.ArgumentParser:
     convert.add_argument("--openpi-root", type=Path, required=True)
     convert.add_argument("--base-jax-root", type=Path, required=True)
     convert.add_argument("--base-pytorch-root", type=Path, required=True)
-    convert.add_argument("--python", default="python")
+    convert.add_argument("--python", default=DEFAULT_OPENPI_PYTHON)
     convert.add_argument("--precision", choices=("bfloat16", "float32"), default="bfloat16")
 
     audit = sub.add_parser("audit", help="verify an already downloaded base root")

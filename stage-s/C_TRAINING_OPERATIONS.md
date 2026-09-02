@@ -8,11 +8,13 @@ agent performs the external credential, mount, UID/GID, and resource readback.
 
 ```text
 OPENPI=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi
-BASE_JAX=/mnt/cpfs/zbl-cpfs-new/open_data/r142_stage_s/pi05_base
-BASE_PT=/mnt/cpfs/zbl-cpfs-new/Models/r142_stage_s/pi05_base_pytorch
+OPENPI_PYTHON=/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python
+BASE_JAX=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base
+BASE_PT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base_pytorch
 ASSETS=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/openpi/r16p15/openpi-assets/checkpoints
 CKPT=/mnt/cpfs/zbl-cpfs-new/CKPT/leon/r142_stage_s_c
 LOG=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c
+STATUS=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c_status/<RUN_ID>
 ```
 
 `OPENPI` must report commit
@@ -27,7 +29,7 @@ not any community full-SFT actor.
 Write/read the checked-in manifest or verify the live public listing:
 
 ```text
-PYTHONPATH=src python scripts/stage_s_libero_c_assets.py manifest \
+PYTHONPATH=src "$OPENPI_PYTHON" scripts/stage_s_libero_c_assets.py manifest \
   --output stage-s/C_PI05_BASE_GCS_MANIFEST.json --live
 ```
 
@@ -35,24 +37,24 @@ Download is a foreground, resumable operation; it must not be run in either
 Beijing blackout window:
 
 ```text
-PYTHONPATH=src python scripts/stage_s_libero_c_assets.py download \
+PYTHONPATH=src "$OPENPI_PYTHON" scripts/stage_s_libero_c_assets.py download \
   --output-root "$BASE_JAX" \
   --manifest stage-s/C_PI05_BASE_GCS_MANIFEST.json
 ```
 
-Convert only after the base audit passes:
+Convert only after the base audit passes, using the pinned OpenPI Python:
 
 ```text
-PYTHONPATH=src python scripts/stage_s_libero_c_assets.py convert \
+PYTHONPATH=src "$OPENPI_PYTHON" scripts/stage_s_libero_c_assets.py convert \
   --openpi-root "$OPENPI" --base-jax-root "$BASE_JAX" \
-  --base-pytorch-root "$BASE_PT" --precision bfloat16
+  --base-pytorch-root "$BASE_PT" --python "$OPENPI_PYTHON" --precision bfloat16
 ```
 
 To hand the parent orchestrator an auditable, non-submitting chain and PAI
 payload, render both from the same paths:
 
 ```text
-PYTHONPATH=src python scripts/stage_s_libero_c_payload.py \
+PYTHONPATH=src "$OPENPI_PYTHON" scripts/stage_s_libero_c_payload.py \
   --run-id r142-stage-s-c-undertrained-20260902 \
   --openpi-root "$OPENPI" --base-jax-root "$BASE_JAX" \
   --base-pytorch-root "$BASE_PT" --checkpoint-base-dir "$CKPT" \
@@ -68,28 +70,33 @@ operation after live resource and identity readback.
 
 ## Training command and resume
 
-The wrapper performs blackout, source, base, data-asset, and conversion
-preflight, then launches one 8-GPU `torchrun` worker. The worker imports the
-pinned official trainer and adds only per-rank RNG sidecars to its checkpoint
-I/O. The direct upstream command represented inside the contract is:
+The registry payload `scripts/stage_s_c_undertrained_pai.sh` runs asset
+download, conversion, and training sequentially in one foreground job. Each
+stage has an atomic `COMPLETED_*.json` or `FAILED_*.json` status marker under
+`STATUS`, including a canonical `payload_sha256` and an evidence SHA when an
+evidence file exists. The training wrapper performs blackout, source, base,
+data-asset, and conversion preflight, then launches one 8-GPU worker with the
+pinned Python. The worker imports the pinned official trainer, adds per-rank
+RNG sidecars, and wraps the loader to restore the exact data cursor. The
+direct upstream command represented inside the contract is:
 
 ```text
-torchrun --standalone --nnodes=1 --nproc_per_node=8 \
+"$OPENPI_PYTHON" -m torch.distributed.run --standalone --nnodes=1 --nproc_per_node=8 \
   "$OPENPI/scripts/train_pytorch.py" pi05_libero \
   --exp_name r142_stage_s_c_undertrained_seed42 \
   --checkpoint_base_dir "$CKPT" \
   --save_interval 1000 --num_train_steps 10001 --seed 42 \
-  --keep_period 1000 --pytorch_weight_path "$BASE_PT" \
+  --keep_period 1000 --num_workers 0 --pytorch_weight_path "$BASE_PT" \
   --assets_base_dir "$ASSETS"
 ```
 
 Use the checked-in worker wrapper so resume captures all rank RNG state:
 
 ```text
-PYTHONPATH=src python scripts/stage_s_libero_c_train.py \
+PYTHONPATH=src "$OPENPI_PYTHON" scripts/stage_s_libero_c_train.py \
   --openpi-root "$OPENPI" --base-jax-root "$BASE_JAX" \
   --base-pytorch-root "$BASE_PT" --checkpoint-base-dir "$CKPT" \
-  --log-root "$LOG" --assets-base-dir "$ASSETS"
+  --log-root "$LOG" --assets-base-dir "$ASSETS" --python "$OPENPI_PYTHON"
 ```
 
 After a spot interruption, retain the same `CKPT`, `LOG`, and run ID and
@@ -107,8 +114,8 @@ lacks the per-rank RNG sidecars.
   application-level resume contract;
 * no job submission or resume mutation in `09:30–09:40` or `19:30–19:40`
   Asia/Shanghai;
-* the wrapper fails closed inside either interval and writes no terminal
-  completion marker;
+* the wrapper fails closed inside either interval and writes a hashed
+  `FAILED_BLACKOUT.json` status marker, never a completion marker;
 * spot retries must preserve the same CPFS output directory and exact run
   lineage, with no checkpoint deletion/replacement by a new base.
 
@@ -124,8 +131,27 @@ CKPT/pi05_libero/r142_stage_s_c_undertrained_seed42/{1000,3000,6000,10000}/
 The wrapper writes `TRAINING_TERMINAL.json` with global step 10001 only after
 the official process exits successfully. `finalize_training` then audits all
 four complete native checkpoints and writes `COMPLETED_C_TRAINING.json` plus
-the root `SHA256SUMS`. A missing component, source drift, partial download,
-or failed checkpoint audit leaves no `COMPLETED_C_TRAINING.json`.
+two cwd-relative manifests: `$CHECKPOINT_BASE/SHA256SUMS` covers only the
+checkpoint bundle and `$LOG/SHA256SUMS` covers only the log bundle. Verify
+with `cd "$CHECKPOINT_BASE" && sha256sum -c SHA256SUMS` and the analogous
+command in `$LOG`; no mixed-root entries are accepted. A missing component,
+source drift, partial download, or failed checkpoint audit writes a hashed
+`FAILED_C_TRAINING.json` and leaves no completion marker.
+
+The pinned trainer's loop is audited at source. Its native loader is an
+infinite iterator and does not expose `len`/`DistributedSampler.set_epoch` at
+the wrapper boundary. The C worker therefore exposes one finite epoch,
+forwards `set_epoch(global_step // epoch_length)`, and skips exactly
+`global_step % epoch_length` batches on the first resumed iterator. It also
+freezes `--num_workers 0`; if epoch length, sampler epoch, or checkpoint
+metadata cannot be proven, resume fails closed rather than being labelled
+full-state.
+
+For registry execution, submit only the checked-in
+`configs/pai/stage_s_c_undertrained.json` (schema v2) through the canonical
+`pai-job-registry`; it binds the robot-idle alias/id/quota, UID/GID, CPFS
+write paths, pinned Python, sequential stage payload, and application
+autoresume. The payload itself is non-interactive and never changes `HOME`.
 
 No scientific C success/gate claim is made until these artifacts are read
 back from CPFS and the parent agent separately verifies the terminal PAI JobId.

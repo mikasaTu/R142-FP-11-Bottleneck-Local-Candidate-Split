@@ -1,68 +1,154 @@
 {
-  "schema": "r142-stage-s-c-undertrained-config-v1",
-  "status": "IMPLEMENTED_NOT_SUBMITTED",
-  "substrate": "C",
-  "label": "WEAK_SUBSTRATE",
-  "source": {
-    "openpi_url": "https://github.com/Physical-Intelligence/openpi.git",
-    "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
-    "config_name": "pi05_libero",
-    "official_converter": "examples/convert_jax_model_to_pytorch.py",
-    "official_trainer": "scripts/train_pytorch.py",
-    "dataset_repo_id": "physical-intelligence/libero",
-    "base_gcs_uri": "gs://openpi-assets/checkpoints/pi05_base/",
-    "base_object_count": 29,
-    "base_total_bytes": 12441749581,
-    "community_sft_base_forbidden": true
-  },
-  "data": {
-    "assets_base_dir": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/openpi/r16p15/openpi-assets/checkpoints",
-    "norm_stats": "pi05_libero/assets/physical-intelligence/libero/norm_stats.json",
-    "extra_delta_transform": false,
-    "prompt_from_task": true,
-    "synthetic_or_fake_data": false
-  },
-  "training": {
-    "seed": 42,
-    "num_train_steps": 10001,
-    "save_interval_steps": 1000,
-    "retained_checkpoint_steps": [1000, 3000, 6000, 10000],
-    "full_training_reference_steps": 30000,
-    "global_batch_size": 256,
-    "precision": "bfloat16",
-    "full_state_components": ["model.safetensors", "optimizer.pt", "metadata.pt", "rng_state.rank{0..7}.pt"],
-    "resume": "same-directory --resume with full model/optimizer/metadata/per-rank RNG state",
-    "scheduler": "pinned trainer computes deterministic LR from global_step/config"
-  },
+  "schema_version": 2,
+  "schema": "pai-job-registry-v2",
+  "workspace_id": "179169",
+  "kind": "pytorchjob",
+  "name_prefix": "r142-stage-s-c-undertrained-idle",
+  "description": "R142 Stage-S substrate C exact pi05 base download, official conversion, and 10001-step weak-substrate training",
+  "resource_alias": "idle-a800-robot-stage-s-graphics-8gpu",
+  "resource_id": "quota1ssrabud0bh",
+  "quota_name": "exp-robot",
   "resource": {
+    "pool_family": "robot",
     "pool": "robot_idle",
+    "alias": "idle-a800-robot-stage-s-graphics-8gpu",
+    "id": "quota1ssrabud0bh",
+    "quota_name": "exp-robot",
+    "oversold_type": "AcceptQuotaOverSold",
     "workers": 1,
     "gpu": 8,
     "cpu": 88,
-    "memory_gib": 1525,
-    "shared_memory_gib": 1525,
-    "runtime_uid": 2254,
-    "runtime_gid": 2254
+    "memory": "1525Gi",
+    "shared_memory": "1525Gi"
+  },
+  "provenance": {
+    "openpi_source_url": "https://github.com/Physical-Intelligence/openpi.git",
+    "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+    "source_role": "official_openpi_pi05_base_and_pytorch_trainer",
+    "community_sft_base_forbidden": true,
+    "submission_method": "pai-job-registry-v2",
+    "direct_unregistered_createjob_forbidden": true
+  },
+  "network": {},
+  "worker": {
+    "count": 1,
+    "gpu": 8,
+    "cpu": 88,
+    "memory": "1525Gi",
+    "shared_memory": "1525Gi",
+    "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04"
+  },
+  "storage": {
+    "data_sources": [
+      {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+      {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+      {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""}
+    ],
+    "output_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/c"
+  },
+  "runtime": {
+    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split/scripts/stage_s_c_undertrained_pai.sh",
+    "command_file_sha256": "d76e861b69355460f8b8b6ad02db44eca546f6ee514fc049c4f6c0106a006464",
+    "payload_sha256": "d76e861b69355460f8b8b6ad02db44eca546f6ee514fc049c4f6c0106a006464",
+    "python": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python",
+    "uid": 2254,
+    "gid": 2254,
+    "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
+    "home_policy": "inherit; launcher does not export or mutate HOME",
+    "output_mode": "resume",
+    "create_artifact_dir": true,
+    "recursive_repair": false,
+    "secret_env_names": [],
+    "pod_env": {"NVIDIA_DRIVER_CAPABILITIES": "compute,utility"},
+    "write_paths": [
+      "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base",
+      "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base_pytorch",
+      "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/openpi/r16p15/openpi-assets/checkpoints",
+      "/mnt/cpfs/zbl-cpfs-new/CKPT/leon/r142_stage_s_c",
+      "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c",
+      "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c_status",
+      "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/c"
+    ]
   },
   "fault_tolerance": {
     "execution_mode": "Sync",
     "policy": "OnFailure",
-    "max_num_of_job_restart": 50,
-    "launcher_attempts_per_incarnation": 1,
+    "application_auto_resume": true,
     "persistent_application_autoresume": true,
-    "same_directory_on_resume": true
+    "same_directory_on_resume": true,
+    "retry_sleep_seconds": 30,
+    "launcher_attempts": 1,
+    "pai_automatic_fault_tolerance": true,
+    "max_num_of_job_restart": 50,
+    "maximum_platform_restarts": 50,
+    "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure"
+  },
+  "stage_pipeline": {
+    "same_foreground_job": true,
+    "stages": [
+      {"name": "base_download", "completion": "BASE_DOWNLOAD_COMPLETED.json", "failure": "FAILED_base_download.json", "resume": "per-object .part + SHA256"},
+      {"name": "conversion", "completion": "CONVERSION_COMPLETED.json", "failure": "FAILED_conversion.json", "resume": "idempotent completed conversion only"},
+      {"name": "training", "completion": "COMPLETED_C_TRAINING.json", "failure": "FAILED_C_TRAINING.json", "resume": "same checkpoint/log/run directory with --resume"}
+    ],
+    "status_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c_status/<RUN_ID>",
+    "stage_marker_sha_policy": "each status marker includes payload_sha256 and evidence_sha256 when evidence exists"
+  },
+  "evidence": {
+    "kind": "r142_stage_s_c_undertrained_training",
+    "workload_type": "training",
+    "success_gate": "COMPLETED_C_TRAINING.json plus checkpoint and log SHA256SUMS verified with sha256sum -c",
+    "task_id": "r142-stage-s-substrate-c-undertrained",
+    "model_id": "pi05_base-openpi-54cbaee6-converted",
+    "contract_ready": true,
+    "scientific_rollouts": false,
+    "runtime_gpu_smoke_only": false,
+    "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+    "openpi_python": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python",
+    "config_name": "pi05_libero",
+    "dataset_repo_id": "physical-intelligence/libero",
+    "base_gcs_uri": "gs://openpi-assets/checkpoints/pi05_base/",
+    "base_object_count": 29,
+    "base_total_bytes": 12441749581,
+    "seed": 42,
+    "num_train_steps": 10001,
+    "save_interval_steps": 1000,
+    "retained_checkpoint_steps": [1000, 3000, 6000, 10000],
+    "full_state_components": ["model.safetensors", "optimizer.pt", "metadata.pt", "rng_state.rank{0..7}.pt", "deterministic_data_cursor_contract"],
+    "completion_evidence_paths": [
+      "<BASE_JAX>/BASE_DOWNLOAD_COMPLETED.json",
+      "<BASE_PT>/CONVERSION_COMPLETED.json",
+      "<CHECKPOINT_BASE>/COMPLETED_C_TRAINING.json",
+      "<CHECKPOINT_BASE>/SHA256SUMS",
+      "<LOG_ROOT>/SHA256SUMS",
+      "<STATUS_ROOT>/COMPLETED_C_PIPELINE.json"
+    ],
+    "failed_evidence_paths": ["<STATUS_ROOT>/FAILED_*.json", "<LOG_ROOT>/FAILED_C_TRAINING.json"]
+  },
+  "submission": {
+    "priority": 9,
+    "disable_ecs_stock_check": true,
+    "job_max_running_time_minutes": 0,
+    "job_reserved_minutes": 0,
+    "job_reserved_policy": "",
+    "tags": {
+      "managed_by": "pai-job-registry",
+      "purpose": "substrate-training",
+      "project": "r142-fp-11-stage-s",
+      "substrate": "C",
+      "task": "r142-stage-s-substrate-c-undertrained",
+      "model": "pi05-base-openpi-54cbaee6",
+      "resource_pool": "exp-robot",
+      "hardware": "8xa800-idle",
+      "autoresume": "application-idempotent"
+    }
   },
   "blackout": {
     "timezone": "Asia/Shanghai",
     "windows": ["09:30-09:40", "19:30-19:40"],
-    "fail_closed": true
+    "fail_closed": true,
+    "stop_before": ["09:30", "19:30"],
+    "resume_after": ["09:40", "19:40"]
   },
-  "persistence": {
-    "base_completion": "BASE_DOWNLOAD_COMPLETED.json",
-    "conversion_completion": "CONVERSION_COMPLETED.json",
-    "training_completion": "COMPLETED_C_TRAINING.json",
-    "sha_manifest": "SHA256SUMS",
-    "same_directory_on_resume": true,
-    "no_pai_submit_performed": true
-  }
+  "no_pai_submit_performed": true,
+  "status": "IMPLEMENTED_NOT_SUBMITTED"
 }
