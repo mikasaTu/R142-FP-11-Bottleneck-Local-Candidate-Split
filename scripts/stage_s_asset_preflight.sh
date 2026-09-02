@@ -9,11 +9,18 @@ DEPS="$ROOT/code/r142_stage_s_deps"
 RT="$ROOT/cache/r142_stage_s/runtime/RoboTwin"
 OUT="$ROOT/logs/r142_fp11_stage_s/assets/$RUN_ID"
 MODEL="$ROOT/cache/r142_stage_s/models/Evo1_RoboTwin2_clean_ce8c583724706fbf7a03c17237761c65bf6813a7"
-TOOLS_ENV="$ROOT/envs/r142_stage_s_tools"
+TOOLS_ENV="$ROOT/cache/r142_stage_s/envs/tools_py311"
 RT_ENV="$ROOT/cache/r142_stage_s/envs/robotwin_py310"
 EVO_ENV="$ROOT/cache/r142_stage_s/envs/evo1_py310"
 PIP_CACHE="$ROOT/cache/r142_stage_s/pip"
 mkdir -p "$OUT" "$MODEL" "$PIP_CACHE"
+
+conda_bin=$(command -v conda || true)
+if [[ -z "$conda_bin" && -x /opt/conda/bin/conda ]]; then conda_bin=/opt/conda/bin/conda; fi
+[[ -n "$conda_bin" ]]
+if [[ ! -x "$TOOLS_ENV/bin/python" ]]; then
+  "$conda_bin" create -y -p "$TOOLS_ENV" python=3.11 pip
+fi
 
 blocked_window() {
   local hm
@@ -71,7 +78,7 @@ fi
 git -C "$RT/envs/curobo" checkout --detach d64c4b005459db10c5dd867d8b30a87d5bda9bdb
 
 if ! "$TOOLS_ENV/bin/python" -c 'import huggingface_hub' >/dev/null 2>&1; then
-  PIP_CACHE_DIR="$PIP_CACHE" "$TOOLS_ENV/bin/pip" install 'huggingface_hub==0.36.2'
+  PIP_CACHE_DIR="$PIP_CACHE" "$TOOLS_ENV/bin/python" -m pip install 'huggingface_hub==0.36.2'
 fi
 "$TOOLS_ENV/bin/hf" download MINT-SJTU/Evo1_RoboTwin2_clean \
   --revision ce8c583724706fbf7a03c17237761c65bf6813a7 --local-dir "$MODEL"
