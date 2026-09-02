@@ -294,6 +294,7 @@ VARIANT_ARGS=(
 # Only the controller writes the immutable plan.  CPFS does not guarantee
 # coherent concurrent create/replace semantics for eight writers using the
 # same temporary path, so plan creation must finish before torch workers start.
+cd "$STAGE_S_REPO"
 "$PYTHON" scripts/stage_s_libero_calibrate.py \
   --substrate B --mode prepare --output-root "$OUT" \
   --world-size "$WORLD_SIZE" \
@@ -303,7 +304,6 @@ VARIANT_ARGS=(
 # The pinned OpenPI interpreter owns torch, JAX and the policy dependencies.
 # Invoking its module entrypoint prevents PATH's system torchrun from silently
 # selecting /usr/local/bin/python.  WORLD_SIZE remains frozen to eight.
-cd "$STAGE_S_REPO"
 "$PYTHON" -m torch.distributed.run --standalone --nnodes=1 --nproc_per_node="$WORLD_SIZE" \
   scripts/stage_s_libero_calibrate.py \
   --substrate B --mode shard --output-root "$OUT" \
