@@ -40,6 +40,22 @@ The converter restores the Orbax `params/` tree and writes
 `CONVERSION_PROVENANCE.json` and `CONVERSION_COMPLETED.json`, including the
 source commit, config, source-manifest digest, and model SHA-256.
 
+## Runtime checkout and launcher admission
+
+The registry command file is bound to the independent C runtime clone
+`/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903`.
+The launcher receives that path through `STAGE_S_C_PROJECT_DIR` and refuses a
+missing, relative, or differently located checkout; it never assumes the
+research repository name as a runtime path. The controller must also inject
+the exact 40-hex `STAGE_S_SOURCE_COMMIT` and the exact
+`STAGE_S_C_PAYLOAD_SHA256`. Admission checks the bound checkout's clean Git
+HEAD, the QPILOTS parent commit
+`eacf47b981e3b22357f8a74902f8dad8cfcfa375`, the OpenPI commit above, the
+invoked payload's SHA-256, and the matching hashes in the registry JSON. It
+writes `RUNTIME_IDENTITY.json` and a hashed `COMPLETED_preflight.json` before
+any download, conversion, or training mutation. Missing or mismatched
+identity fails closed and cannot produce a stage completion marker.
+
 ## Public GCS object contract
 
 The live public JSON API listing was checked against the frozen manifest in

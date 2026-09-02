@@ -7,6 +7,10 @@ agent performs the external credential, mount, UID/GID, and resource readback.
 ## Frozen paths and lineage
 
 ```text
+RUNTIME_PROJECT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903
+STAGE_S_C_PROJECT_DIR=$RUNTIME_PROJECT
+STAGE_S_SOURCE_COMMIT=<controller-injected exact 40-hex commit of RUNTIME_PROJECT>
+STAGE_S_C_PAYLOAD_SHA256=<controller-injected SHA256 of scripts/stage_s_c_undertrained_pai.sh>
 OPENPI=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi
 OPENPI_PYTHON=/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python
 BASE_JAX=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base
@@ -58,7 +62,7 @@ PYTHONPATH="$PWD/src:$OPENPI/src" "$OPENPI_PYTHON" scripts/stage_s_libero_c_payl
   --run-id r142-stage-s-c-undertrained-20260902 \
   --openpi-root "$OPENPI" --base-jax-root "$BASE_JAX" \
   --base-pytorch-root "$BASE_PT" --checkpoint-base-dir "$CKPT" \
-  --log-root "$LOG" --repo-root /mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s \
+  --log-root "$LOG" --repo-root "$RUNTIME_PROJECT" \
   --assets-base-dir "$ASSETS" \
   --contract /mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c/CHAIN.json \
   --payload /mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c/PAI_PAYLOAD.json
@@ -151,7 +155,13 @@ For registry execution, submit only the checked-in
 `configs/pai/stage_s_c_undertrained.json` (schema v2) through the canonical
 `pai-job-registry`; it binds the robot-idle alias/id/quota, UID/GID, CPFS
 write paths, pinned Python, sequential stage payload, and application
-autoresume. The payload itself is non-interactive and never changes `HOME`.
+autoresume. Before execution the controller must bind
+`STAGE_S_C_PROJECT_DIR`, `STAGE_S_SOURCE_COMMIT`, and
+`STAGE_S_C_PAYLOAD_SHA256` exactly as recorded in the registry config. The
+launcher checks the source Git HEAD and cleanliness, the QPILOTS parent
+commit, the OpenPI commit, and both the registry and invoked-payload SHA;
+missing or mismatched values fail closed. The payload itself is
+non-interactive and never changes `HOME`.
 
 No scientific C success/gate claim is made until these artifacts are read
 back from CPFS and the parent agent separately verifies the terminal PAI JobId.

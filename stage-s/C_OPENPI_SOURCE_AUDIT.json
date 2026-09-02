@@ -9,6 +9,12 @@
   "python_executable": true,
   "python_version": "Python 3.11.11",
   "checkout": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi",
+  "qpilots_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812",
+  "qpilots_expected_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
+  "stage_s_runtime_project_dir": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903",
+  "stage_s_runtime_project_dir_env": "STAGE_S_C_PROJECT_DIR",
+  "stage_s_source_commit_env": "STAGE_S_SOURCE_COMMIT",
+  "payload_sha256_env": "STAGE_S_C_PAYLOAD_SHA256",
   "config_name": "pi05_libero",
   "official_converter": "examples/convert_jax_model_to_pytorch.py",
   "official_trainer": "scripts/train_pytorch.py",
@@ -38,7 +44,11 @@
     "converter_cli_exact": true,
     "trainer_cli_exact": true,
     "trainer_cursor_loop_audited": true,
-    "pinned_python_executable": true
+    "pinned_python_executable": true,
+    "stage_s_runtime_path_bound": true,
+    "stage_s_source_commit_admission": true,
+    "qpilots_commit_admission": true,
+    "payload_sha256_admission": true
   },
   "resume_contract": {
     "pinned_trainer_loop": "while global_step < config.num_train_steps; set_epoch(global_step // len(loader)); for observation, actions in loader",
