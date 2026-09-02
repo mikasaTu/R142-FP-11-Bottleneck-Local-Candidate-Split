@@ -92,6 +92,12 @@
     "idle_8gpu_contract": "generic_formal_idle_8gpu_v1",
     "require_actual_idle": true,
     "pai_probe_created": false,
+    "explicit_user_resource_authorization": {
+      "resource_id": "quota1ssrabud0bh",
+      "oversold_type": "AcceptQuotaOverSold",
+      "scope": "{{RUN_ID}}",
+      "source": "explicit_user_request_20260831_exp_robot_idle_88CPU_1525Gi"
+    },
     "validation_status": "passed",
     "validation_method": "static+dev14_smoke",
     "validated_payload_sha256": "2ec48a23a968ce8f490525fdcc88d5c696866977cfd47901a54220f8f820ea52",
