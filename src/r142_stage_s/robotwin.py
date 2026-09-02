@@ -434,6 +434,26 @@ class EvoProxyStateAdapter:
 
     def set_rng(self, rng: np.random.Generator) -> None:
         self.rng = rng
+        # Local RNG alone cannot control a server-backed policy.  A concrete
+        # deploy wrapper must expose a seed hook so candidate sampling is
+        # genuinely independent; the public unpatched proxy is therefore
+        # rejected here (and also lacks the snapshot hooks required by the
+        # replay gate).
+        hook = getattr(self.proxy, "set_rng", None)
+        if not callable(hook):
+            hook = getattr(self.proxy, "seed", None)
+        if not callable(hook):
+            raise CapabilityError(
+                "Evo proxy independent sampling unavailable: server policy "
+                "must expose set_rng(rng) or seed(seed)"
+            )
+        try:
+            hook(rng)
+        except TypeError:
+            try:
+                hook(_copy(rng.bit_generator.state))
+            except TypeError:
+                hook(int(rng.integers(0, 2**32, dtype=np.uint32)))
 
 
 class ConcreteRoboTwinRuntime:
@@ -448,6 +468,7 @@ class ConcreteRoboTwinRuntime:
     _COUNTERS = (
         "take_action_cnt", "step_lim", "eval_success", "plan_success",
         "stage_success_tag", "left_cnt", "right_cnt", "FRAME_IDX",
+        "scene_step", "step_count", "physics_step",
     )
 
     def __init__(self, task_env: Any, policy: Any, *, require_torch: bool = True):
@@ -509,7 +530,7 @@ class ConcreteRoboTwinRuntime:
                         f"articulation {index} has {getter} without matching {setter}"
                     )
             articulations.append(item)
-        return {
+        state = {
             "scene": scene,
             "actors": actors,
             "articulations": articulations,
@@ -517,6 +538,28 @@ class ConcreteRoboTwinRuntime:
                         for key in self._COUNTERS if hasattr(self.task_env, key)},
             "now_obs": _copy(getattr(self.task_env, "now_obs", None)),
         }
+        # Some SAPIEN builds expose a simulation clock.  Preserve it when the
+        # paired setter exists; accepting only a getter would make replay
+        # silently drift in integrator state, so that case is rejected.
+        for getter, setter in (
+            ("get_time", "set_time"),
+            ("get_sim_time", "set_sim_time"),
+            ("get_simulation_time", "set_simulation_time"),
+        ):
+            get_fn, set_fn = getattr(scene, getter, None), getattr(scene, setter, None)
+            if callable(get_fn) and callable(set_fn):
+                state["scene_clock"] = {
+                    "getter": getter,
+                    "setter": setter,
+                    "value": _copy(get_fn()),
+                }
+                break
+            if callable(get_fn) != callable(set_fn):
+                raise CapabilityError(
+                    f"SAPIEN scene has {getter} without matching {setter}; "
+                    "cannot restore simulation clock"
+                )
+        return state
 
     def restore_simulator_state(self, state: Mapping[str, Any]) -> None:
         for item in state["actors"]:
@@ -540,6 +583,12 @@ class ConcreteRoboTwinRuntime:
                     getattr(articulation, setter)(_copy(item[key]))
         for key, value in state["counters"].items():
             setattr(self.task_env, key, _copy(value))
+        clock = state.get("scene_clock")
+        if clock is not None:
+            setter = getattr(self.task_env.scene, clock["setter"], None)
+            if not callable(setter):
+                raise CapabilityError("SAPIEN scene simulation clock setter disappeared")
+            setter(_copy(clock["value"]))
         if "now_obs" in state:
             self.task_env.now_obs = _copy(state["now_obs"])
 
@@ -879,6 +928,9 @@ class FamilyRolloutRunner:
             except TypeError:
                 reset(int(initial_seed))
         first = self.policy_factory(int(initial_seed))
+        bind_policy = getattr(env, "bind_policy", None)
+        if callable(bind_policy):
+            bind_policy(first)
         replay = ExactReplayVerifier(env, first)
         base = replay.capture()
         # Mandatory fail-closed preflight.  It runs before candidate 0 and
@@ -952,8 +1004,26 @@ class FamilyRolloutRunner:
             return fn(observation)
 
     def _rollout(self, env: Any, policy: Any, record: CandidateRecord) -> None:
+        if not hasattr(env, "eval_success"):
+            raise CapabilityError("official RoboTwin env must expose eval_success")
+        if not callable(getattr(env, "get_obs", None)) or not callable(
+            getattr(env, "take_action", None)
+        ):
+            raise CapabilityError("official RoboTwin env must expose get_obs/take_action")
+        if getattr(env, "step_lim", None) is None or getattr(env, "take_action_cnt", None) is None:
+            raise CapabilityError(
+                "official RoboTwin env must expose step_lim/take_action_cnt termination counters"
+            )
         rng = np.random.default_rng(record.seed)
         initial_forward = getattr(policy, "forward_count", None)
+
+        def record_observation(observation: Any) -> None:
+            eef_pose = _jsonable(_pose(observation))
+            record.pose_trajectory.append(eef_pose)
+            record.eef_trajectory.append(eef_pose)
+            for name, pose in _object_poses(env).items():
+                record.object_trajectories.setdefault(name, []).append(pose)
+
         while not bool(getattr(env, "eval_success", False)):
             limit = getattr(env, "step_lim", None)
             count = getattr(env, "take_action_cnt", None)
@@ -962,11 +1032,7 @@ class FamilyRolloutRunner:
             observation = env.get_obs()
             action = self._act(policy, observation, rng)
             record.action_prefix.append(_jsonable(action))
-            eef_pose = _jsonable(_pose(observation))
-            record.pose_trajectory.append(eef_pose)
-            record.eef_trajectory.append(eef_pose)
-            for name, pose in _object_poses(env).items():
-                record.object_trajectories.setdefault(name, []).append(pose)
+            record_observation(observation)
             env.take_action(action)
             record.env_steps += 1
             if initial_forward is None:
@@ -975,6 +1041,11 @@ class FamilyRolloutRunner:
                 record.policy_forwards = int(
                     getattr(policy, "forward_count", initial_forward)
                 ) - int(initial_forward)
+        # Persist the terminal observation/object pose as well as the
+        # pre-action trajectory, so a successful terminal transition is not
+        # omitted from the raw evidence.
+        terminal_observation = env.get_obs()
+        record_observation(terminal_observation)
         record.final_success = bool(getattr(env, "eval_success", False))
         check = getattr(env, "check_success", None)
         if not record.final_success and callable(check):

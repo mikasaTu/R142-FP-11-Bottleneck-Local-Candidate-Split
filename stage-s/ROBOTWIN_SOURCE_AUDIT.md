@@ -54,14 +54,44 @@ instruction files are present. The explicit checkpoint path
 exists but is empty while the checkpoint download is pending. RoboTwin
 stable 2.0 requires SAPIEN/CuRobo and the Evo-1 plugin/server.
 
-Therefore the current live substrate status is BLOCKED_CAPABILITY only because
-the three checkpoint files are not yet present. This is not a scientific
-failure and no synthetic rollout is emitted. The remaining prerequisite is to
-verify the checkpoint file hashes at the pinned HF revision and run the exact
-replay preflight through the concrete wrapper.
+Therefore the current live asset status is `BLOCKED_CAPABILITY` because the
+three checkpoint files are not yet present. This is not a scientific failure
+and no synthetic rollout is emitted. Independently, the deployed policy
+server must expose the exact RNG snapshot/restore and candidate-seeding hooks
+required by the concrete adapter; the public unpatched proxy does not. The
+remaining prerequisites are to verify checkpoint file hashes at the pinned HF
+revision and run the exact replay preflight through the concrete wrapper.
 
 The audit script requires the concrete wrapper path explicitly via
 --runtime-wrapper; source and weight presence alone never yields READY.
 The wrapper must export ConcreteRoboTwinRuntime and EvoProxyStateAdapter.
 The public Evo-1 deploy_policy.py has neither exact snapshot hooks nor server
 RNG restore, so it is correctly rejected.
+
+## Substrate-A execution contract
+
+`scripts/stage_s_robotwin_main.py` is the only A execution entry point. It
+freezes the ten tasks above, 16 initial-state families per task, and 32
+independently seeded policy candidates per family. The official RoboTwin
+`setup_demo`/`get_obs`/`take_action` path is used directly; no expert
+trajectory or synthetic success callback is accepted. Each candidate stores
+the complete action prefix, EEF trajectory, rigid-actor/object trajectories,
+policy-forward count, environment-step count, final official success flag,
+and seed genealogy. A family is written atomically as `family.json`,
+`genealogy.jsonl`, `SHA256SUMS`, then `COMPLETED_FAMILY.json`.
+
+Before candidate 0 the runner must pass the concrete
+`restore -> same action -> next-state` check at tolerance `1e-9`. Failure is a
+capability block and produces no family completion marker. A valid marker is
+immutable and is skipped on same-directory retry; a hash mismatch is
+fail-closed. `scripts/stage_s_robotwin_payload.py` emits a template only (it
+never submits PAI), with one rank shard per shared output root, robot idle
+8×A800/88 CPU/1525 GiB limits, and Beijing 09:30–09:40 and 19:30–19:40
+fail-closed scheduler guards. The visible calibration command refuses
+Step-0 because substrate A has no registered calibration phase.
+
+The released public WebSocket proxy currently exposes no policy RNG snapshot
+or restore hook. Until the deployed server supplies that concrete hook and
+the three checkpoint files plus exact HF revision evidence are verified, a
+real A rollout remains `BLOCKED_CAPABILITY`; this is an infrastructure
+precondition, not a scientific result.

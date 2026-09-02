@@ -24,6 +24,12 @@
       "norm_stats.json": null,
       "mp_rank_00_model_states.pt": null
     },
+    "checkpoint_revision_evidence": {
+      "source": "directory_name",
+      "revision": "ce8c583724706fbf7a03c17237761c65bf6813a7",
+      "matches": true
+    },
+    "checkpoint_hash_mismatches": {},
     "runtime_wrapper": "src/r142_stage_s/robotwin.py"
   },
   "concrete_wrapper_verified": true,

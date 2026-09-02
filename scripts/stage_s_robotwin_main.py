@@ -18,7 +18,9 @@ import copy
 import hashlib
 import importlib
 import json
+import os
 import sys
+import tempfile
 from datetime import datetime, time
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
@@ -47,7 +49,10 @@ BLACKOUT_WINDOWS: Tuple[Tuple[time, time], ...] = (
 
 def assert_outside_blackout(now: Optional[datetime] = None) -> datetime:
     """Fail closed during the two frozen daily scheduler blackout windows."""
-    current = (now or datetime.now(BEIJING)).astimezone(BEIJING)
+    supplied = now
+    if supplied is not None and supplied.tzinfo is None:
+        supplied = supplied.replace(tzinfo=BEIJING)
+    current = (supplied or datetime.now(BEIJING)).astimezone(BEIJING)
     current_time = current.time().replace(tzinfo=None)
     for start, end in BLACKOUT_WINDOWS:
         if start <= current_time < end:
@@ -61,10 +66,21 @@ def assert_outside_blackout(now: Optional[datetime] = None) -> datetime:
 
 def _atomic_json(path: Path, value: Mapping[str, Any]) -> str:
     data = (json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode()
+    return _atomic_bytes(path, data)
+
+
+def _atomic_bytes(path: Path, data: bytes) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.tmp")
-    temporary.write_bytes(data)
-    temporary.replace(path)
+    fd, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary_name, path)
+    finally:
+        if os.path.exists(temporary_name):
+            os.unlink(temporary_name)
     return hashlib.sha256(data).hexdigest()
 
 
@@ -120,7 +136,8 @@ def _prepare_official_args(
         value = embodiment_cfg.get(name, {}).get("file_path")
         if not value:
             raise CapabilityError(f"embodiment file is missing for {name}")
-        return Path(value)
+        path = Path(value)
+        return path if path.is_absolute() else robotwin_root / path
 
     if len(embodiment_type) == 1:
         left_file = right_file = robot_file(str(embodiment_type[0]))
@@ -295,6 +312,11 @@ class OfficialRoboTwinEpisode:
             "actors": actor_state,
             "articulations": articulation_state,
             "counters": _jsonable(state["counters"]),
+            "scene_clock": _jsonable(
+                state.get("scene_clock", {}).get("value")
+                if isinstance(state.get("scene_clock"), Mapping)
+                else None
+            ),
         }
 
 
@@ -302,7 +324,6 @@ class OfficialEvoPolicy:
     """Policy adapter using the released Evo-1 deploy_policy plugin."""
 
     def __init__(self, proxy: Any, task_env: OfficialRoboTwinEpisode, horizon: int = 37):
-        super().__init__()
         self.stateful = EvoProxyStateAdapter(proxy)
         self.task_env = task_env
         self.horizon = int(horizon)
@@ -411,7 +432,7 @@ def _write_rank_completion(output_root: Path, rank: int, world_size: int, manife
     digest = _atomic_json(path, payload)
     sums = output_root / f"SHA256SUMS_A_RANK-{rank:04d}"
     sums_data = f"{digest}  {path.name}\n".encode()
-    sums.write_bytes(sums_data)
+    _atomic_bytes(sums, sums_data)
     return {**payload, "completion_file": str(path), "completion_sha256": digest}
 
 
@@ -463,14 +484,12 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         "synthetic_rollouts": False,
         "expert_trajectory": False,
         "termination": "official eval_success or step_lim",
-        "blackout_windows": ["09:30-09:40", "19:30-19:40 Asia/Shanghai", "19:30-19:40 Asia/Shanghai"],
+        "blackout_windows": [
+            "09:30-09:40 Asia/Shanghai",
+            "19:30-19:40 Asia/Shanghai",
+        ],
         "asset_audit": audit_result,
     }
-    # Correct the display list (the first entry is the morning window).
-    run_manifest["blackout_windows"] = [
-        "09:30-09:40 Asia/Shanghai",
-        "19:30-19:40 Asia/Shanghai",
-    ]
     _atomic_json(output_root / f"RUN_MANIFEST_RANK-{args.rank:04d}.json", run_manifest)
 
     manifests = []
@@ -481,6 +500,11 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
                 continue
             family_id = f"{task_name}/family-{family_index:04d}"
             family_output = output_root / f"rank-{args.rank:04d}"
+            writer = AtomicFamilyWriter(family_output / task_name)
+            existing = writer.completed(f"family-{family_index:04d}")
+            if existing is not None:
+                manifests.append(existing)
+                continue
             episode = OfficialRoboTwinEpisode(
                 robotwin_root=robotwin_root,
                 task_name=task_name,
@@ -495,7 +519,6 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
                     checkpoint_revision=pins.checkpoint_revision,
                     episode=episode,
                 )
-                writer = AtomicFamilyWriter(family_output / task_name)
                 runner = FamilyRolloutRunner(
                     env_factory=lambda episode=episode: episode,
                     policy_factory=policy_factory,
@@ -538,6 +561,18 @@ def main() -> int:
     except CapabilityError as exc:
         print(json.dumps({"status": "BLOCKED_CAPABILITY", "error": str(exc)}, ensure_ascii=False))
         return 2
+    except Exception as exc:  # pragma: no cover - concrete dependency/runtime only
+        print(
+            json.dumps(
+                {
+                    "status": "BLOCKED_RUNTIME",
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                },
+                ensure_ascii=False,
+            )
+        )
+        return 3
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0
 

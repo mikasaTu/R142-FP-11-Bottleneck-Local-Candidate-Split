@@ -150,6 +150,8 @@ def main() -> int:
     args = build_parser().parse_args()
     try:
         now = datetime.fromisoformat(args.now) if args.now else None
+        if now is not None and now.tzinfo is None:
+            now = now.replace(tzinfo=BEIJING)
         payload = build_payload(
             run_id=args.run_id,
             output_root=args.output_root,
