@@ -94,6 +94,21 @@ S5_PROTOCOL: dict[str, object] = {
     "fresh_candidate_indices": list(range(32, 64)),
     "extension_seed_formula": "sha256(r142-stage-s-v1|S5-extension|substrate|task_id|init_state|candidate_index)->first_8_bytes_big_endian",
 }
+DECISION_PROTOCOL: dict[str, object] = {
+    "control_failure": "PIPELINE_INVALID",
+    "headline_full_pass": "SUBSTRATE_QUALIFIED if A or B passes S1-S5",
+    "weak_full_pass": "WEAK_SUBSTRATE_ONLY if only C passes S1-S5",
+    "all_s1_fail": "NO_SUBSTRATE_AT_TARGET_DIFFICULTY",
+    "gate_depth_order": ["S2", "S3", "S4", "S5"],
+    "gate_failure_codes": {
+        "S2": "NO_FAMILY_COLLAPSE",
+        "S3_origin": "COLLAPSE_AT_ORIGIN",
+        "S3_other": "UNRECOVERABLE_FAILURES",
+        "S4": "UNRECOVERABLE_FAILURES",
+        "S5": "BUDGET_SUFFICES",
+    },
+    "weak_arm_fallback": "when no S1-passing A/B arm exists, use the S1-passing C arm for the deeper falsification code",
+}
 
 FROZEN_SUMMARY: dict[str, object] = {
     "task_ids": list(TASK_IDS),
@@ -109,6 +124,7 @@ FROZEN_SUMMARY: dict[str, object] = {
     "divergence": DIVERGENCE_PROTOCOL,
     "s4": S4_PROTOCOL,
     "s5": S5_PROTOCOL,
+    "decision": DECISION_PROTOCOL,
     "compute_primary_unit": "policy_forward_pass",
     "compute_secondary_unit": "environment_step",
     "eventual_success_at_termination": True,
