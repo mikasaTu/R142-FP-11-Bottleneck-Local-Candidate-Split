@@ -46,8 +46,8 @@
   },
   "runtime": {
     "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_libero_c_calibration_pai.sh",
-    "command_file_sha256": "81fb443f82d768bb5ef0d8ab2641c329dd6725d4e8b38d7fef9e996e1a72af22",
-    "payload_sha256": "81fb443f82d768bb5ef0d8ab2641c329dd6725d4e8b38d7fef9e996e1a72af22",
+    "command_file_sha256": "675f4a8fd15ceaa7dcfbd2d15a720ded3d6390004ef32492e5f1de4a684edd73",
+    "payload_sha256": "675f4a8fd15ceaa7dcfbd2d15a720ded3d6390004ef32492e5f1de4a684edd73",
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
     "uid": 2254,
     "gid": 2254,
@@ -79,7 +79,7 @@
     "contract_ready": true,
     "validation_method": "static",
     "validation_status": "passed",
-    "validated_payload_sha256": "81fb443f82d768bb5ef0d8ab2641c329dd6725d4e8b38d7fef9e996e1a72af22",
+    "validated_payload_sha256": "675f4a8fd15ceaa7dcfbd2d15a720ded3d6390004ef32492e5f1de4a684edd73",
     "pai_probe_created": false,
     "explicit_user_resource_authorization": {
       "resource_id": "quota1ssrabud0bh",
@@ -135,9 +135,13 @@
       "bundle_sha_file": "C_SHA256SUMS"
     },
     "input_contract": {
-      "training_run_id": "r142-stage-s-c-undertrained-20260903-r2",
+      "acceptance_manifest": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c_status/ACCEPTED_C_TRAINING.json",
+      "acceptance_manifest_schema": "r142-stage-s-c-training-acceptance-v1",
+      "accepted_terminal_status": "Succeeded",
+      "training_run_id_source": "accepted_run_id",
+      "training_job_id_source": "job_id",
       "training_completion": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon/r142_stage_s_c/COMPLETED_C_TRAINING.json",
-      "training_pipeline_completion": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c_status/r142-stage-s-c-undertrained-20260903-r2/COMPLETED_C_PIPELINE.json",
+      "training_pipeline_completion_template": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c_status/<accepted_run_id>/COMPLETED_C_PIPELINE.json",
       "checkpoint_root": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon/r142_stage_s_c/pi05_libero/r142_stage_s_c_undertrained_seed42",
       "checkpoint_paths": [
         "/mnt/cpfs/zbl-cpfs-new/CKPT/leon/r142_stage_s_c/pi05_libero/r142_stage_s_c_undertrained_seed42/1000",
@@ -146,9 +150,18 @@
         "/mnt/cpfs/zbl-cpfs-new/CKPT/leon/r142_stage_s_c/pi05_libero/r142_stage_s_c_undertrained_seed42/10000"
       ],
       "checkpoint_sha": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon/r142_stage_s_c/SHA256SUMS",
-      "log_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c/r142-stage-s-c-undertrained-20260903-r2",
-      "log_sha": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c/r142-stage-s-c-undertrained-20260903-r2/SHA256SUMS",
+      "log_root_template": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c/<accepted_run_id>",
+      "log_sha_template": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c/<accepted_run_id>/SHA256SUMS",
       "expected_steps": [1000, 3000, 6000, 10000],
+      "checkpoint_hashes": {
+        "format": "accepted_manifest_relative_checkpoint_path_to_sha256",
+        "required_paths": [
+          "1000/model.safetensors",
+          "3000/model.safetensors",
+          "6000/model.safetensors",
+          "10000/model.safetensors"
+        ]
+      },
       "full_reference_step": 30000,
       "full_training_state_required": true,
       "no_interpolation": true,

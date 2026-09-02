@@ -28,26 +28,31 @@ readonly LIBERO="$OPENPI/third_party/libero"
 readonly LIBERO_COMMIT=f78abd68ee283de9f9be3c8f7e2a9ad60246e95c
 readonly PYTHON="$ROOT/envs/openpi_py311/bin/python"
 
-# r7 is read-only input. It must be a complete, hash-verified four-setting
-# bundle before any calibration episode is allowed to start.
-readonly C_TRAINING_RUN_ID=r142-stage-s-c-undertrained-20260903-r2
-readonly C_TRAINING_LOG_ROOT="$ROOT/logs/r142_fp11_stage_s/c/$C_TRAINING_RUN_ID"
-readonly C_TRAINING_STATUS_ROOT="$ROOT/logs/r142_fp11_stage_s/c_status/$C_TRAINING_RUN_ID"
+# C training is a read-only input. The main thread publishes this stable
+# acceptance manifest only after one exact PAI JobId reaches terminal success;
+# its accepted_run_id follows a future blackout/resume lineage and is not
+# hard-coded here.
+readonly C_ACCEPTANCE_MANIFEST="$ROOT/logs/r142_fp11_stage_s/c_status/ACCEPTED_C_TRAINING.json"
 readonly C_CHECKPOINT_BASE="$NEW_ROOT/CKPT/leon/r142_stage_s_c"
 readonly C_TRAIN_DIR="$C_CHECKPOINT_BASE/pi05_libero/r142_stage_s_c_undertrained_seed42"
 readonly C_COMPLETION="$C_CHECKPOINT_BASE/COMPLETED_C_TRAINING.json"
 readonly C_CHECKPOINT_SHA="$C_CHECKPOINT_BASE/SHA256SUMS"
-readonly C_LOG_SHA="$C_TRAINING_LOG_ROOT/SHA256SUMS"
-readonly C_PIPELINE_MARKER="$C_TRAINING_STATUS_ROOT/COMPLETED_C_PIPELINE.json"
 readonly LIBERO_CONFIG_SOURCE="$LIBERO/libero/configs/config.yaml"
 
 readonly OUT_ROOT="$ROOT/logs/pai_registry/r142_stage_s/c_calibration"
 readonly EXPECTED_ARTIFACT_DIR="$OUT_ROOT/$RUN_ID"
 readonly OUT="$ARTIFACT_DIR"
 readonly LIBERO_CONFIG_ROOT="$OUT/libero-config"
+readonly C_ACCEPTANCE_SNAPSHOT="$OUT/C_TRAINING_ACCEPTANCE.json"
 
 PHASE=bootstrap
 FAILURE_RECORDED=0
+C_TRAINING_RUN_ID=""
+C_TRAINING_JOB_ID=""
+C_TRAINING_LOG_ROOT=""
+C_TRAINING_STATUS_ROOT=""
+C_LOG_SHA=""
+C_PIPELINE_MARKER=""
 
 write_failure_marker() {
   local rc="$1"
@@ -72,7 +77,9 @@ payload = {
     "gid": os.getgid(),
     "world_size": 8,
     "gpu_count": 8,
-    "input_training_run_id": "r142-stage-s-c-undertrained-20260903-r2",
+    "acceptance_manifest": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c_status/ACCEPTED_C_TRAINING.json",
+    "accepted_run_id": os.environ.get("C_ACCEPTED_RUN_ID"),
+    "accepted_job_id": os.environ.get("C_ACCEPTED_JOB_ID"),
 }
 tmp = path.with_suffix(path.suffix + ".tmp")
 tmp.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
@@ -167,6 +174,40 @@ done
 [[ -s "$LIBERO_CONFIG_SOURCE" && ! -L "$LIBERO_CONFIG_SOURCE" ]]
 
 PHASE=training_input_audit
+[[ -s "$C_ACCEPTANCE_MANIFEST" && ! -L "$C_ACCEPTANCE_MANIFEST" ]]
+C_TRAINING_RUN_ID="$($PYTHON - "$C_ACCEPTANCE_MANIFEST" <<'PY'
+import json
+import pathlib
+import re
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+if payload.get("status") != "ACCEPTED":
+    raise SystemExit("C acceptance manifest is not ACCEPTED")
+value = payload.get("accepted_run_id")
+if not isinstance(value, str) or not re.fullmatch(r"r142-stage-s-c-undertrained-20260903-r[0-9]+", value):
+    raise SystemExit("C acceptance manifest has invalid accepted_run_id")
+print(value)
+PY
+)"
+C_TRAINING_JOB_ID="$($PYTHON - "$C_ACCEPTANCE_MANIFEST" <<'PY'
+import json
+import pathlib
+import re
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+value = payload.get("job_id")
+if not isinstance(value, str) or not re.fullmatch(r"dlc[0-9a-z]+", value):
+    raise SystemExit("C acceptance manifest has invalid job_id")
+print(value)
+PY
+)"
+export C_ACCEPTED_RUN_ID="$C_TRAINING_RUN_ID" C_ACCEPTED_JOB_ID="$C_TRAINING_JOB_ID"
+C_TRAINING_LOG_ROOT="$ROOT/logs/r142_fp11_stage_s/c/$C_TRAINING_RUN_ID"
+C_TRAINING_STATUS_ROOT="$ROOT/logs/r142_fp11_stage_s/c_status/$C_TRAINING_RUN_ID"
+C_LOG_SHA="$C_TRAINING_LOG_ROOT/SHA256SUMS"
+C_PIPELINE_MARKER="$C_TRAINING_STATUS_ROOT/COMPLETED_C_PIPELINE.json"
 [[ -s "$C_COMPLETION" && ! -L "$C_COMPLETION" ]]
 [[ -s "$C_CHECKPOINT_SHA" && ! -L "$C_CHECKPOINT_SHA" ]]
 [[ -s "$C_LOG_SHA" && ! -L "$C_LOG_SHA" ]]
@@ -174,9 +215,105 @@ PHASE=training_input_audit
 (cd "$C_CHECKPOINT_BASE" && sha256sum --check --quiet SHA256SUMS)
 (cd "$C_TRAINING_LOG_ROOT" && sha256sum --check --quiet SHA256SUMS)
 
-# Bind the global checkpoint bundle to the exact completed r2 training run.
-# The marker and both SHA manifests are read-only evidence; this calibration
-# never copies, interpolates, or artificially degrades a checkpoint.
+# Bind the common checkpoint bundle, both SHA manifests, and terminal status
+# to the stable acceptance manifest. This launcher never creates acceptance.
+"$PYTHON" - "$C_ACCEPTANCE_MANIFEST" "$C_COMPLETION" "$C_CHECKPOINT_SHA" "$C_LOG_SHA" "$C_TRAINING_LOG_ROOT" "$C_PIPELINE_MARKER" "$C_CHECKPOINT_BASE" "$C_TRAINING_RUN_ID" "$C_TRAINING_JOB_ID" <<'PY'
+import hashlib
+import json
+import pathlib
+import re
+import sys
+
+acceptance_path = pathlib.Path(sys.argv[1]).resolve()
+completion_path = pathlib.Path(sys.argv[2]).resolve()
+checkpoint_sha_path = pathlib.Path(sys.argv[3]).resolve()
+log_sha_path = pathlib.Path(sys.argv[4]).resolve()
+log_root = pathlib.Path(sys.argv[5]).resolve()
+pipeline_path = pathlib.Path(sys.argv[6]).resolve()
+checkpoint_base = pathlib.Path(sys.argv[7]).resolve()
+run_id, job_id = sys.argv[8:10]
+acceptance = json.loads(acceptance_path.read_text(encoding="utf-8"))
+if acceptance.get("schema") != "r142-stage-s-c-training-acceptance-v1":
+    raise SystemExit("C acceptance manifest schema drifted")
+if (
+    acceptance.get("status") != "ACCEPTED"
+    or acceptance.get("label") != "WEAK_SUBSTRATE"
+    or acceptance.get("pai_terminal_status") != "Succeeded"
+):
+    raise SystemExit("C acceptance manifest is not an accepted weak-substrate result")
+if acceptance.get("accepted_run_id") != run_id or not re.fullmatch(r"r142-stage-s-c-undertrained-20260903-r[0-9]+", run_id):
+    raise SystemExit("C acceptance run id does not match its derived lineage")
+if acceptance.get("job_id") != job_id or not re.fullmatch(r"dlc[0-9a-z]+", job_id):
+    raise SystemExit("C acceptance job id does not match its derived terminal job")
+source = {
+    "stage_s_commit": "7575da585be31eb369a604d90048b338bbbf2c92",
+    "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
+    "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+    "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
+}
+if acceptance.get("source") != source:
+    raise SystemExit("C acceptance source commits drifted")
+expected_paths = {
+    "checkpoint_root": str(checkpoint_base),
+    "checkpoint_completion": str(completion_path),
+    "checkpoint_sha256_manifest": str(checkpoint_sha_path),
+    "log_root": str(log_root),
+    "log_sha256_manifest": str(log_sha_path),
+    "training_pipeline_completion": str(pipeline_path),
+}
+for key, expected in expected_paths.items():
+    if acceptance.get(key) != expected:
+        raise SystemExit(f"C acceptance path mismatch for {key}")
+hash_fields = {
+    "checkpoint_completion_sha256": completion_path,
+    "checkpoint_sha256_manifest_digest": checkpoint_sha_path,
+    "log_sha256_manifest_digest": log_sha_path,
+}
+for key, path in hash_fields.items():
+    if acceptance.get(key) != hashlib.sha256(path.read_bytes()).hexdigest():
+        raise SystemExit(f"C acceptance hash mismatch for {key}")
+if acceptance.get("checkpoint_steps") != [1000, 3000, 6000, 10000]:
+    raise SystemExit("C acceptance checkpoint schedule drifted")
+if acceptance.get("full_reference_step") != 30000:
+    raise SystemExit("C acceptance full reference step drifted")
+if acceptance.get("no_interpolation") is not True or acceptance.get("artificial_degradation") is not False:
+    raise SystemExit("C acceptance permits interpolation or artificial degradation")
+checkpoint_hashes = acceptance.get("checkpoint_hashes")
+expected_checkpoint_hash_paths = {
+    f"{step}/model.safetensors" for step in (1000, 3000, 6000, 10000)
+}
+if not isinstance(checkpoint_hashes, dict) or set(checkpoint_hashes) != expected_checkpoint_hash_paths:
+    raise SystemExit("C acceptance must carry exactly four checkpoint model hashes")
+
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+for relative_path, expected_hash in checkpoint_hashes.items():
+    relative = pathlib.PurePosixPath(relative_path)
+    if relative.is_absolute() or ".." in relative.parts or relative_path != relative.as_posix():
+        raise SystemExit(f"C acceptance checkpoint hash path is not relative: {relative_path}")
+    if not isinstance(expected_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_hash):
+        raise SystemExit(f"C acceptance checkpoint hash is invalid: {relative_path}")
+    checkpoint_path = checkpoint_base / pathlib.Path(*relative.parts)
+    if checkpoint_path.is_symlink() or not checkpoint_path.is_file():
+        raise SystemExit(f"C acceptance checkpoint model is missing or symlinked: {checkpoint_path}")
+    if sha256_file(checkpoint_path) != expected_hash:
+        raise SystemExit(f"C acceptance checkpoint hash mismatch: {relative_path}")
+print("C_ACCEPTANCE_MANIFEST_GATE_PASS")
+PY
+
+if [[ -e "$C_ACCEPTANCE_SNAPSHOT" || -L "$C_ACCEPTANCE_SNAPSHOT" ]]; then
+  [[ -f "$C_ACCEPTANCE_SNAPSHOT" && ! -L "$C_ACCEPTANCE_SNAPSHOT" ]]
+  cmp -s "$C_ACCEPTANCE_SNAPSHOT" "$C_ACCEPTANCE_MANIFEST"
+else
+  cp -- "$C_ACCEPTANCE_MANIFEST" "$C_ACCEPTANCE_SNAPSHOT"
+  chmod 600 "$C_ACCEPTANCE_SNAPSHOT"
+fi
+
 export PYTHONPATH="$STAGE_S_REPO/src:$QPILOTS:$OPENPI:$LIBERO"
 "$PYTHON" - "$C_PIPELINE_MARKER" "$C_COMPLETION" "$C_TRAINING_RUN_ID" <<'PY'
 import json
@@ -213,7 +350,8 @@ PY
 
 # Audit all four exact C checkpoints with the pinned runtime before simulator
 # import, and persist only source/qualification metadata in the artifact.
-"$PYTHON" - "$C_CHECKPOINT_BASE" "$OUT/C_INPUT_AUDIT.json" <<'PY'
+"$PYTHON" - "$C_CHECKPOINT_BASE" "$OUT/C_INPUT_AUDIT.json" "$C_TRAINING_RUN_ID" "$C_TRAINING_JOB_ID" "$C_ACCEPTANCE_MANIFEST" "$C_ACCEPTANCE_SNAPSHOT" <<'PY'
+import hashlib
 import json
 import os
 import pathlib
@@ -223,6 +361,9 @@ from r142_stage_s.libero import C_FULL_REFERENCE_STEP, C_RETAIN_STEPS, audit_c_c
 
 checkpoint_base = pathlib.Path(sys.argv[1]).resolve()
 out = pathlib.Path(sys.argv[2]).resolve()
+training_run_id, training_job_id = sys.argv[3:5]
+acceptance_path = pathlib.Path(sys.argv[5]).resolve()
+acceptance_snapshot = pathlib.Path(sys.argv[6]).resolve()
 audit = audit_c_checkpoint_schedule(checkpoint_base, expected_steps=C_RETAIN_STEPS, require_training_state=True)
 if not audit.get("valid"):
     raise SystemExit("C checkpoint schedule audit failed: " + "; ".join(audit.get("errors", [])))
@@ -235,7 +376,11 @@ payload = {
     "schema": "r142-stage-s-c-calibration-input-audit-v1",
     "status": "COMPLETED",
     "label": "WEAK_SUBSTRATE",
-    "training_run_id": "r142-stage-s-c-undertrained-20260903-r2",
+    "training_run_id": training_run_id,
+    "training_job_id": training_job_id,
+    "acceptance_manifest": str(acceptance_path),
+    "acceptance_manifest_sha256": hashlib.sha256(acceptance_path.read_bytes()).hexdigest(),
+    "acceptance_snapshot": str(acceptance_snapshot),
     "checkpoint_root": str(checkpoint_base),
     "expected_steps": list(C_RETAIN_STEPS),
     "full_reference_step": C_FULL_REFERENCE_STEP,
@@ -276,21 +421,21 @@ mkdir -p "$XDG_CACHE_HOME"
 PHASE=first_work
 if [[ -e "$OUT/FIRST_WORK.json" || -L "$OUT/FIRST_WORK.json" ]]; then
   [[ -f "$OUT/FIRST_WORK.json" && ! -L "$OUT/FIRST_WORK.json" ]]
-  "$PYTHON" - "$OUT/FIRST_WORK.json" "$RUN_ID" <<'PY'
+  "$PYTHON" - "$OUT/FIRST_WORK.json" "$RUN_ID" "$C_TRAINING_RUN_ID" "$C_TRAINING_JOB_ID" <<'PY'
 import json
 import pathlib
 import sys
 
 payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-  if payload.get("status") != "FIRST_WORK" or payload.get("label") != "WEAK_SUBSTRATE":
+if payload.get("status") != "FIRST_WORK" or payload.get("label") != "WEAK_SUBSTRATE":
     raise SystemExit("FIRST_WORK label/status drifted")
-  if payload.get("run_id") != sys.argv[2] or payload.get("world_size") != 8 or payload.get("gpu_count") != 8:
+if payload.get("run_id") != sys.argv[2] or payload.get("world_size") != 8 or payload.get("gpu_count") != 8:
     raise SystemExit("FIRST_WORK identity drifted")
-  if payload.get("training_run_id") != "r142-stage-s-c-undertrained-20260903-r2":
+if payload.get("training_run_id") != sys.argv[3] or payload.get("training_job_id") != sys.argv[4]:
     raise SystemExit("FIRST_WORK training input drifted")
 PY
 else
-  "$PYTHON" - "$OUT/FIRST_WORK.json" "$RUN_ID" <<'PY'
+  "$PYTHON" - "$OUT/FIRST_WORK.json" "$RUN_ID" "$C_TRAINING_RUN_ID" "$C_TRAINING_JOB_ID" <<'PY'
 import json
 import os
 import pathlib
@@ -302,7 +447,8 @@ payload = {
     "status": "FIRST_WORK",
     "label": "WEAK_SUBSTRATE",
     "run_id": sys.argv[2],
-    "training_run_id": "r142-stage-s-c-undertrained-20260903-r2",
+    "training_run_id": sys.argv[3],
+    "training_job_id": sys.argv[4],
     "checkpoint_steps": [1000, 3000, 6000, 10000],
     "uid": os.getuid(),
     "gid": os.getgid(),
@@ -347,7 +493,7 @@ PHASE=calibration_aggregate
   --world-size "$WORLD_SIZE" --seed "$CALIBRATION_SEED"
 
 PHASE=completion_publish
-"$PYTHON" - "$OUT" "$RUN_ID" "$C_TRAINING_RUN_ID" "$C_CHECKPOINT_BASE" "$C_TRAINING_LOG_ROOT" "$C_COMPLETION" "$C_CHECKPOINT_SHA" "$C_LOG_SHA" <<'PY'
+"$PYTHON" - "$OUT" "$RUN_ID" "$C_TRAINING_RUN_ID" "$C_TRAINING_JOB_ID" "$C_ACCEPTANCE_MANIFEST" "$C_ACCEPTANCE_SNAPSHOT" "$C_CHECKPOINT_BASE" "$C_TRAINING_LOG_ROOT" "$C_COMPLETION" "$C_CHECKPOINT_SHA" "$C_LOG_SHA" <<'PY'
 import hashlib
 import json
 import os
@@ -363,12 +509,14 @@ from r142_stage_s.libero import (
 )
 
 root = pathlib.Path(sys.argv[1]).resolve()
-run_id, training_run_id = sys.argv[2], sys.argv[3]
-checkpoint_base = pathlib.Path(sys.argv[4]).resolve()
-training_log_root = pathlib.Path(sys.argv[5]).resolve()
-completion_path = pathlib.Path(sys.argv[6]).resolve()
-checkpoint_sha_path = pathlib.Path(sys.argv[7]).resolve()
-log_sha_path = pathlib.Path(sys.argv[8]).resolve()
+run_id, training_run_id, training_job_id = sys.argv[2], sys.argv[3], sys.argv[4]
+acceptance_path = pathlib.Path(sys.argv[5]).resolve()
+acceptance_snapshot = pathlib.Path(sys.argv[6]).resolve()
+checkpoint_base = pathlib.Path(sys.argv[7]).resolve()
+training_log_root = pathlib.Path(sys.argv[8]).resolve()
+completion_path = pathlib.Path(sys.argv[9]).resolve()
+checkpoint_sha_path = pathlib.Path(sys.argv[10]).resolve()
+log_sha_path = pathlib.Path(sys.argv[11]).resolve()
 settings = [f"step_{value}" for value in C_RETAIN_STEPS]
 result = root / "CALIBRATION_RESULT.json"
 verify_calibration_aggregate(result, settings, calibration_seed=CALIBRATION_SEED, world_size=8)
@@ -405,6 +553,7 @@ payload = {
     "substrate": "C",
     "run_id": run_id,
     "input_training_run_id": training_run_id,
+    "input_training_job_id": training_job_id,
     "checkpoint_steps": list(C_RETAIN_STEPS),
     "full_reference_step": 30000,
     "calibration_result": "CALIBRATION_RESULT.json",
@@ -421,6 +570,9 @@ payload = {
         "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
     },
     "input_provenance": {
+        "acceptance_manifest": str(acceptance_path),
+        "acceptance_manifest_sha256": hashlib.sha256(acceptance_path.read_bytes()).hexdigest(),
+        "acceptance_snapshot": str(acceptance_snapshot),
         "checkpoint_root": str(checkpoint_base),
         "checkpoint_completion": str(completion_path),
         "checkpoint_sha256_manifest": str(checkpoint_sha_path),
@@ -468,6 +620,7 @@ files = [
     root / "COMPLETED_C_CALIBRATION.json",
     root / "FIRST_WORK.json",
     root / "C_INPUT_AUDIT.json",
+    root / "C_TRAINING_ACCEPTANCE.json",
     root / "libero-config" / "config.yaml",
 ]
 for rank in range(8):
