@@ -1,6 +1,6 @@
 # Stage-S substrate C: pinned OpenPI and data audit
 
-Audit date: 2026-09-02 (Asia/Shanghai). This is an implementation/source
+Audit date: 2026-09-03 (Asia/Shanghai). This is an implementation/source
 audit, not a C scientific result. No PAI job was submitted and the 12.4 GB
 base was not downloaded during this pass.
 
@@ -10,9 +10,10 @@ base was not downloaded during this pass.
 |---|---|---|
 | OpenPI source | `https://github.com/Physical-Intelligence/openpi.git` | checkout `/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi` |
 | OpenPI commit | `54cbaee6ae0c010a1ed431871cdaa8f4684ac709` | `git rev-parse HEAD` exact; clean detached checkout |
+| OpenPI Python | `/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python` | executable, `Python 3.11.11`; launcher uses this absolute path |
 | configuration | `pi05_libero` | `src/openpi/training/config.py` at the pin |
-| official converter | `examples/convert_jax_model_to_pytorch.py` | `tyro.cli(main)`, `convert_pi0_checkpoint` |
-| official trainer | `scripts/train_pytorch.py` | `train_loop`, native model/optimizer/metadata saves |
+| official converter | `examples/convert_jax_model_to_pytorch.py` | AST signature audit: `checkpoint_dir`, `config_name`, `output_path`, `precision`, `inspect_only`; `tyro.cli(main)` |
+| official trainer | `scripts/train_pytorch.py` | AST `TrainConfig` override audit: `exp_name`, checkpoint/save/seed/weight/assets/worker/resume fields; `train_loop`, native model/optimizer/metadata saves |
 | dataset | `physical-intelligence/libero` | pinned `LeRobotLiberoDataConfig`, `prompt_from_task=True`, `extra_delta_transform=False` |
 | base source | `gs://openpi-assets/checkpoints/pi05_base/params` | the C input is the public JAX base, never the community full SFT |
 
@@ -23,13 +24,14 @@ official LIBERO LeRobot transforms. The C run changes only the frozen seed,
 terminal step, save cadence, and PyTorch base path required by this screen;
 it does not change model/data semantics.
 
-The exact conversion invocation is:
+The exact conversion invocation (with the pinned runtime) is:
 
 ```text
-python examples/convert_jax_model_to_pytorch.py \
-  --checkpoint_dir /mnt/cpfs/zbl-cpfs-new/open_data/r142_stage_s/pi05_base \
+/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python \
+  examples/convert_jax_model_to_pytorch.py \
+  --checkpoint_dir /mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base \
   --config_name pi05_libero \
-  --output_path /mnt/cpfs/zbl-cpfs-new/Models/r142_stage_s/pi05_base_pytorch \
+  --output_path /mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base_pytorch \
   --precision bfloat16
 ```
 
@@ -82,8 +84,25 @@ The pinned trainer does not save process RNG state itself. The checked-in C
 worker imports that exact trainer and wraps only `save_checkpoint` and
 `load_checkpoint`, adding atomic per-rank `rng_state.rank0.pt` through
 `rng_state.rank7.pt` sidecars. On `--resume`, a missing sidecar is fatal. The
-learning rate in this trainer is a deterministic function of the saved global
-step and frozen config, so no separate scheduler object is silently omitted.
+source audit also records the native loop (`while global_step < ...`,
+`global_step // len(loader)`, `for observation, actions in loader`). Because
+the pinned `TorchDataLoader` is an infinite iterator and the public wrapper
+does not expose its finite length/sampler epoch, the worker's
+`ExactCursorDataLoader` exposes one finite epoch, forwards
+`DistributedSampler.set_epoch(epoch)`, and skips exactly
+`global_step % epoch_length` batches on the first resumed iterator. `--num_workers 0`
+is frozen so no hidden worker cursor/RNG is omitted. If length, sampler epoch,
+or metadata cursor cannot be proven, resume fails closed. The learning rate in
+this trainer is a deterministic function of the saved global step and frozen
+config, so no separate scheduler object is silently omitted.
+
+Stage and terminal markers are persisted atomically. Every registry stage
+writes a hashed `COMPLETED_*.json` or `FAILED_*.json` under the run's status
+root; the training wrapper additionally writes `TRAINING_TERMINAL.json`,
+`COMPLETED_C_TRAINING.json`, or `FAILED_C_TRAINING.json` only after the
+corresponding evidence audit. Finalization writes separate cwd-relative
+checkpoint/log `SHA256SUMS` manifests, each verified with `sha256sum -c` from
+its own root.
 
 ## Current execution status and blockers
 
@@ -96,6 +115,13 @@ Source and static contracts are ready. A real C result remains pending:
    same directory across any spot interruption;
 4. audit all four selected full-state checkpoints and publish the terminal
    marker.
+
+The registry-submit contract is checked in as
+`configs/pai/stage_s_c_undertrained.json` (schema v2) with the executable
+`scripts/stage_s_c_undertrained_pai.sh`; it binds the robot-idle alias/id/quota,
+UID/GID, CPFS write paths, pinned Python, sequential stage resume, and the
+09:30–09:40 / 19:30–19:40 Asia/Shanghai fail-closed windows. No PAI job was
+submitted in this audit.
 
 The community checkpoint
 `/mnt/cpfs/zbl-cpfs-new/USERS/leon/checkpoints/openpi/community_madokalif_pi05_libero_sft`

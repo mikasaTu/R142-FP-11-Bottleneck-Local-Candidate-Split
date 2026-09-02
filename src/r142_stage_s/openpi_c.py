@@ -14,10 +14,12 @@ them only after a path/ownership preflight in the target environment.
 from __future__ import annotations
 
 import base64
+import ast
 import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import urllib.parse
 import urllib.request
@@ -46,6 +48,7 @@ from .libero import (
 
 OPENPI_COMMIT = "54cbaee6ae0c010a1ed431871cdaa8f4684ac709"
 OPENPI_SOURCE_URL = "https://github.com/Physical-Intelligence/openpi.git"
+DEFAULT_OPENPI_PYTHON = "/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python"
 OPENPI_CONFIG_NAME = "pi05_libero"
 OPENPI_CONVERTER = "examples/convert_jax_model_to_pytorch.py"
 OPENPI_TRAINER = "scripts/train_pytorch.py"
@@ -69,6 +72,8 @@ CONVERSION_COMPLETION_NAME = "CONVERSION_COMPLETED.json"
 TRAINING_START_NAME = "TRAINING_START.json"
 TRAINING_TERMINAL_NAME = "TRAINING_TERMINAL.json"
 TRAINING_COMPLETION_NAME = "COMPLETED_C_TRAINING.json"
+TRAINING_FAILED_NAME = "FAILED_C_TRAINING.json"
+C_NUM_WORKERS = 0
 
 
 @dataclass(frozen=True)
@@ -405,6 +410,7 @@ def download_base_checkpoint(
         "sha256sums_sha256": sha256_file(root / PI05_BASE_SHA_NAME),
         "root": str(root),
     }
+    marker["payload_sha256"] = _canonical_sha256(marker)
     atomic_json(root / PI05_BASE_COMPLETION_NAME, marker)
     return marker
 
@@ -465,6 +471,10 @@ def audit_base_download(root: str | Path) -> dict[str, Any]:
                 errors.append("base completion marker manifest hash mismatch")
             if marker.get("sha256sums_sha256") != sha256_file(sums_path):
                 errors.append("base completion marker SHA256SUMS hash mismatch")
+            if marker.get("payload_sha256") != _canonical_sha256(
+                {key: value for key, value in marker.items() if key != "payload_sha256"}
+            ):
+                errors.append("base completion marker payload hash mismatch")
     return {"valid": not errors, "errors": errors, "root": str(base), "marker": marker, "manifest": manifest}
 
 
@@ -487,8 +497,109 @@ def audit_libero_data_assets(assets_base_dir: str | Path) -> dict[str, Any]:
     }
 
 
-def audit_openpi_checkout(root: str | Path) -> dict[str, Any]:
-    """Audit the exact source tree and the source-level C contracts."""
+def _ast_function_parameters(path: Path, function_name: str) -> tuple[str, ...]:
+    """Return a function's declared parameters without importing OpenPI."""
+
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == function_name:
+            arguments = node.args
+            return tuple(
+                argument.arg
+                for argument in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs)
+            )
+    raise ValueError(f"function {function_name!r} not found in {path}")
+
+
+def _ast_dataclass_fields(path: Path, class_name: str) -> tuple[str, ...]:
+    """Return annotated/assigned dataclass fields from a source class."""
+
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == class_name:
+            fields: list[str] = []
+            for child in node.body:
+                if isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
+                    fields.append(child.target.id)
+                elif isinstance(child, ast.Assign):
+                    fields.extend(
+                        target.id for target in child.targets if isinstance(target, ast.Name)
+                    )
+            return tuple(fields)
+    raise ValueError(f"class {class_name!r} not found in {path}")
+
+
+def _audit_official_cli(converter: Path, trainer: Path, config: Path) -> dict[str, Any]:
+    """Audit the actual Tyro signatures/config fields used by the pinned CLIs.
+
+    This deliberately parses the pinned source instead of trusting a copied
+    command string.  The converter exposes its five Tyro parameters directly;
+    the trainer's command-line overrides are the fields on ``TrainConfig``
+    consumed by ``tyro.extras.overridable_config_cli``.
+    """
+
+    errors: list[str] = []
+    converter_parameters: tuple[str, ...] = ()
+    trainer_fields: tuple[str, ...] = ()
+    try:
+        converter_parameters = _ast_function_parameters(converter, "main")
+    except (OSError, SyntaxError, ValueError) as exc:
+        errors.append(f"cannot parse converter CLI: {exc}")
+    try:
+        trainer_fields = _ast_dataclass_fields(config, "TrainConfig")
+    except (OSError, SyntaxError, ValueError) as exc:
+        errors.append(f"cannot parse trainer config CLI: {exc}")
+    converter_expected = ("checkpoint_dir", "config_name", "output_path", "precision", "inspect_only")
+    trainer_expected = (
+        "exp_name",
+        "checkpoint_base_dir",
+        "save_interval",
+        "num_train_steps",
+        "seed",
+        "keep_period",
+        "pytorch_weight_path",
+        "assets_base_dir",
+        "num_workers",
+        "resume",
+    )
+    converter_valid = converter_parameters == converter_expected and "tyro.cli(main)" in converter.read_text(
+        encoding="utf-8", errors="replace"
+    )
+    trainer_text = trainer.read_text(encoding="utf-8", errors="replace")
+    trainer_valid = all(field in trainer_fields for field in trainer_expected) and (
+        "overridable_config_cli" in config.read_text(encoding="utf-8", errors="replace")
+    )
+    if not converter_valid:
+        errors.append(
+            f"converter CLI signature drift: {converter_parameters!r} != {converter_expected!r}"
+        )
+    if not trainer_valid:
+        errors.append("trainer CLI config fields or overridable_config_cli entry drifted")
+    return {
+        "valid": not errors,
+        "converter_parameters": list(converter_parameters),
+        "converter_expected_parameters": list(converter_expected),
+        "trainer_config_fields": list(trainer_fields),
+        "trainer_required_overrides": list(trainer_expected),
+        "trainer_entry": "scripts/train_pytorch.py:main -> openpi.training.config.cli",
+        "errors": errors,
+    }
+
+
+def _resolve_python_executable(value: str | Path) -> Path:
+    candidate = Path(value).expanduser()
+    if candidate.is_absolute():
+        return candidate
+    resolved = shutil.which(str(candidate))
+    return Path(resolved).resolve() if resolved else candidate.resolve()
+
+
+def audit_openpi_checkout(
+    root: str | Path,
+    *,
+    python: str | Path = DEFAULT_OPENPI_PYTHON,
+) -> dict[str, Any]:
+    """Audit the exact source tree, runtime, and source-level C contracts."""
 
     path = Path(root).expanduser().resolve()
     errors: list[str] = []
@@ -527,6 +638,27 @@ def audit_openpi_checkout(root: str | Path) -> dict[str, Any]:
     config_text = config.read_text(encoding="utf-8", errors="replace") if config.is_file() else ""
     trainer_text = trainer.read_text(encoding="utf-8", errors="replace") if trainer.is_file() else ""
     converter_text = converter.read_text(encoding="utf-8", errors="replace") if converter.is_file() else ""
+    runtime_python = _resolve_python_executable(python)
+    runtime_ok = runtime_python.is_file() and os.access(runtime_python, os.X_OK)
+    runtime_version: str | None = None
+    if not runtime_ok:
+        errors.append(f"pinned OpenPI Python is not executable: {runtime_python}")
+    else:
+        try:
+            version_result = subprocess.run(
+                [str(runtime_python), "--version"],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            runtime_version = (version_result.stdout or version_result.stderr).strip()
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            errors.append(f"cannot execute pinned OpenPI Python: {exc}")
+    cli_audit = _audit_official_cli(converter, trainer, config) if all(
+        required.is_file() for required in (converter, trainer, config)
+    ) else {"valid": False, "errors": ["CLI source files missing"]}
+    errors.extend(f"OpenPI CLI audit failed: {error}" for error in cli_audit.get("errors", []))
     checks = {
         "config_name_pi05_libero": 'name="pi05_libero"' in config_text,
         "dataset_repo_id": f'repo_id="{LIBERO_DATASET_REPO}"' in config_text,
@@ -540,6 +672,17 @@ def audit_openpi_checkout(root: str | Path) -> dict[str, Any]:
         "full_state_metadata": '"metadata.pt"' in trainer_text,
         "atomic_checkpoint_rename": "tmp_ckpt_dir.rename(final_ckpt_dir)" in trainer_text,
         "resume_native": "load_checkpoint(model, optim, config.checkpoint_dir, device)" in trainer_text,
+        "converter_cli_exact": bool(cli_audit.get("valid")) and tuple(cli_audit.get("converter_parameters", ()))
+        == ("checkpoint_dir", "config_name", "output_path", "precision", "inspect_only"),
+        "trainer_cli_exact": bool(cli_audit.get("valid")),
+        "trainer_cursor_loop_audited": all(
+            snippet in trainer_text
+            for snippet in (
+                "while global_step < config.num_train_steps",
+                "global_step // len(loader)",
+                "for observation, actions in loader",
+            )
+        ),
     }
     errors.extend(f"OpenPI source check failed: {name}" for name, passed in checks.items() if not passed)
     return {
@@ -550,6 +693,10 @@ def audit_openpi_checkout(root: str | Path) -> dict[str, Any]:
         "observed_commit": observed_commit,
         "dirty": dirty,
         "required_files": [str(converter), str(trainer), str(config)],
+        "python": str(runtime_python),
+        "python_version": runtime_version,
+        "python_executable": runtime_ok,
+        "cli_audit": cli_audit,
         "source_checks": checks,
         "errors": errors,
     }
@@ -560,7 +707,7 @@ def build_conversion_contract(
     openpi_root: str | Path,
     base_jax_root: str | Path,
     base_pytorch_root: str | Path,
-    python: str = "python",
+    python: str | Path = DEFAULT_OPENPI_PYTHON,
     precision: str = "bfloat16",
 ) -> dict[str, Any]:
     """Build the exact official JAX-to-PyTorch command; no community base."""
@@ -571,7 +718,7 @@ def build_conversion_contract(
     jax_root = Path(base_jax_root).expanduser().resolve()
     pytorch_root = Path(base_pytorch_root).expanduser().resolve()
     command = [
-        str(python),
+        str(_resolve_python_executable(python)),
         str(source / OPENPI_CONVERTER),
         "--checkpoint_dir",
         str(jax_root),
@@ -592,7 +739,7 @@ def build_conversion_contract(
         "precision": precision,
         "official_converter": OPENPI_CONVERTER,
         "command": command,
-        "source_audit": audit_openpi_checkout(source),
+        "source_audit": audit_openpi_checkout(source, python=python),
         "base_download_audit": audit_base_download(jax_root),
         "expected_outputs": ["model.safetensors", "config.json", CONVERSION_PROVENANCE_NAME, CONVERSION_COMPLETION_NAME],
         "community_checkpoint_forbidden": True,
@@ -629,6 +776,10 @@ def _conversion_audit(path: Path) -> dict[str, Any]:
         else:
             if marker_payload.get("status") != "COMPLETED":
                 errors.append("conversion marker is not COMPLETED")
+            if marker_payload.get("payload_sha256") != _canonical_sha256(
+                {key: value for key, value in marker_payload.items() if key != "payload_sha256"}
+            ):
+                errors.append("conversion marker payload hash mismatch")
     return {"valid": not errors, "path": str(path), "errors": errors}
 
 
@@ -680,6 +831,7 @@ def run_conversion(
         "model_sha256": sha256_file(output / "model.safetensors"),
         "provenance_sha256": sha256_file(output / CONVERSION_PROVENANCE_NAME),
     }
+    marker["payload_sha256"] = _canonical_sha256(marker)
     atomic_json(output / CONVERSION_COMPLETION_NAME, marker)
     audit = _conversion_audit(output)
     if not audit["valid"]:
@@ -692,7 +844,7 @@ def build_official_training_command(
     openpi_root: str | Path,
     base_pytorch_root: str | Path,
     checkpoint_base_dir: str | Path,
-    python: str = "python",
+    python: str | Path = DEFAULT_OPENPI_PYTHON,
     world_size: int = PAI_MAX_GPU,
     assets_base_dir: str | Path | None = None,
 ) -> list[str]:
@@ -702,7 +854,9 @@ def build_official_training_command(
         raise ValueError(f"C production command is frozen to {PAI_MAX_GPU} GPUs")
     experiment = "r142_stage_s_c_undertrained_seed42"
     command = [
-        "torchrun",
+        str(_resolve_python_executable(python)),
+        "-m",
+        "torch.distributed.run",
         "--standalone",
         "--nnodes=1",
         f"--nproc_per_node={PAI_MAX_GPU}",
@@ -720,6 +874,8 @@ def build_official_training_command(
         str(C_TRAINING_SEED),
         "--keep_period",
         str(C_SAVE_INTERVAL),
+        "--num_workers",
+        str(C_NUM_WORKERS),
         "--pytorch_weight_path",
         str(Path(base_pytorch_root).expanduser().resolve()),
     ]
@@ -737,6 +893,7 @@ def build_patched_training_command(
     world_size: int = PAI_MAX_GPU,
     resume: bool = False,
     assets_base_dir: str | Path | None = None,
+    python: str | Path = DEFAULT_OPENPI_PYTHON,
 ) -> list[str]:
     """Run the official trainer through the save/load-only RNG sidecar worker.
 
@@ -748,7 +905,9 @@ def build_patched_training_command(
     """
 
     command = [
-        "torchrun",
+        str(_resolve_python_executable(python)),
+        "-m",
+        "torch.distributed.run",
         "--standalone",
         "--nnodes=1",
         f"--nproc_per_node={int(world_size)}",
@@ -769,6 +928,8 @@ def build_patched_training_command(
         str(C_TRAINING_SEED),
         "--keep_period",
         str(C_SAVE_INTERVAL),
+        "--num_workers",
+        str(C_NUM_WORKERS),
         "--pytorch_weight_path",
         str(Path(base_pytorch_root).expanduser().resolve()),
     ]
@@ -787,7 +948,7 @@ def build_c_chain_contract(
     checkpoint_base_dir: str | Path,
     log_root: str | Path,
     repo_root: str | Path,
-    python: str = "python",
+    python: str | Path = DEFAULT_OPENPI_PYTHON,
     assets_base_dir: str | Path = DEFAULT_PI05_ASSETS_BASE_DIR,
 ) -> dict[str, Any]:
     """Describe the complete C asset -> conversion -> training hand-off."""
@@ -815,7 +976,7 @@ def build_c_chain_contract(
     train_dir = checkpoint_root / OPENPI_CONFIG_NAME / "r142_stage_s_c_undertrained_seed42"
     wrapper = repo / "scripts" / "stage_s_libero_c_train.py"
     wrapper_command = [
-        str(python),
+        str(_resolve_python_executable(python)),
         str(wrapper),
         "--openpi-root",
         str(source),
@@ -836,6 +997,7 @@ def build_c_chain_contract(
         base_pytorch_root=pytorch_root,
         checkpoint_base_dir=checkpoint_root,
         assets_base_dir=assets_base_dir,
+        python=python,
     )
     return {
         "schema": "r142-stage-s-c-undertrained-chain-v1",
@@ -879,6 +1041,9 @@ def build_c_chain_contract(
             "full_state_components": ["model.safetensors", "optimizer.pt", "metadata.pt", "rng_state.rank{0..7}.pt"],
             "native_save_semantics": "pinned trainer saves 1000..10000; num_train_steps=10001 reaches terminal global_step 10001",
             "same_directory_resume": "--resume discovers newest numeric checkpoint and restores model+optimizer+metadata plus per-rank Python/NumPy/Torch/CUDA RNG sidecars",
+            "num_workers": C_NUM_WORKERS,
+            "exact_data_cursor": "worker wraps the pinned finite DataLoader epoch; resume skips global_step % epoch_length batches after setting DistributedSampler epoch=global_step // epoch_length",
+            "data_cursor_fail_closed": "wrapper refuses resume when loader epoch length or checkpoint metadata cursor cannot be proven",
             "scheduler_state": "pinned trainer computes LR from config and global_step; the sidecar does not change this deterministic schedule",
             "community_sft_forbidden": True,
         },
@@ -926,6 +1091,33 @@ def _checkpoint_audit(checkpoint_dir: Path) -> dict[str, Any]:
     return audit_c_checkpoint_schedule(checkpoint_dir, require_training_state=True)
 
 
+def _write_sha256_manifest(root: Path) -> Path:
+    """Write a cwd-relative manifest that is valid for ``sha256sum -c``.
+
+    Checkpoint and log trees are intentionally separate bundles.  Keeping
+    each manifest in the root it hashes avoids the previous mixed-root
+    manifest, whose log entries could not be checked from the checkpoint cwd.
+    """
+
+    root.mkdir(parents=True, exist_ok=True)
+    rows: list[str] = []
+    for path in sorted(root.rglob("*")):
+        if path.is_file() and path.name != PI05_BASE_SHA_NAME:
+            rows.append(f"{sha256_file(path)}  {path.relative_to(root).as_posix()}\n")
+    destination = root / PI05_BASE_SHA_NAME
+    atomic_bytes(destination, "".join(rows).encode("utf-8"))
+    return destination
+
+
+def _status_marker(path: Path, payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Persist a status marker with a self-excluding canonical payload hash."""
+
+    result = dict(payload)
+    result["payload_sha256"] = _canonical_sha256(result)
+    atomic_json(path, result)
+    return result
+
+
 def finalize_training(
     *,
     checkpoint_base_dir: str | Path,
@@ -951,12 +1143,13 @@ def finalize_training(
         except json.JSONDecodeError as exc:
             errors.append(f"invalid training terminal marker: {exc}")
             terminal_payload = {}
+        else:
             if terminal_payload.get("status") != "COMPLETED":
                 errors.append("training terminal marker is not COMPLETED")
             if terminal_payload.get("openpi_commit") != OPENPI_COMMIT:
                 errors.append("training terminal marker OpenPI commit mismatch")
-        if int(terminal_payload.get("global_step", -1)) != C_TRAINING_STEPS:
-            errors.append(f"terminal global_step != {C_TRAINING_STEPS}")
+            if int(terminal_payload.get("global_step", -1)) != C_TRAINING_STEPS:
+                errors.append(f"terminal global_step != {C_TRAINING_STEPS}")
     # The pinned official trainer has no RNG save.  Our worker adds one
     # atomic sidecar per rank; require all eight before claiming resumability.
     for step in C_RETAIN_STEPS:
@@ -965,17 +1158,23 @@ def finalize_training(
             if not (step_dir / f"rng_state.rank{rank}.pt").is_file():
                 errors.append(f"missing full-state RNG sidecar: {step}/rng_state.rank{rank}.pt")
     if errors:
+        _status_marker(
+            logs / TRAINING_FAILED_NAME,
+            {
+                "schema": "r142-stage-s-c-training-failure-v1",
+                "status": "FAILED",
+                "openpi_commit": OPENPI_COMMIT,
+                "errors": errors,
+            },
+        )
         raise RuntimeError("C finalization refused: " + "; ".join(errors))
-    rows: list[str] = []
-    for path in sorted(train_dir.rglob("*")):
-        if path.is_file() and path.name != "SHA256SUMS":
-            rows.append(f"{sha256_file(path)}  {path.relative_to(checkpoint_base).as_posix()}\n")
-    for path in sorted(logs.rglob("*")):
-        if path.is_file() and path.name != "SHA256SUMS":
-            rows.append(f"{sha256_file(path)}  {path.relative_to(logs).as_posix()}\n")
-    checksum_path = checkpoint_base / "SHA256SUMS"
-    atomic_bytes(checksum_path, "".join(rows).encode("utf-8"))
-    marker = {
+    if checkpoint_base == logs:
+        raise RuntimeError("C finalization requires separate checkpoint and log bundle roots")
+    checkpoint_sums = _write_sha256_manifest(checkpoint_base)
+    log_sums = _write_sha256_manifest(logs)
+    marker = _status_marker(
+        checkpoint_base / TRAINING_COMPLETION_NAME,
+        {
         "schema": "r142-stage-s-c-training-completion-v1",
         "status": "COMPLETED",
         "openpi_commit": OPENPI_COMMIT,
@@ -986,16 +1185,21 @@ def finalize_training(
         "checkpoint_steps": list(C_RETAIN_STEPS),
         "checkpoint_audit": audit,
         "base_manifest_sha256": base_manifest_sha256,
-        "sha256sums": str(checksum_path),
-        "sha256sums_sha256": sha256_file(checksum_path),
-    }
-    atomic_json(checkpoint_base / TRAINING_COMPLETION_NAME, marker)
+        "sha256sums": str(checkpoint_sums),
+        "sha256sums_sha256": sha256_file(checkpoint_sums),
+        "log_sha256sums": str(log_sums),
+        "log_sha256sums_sha256": sha256_file(log_sums),
+        "sha256_manifest_contract": "two cwd-relative manifests; run sha256sum -c SHA256SUMS separately in each root",
+        },
+    )
     return marker
 
 
 __all__ = [
+    "C_NUM_WORKERS",
     "CONVERSION_COMPLETION_NAME",
     "CONVERSION_PROVENANCE_NAME",
+    "DEFAULT_OPENPI_PYTHON",
     "DEFAULT_PI05_ASSETS_BASE_DIR",
     "GCSObject",
     "LIBERO_DATASET_REPO",
@@ -1015,6 +1219,7 @@ __all__ = [
     "PI05_BASE_SHA_NAME",
     "PI05_BASE_TOTAL_BYTES",
     "TRAINING_COMPLETION_NAME",
+    "TRAINING_FAILED_NAME",
     "TRAINING_START_NAME",
     "TRAINING_TERMINAL_NAME",
     "assert_outside_blackout",

@@ -5,6 +5,9 @@
   "expected_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
   "observed_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
   "checkout_dirty": false,
+  "python": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python",
+  "python_executable": true,
+  "python_version": "Python 3.11.11",
   "checkout": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi",
   "config_name": "pi05_libero",
   "official_converter": "examples/convert_jax_model_to_pytorch.py",
@@ -15,6 +18,14 @@
   "base_gcs_uri": "gs://openpi-assets/checkpoints/pi05_base/",
   "base_object_count": 29,
   "base_total_bytes": 12441749581,
+  "cli_audit": {
+    "valid": true,
+    "converter_parameters": ["checkpoint_dir", "config_name", "output_path", "precision", "inspect_only"],
+    "converter_expected_parameters": ["checkpoint_dir", "config_name", "output_path", "precision", "inspect_only"],
+    "trainer_config_fields": ["name", "project_name", "exp_name", "model", "weight_loader", "pytorch_weight_path", "pytorch_training_precision", "lr_schedule", "optimizer", "ema_decay", "freeze_filter", "data", "assets_base_dir", "checkpoint_base_dir", "seed", "batch_size", "num_workers", "num_train_steps", "log_interval", "save_interval", "keep_period", "overwrite", "resume", "wandb_enabled", "policy_metadata", "fsdp_devices"],
+    "trainer_entry": "scripts/train_pytorch.py:main -> openpi.training.config.cli",
+    "trainer_required_overrides": ["exp_name", "checkpoint_base_dir", "save_interval", "num_train_steps", "seed", "keep_period", "pytorch_weight_path", "assets_base_dir", "num_workers", "resume"]
+  },
   "source_checks": {
     "pi05_model": true,
     "prompt_from_task": true,
@@ -23,7 +34,19 @@
     "native_optimizer_save": true,
     "native_metadata_save": true,
     "atomic_checkpoint_rename": true,
-    "native_resume_entry": true
+    "native_resume_entry": true,
+    "converter_cli_exact": true,
+    "trainer_cli_exact": true,
+    "trainer_cursor_loop_audited": true,
+    "pinned_python_executable": true
+  },
+  "resume_contract": {
+    "pinned_trainer_loop": "while global_step < config.num_train_steps; set_epoch(global_step // len(loader)); for observation, actions in loader",
+    "adapter": "ExactCursorDataLoader finite epoch wrapper",
+    "resume_skip": "global_step % epoch_length batches exactly once",
+    "distributed_sampler": "set_epoch forwarded before every resumed epoch",
+    "num_workers": 0,
+    "fail_closed_if_unproven": true
   },
   "base_download_performed": false,
   "conversion_performed": false,

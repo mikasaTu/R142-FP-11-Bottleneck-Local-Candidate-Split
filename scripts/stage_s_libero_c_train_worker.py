@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Execute the pinned OpenPI trainer with full-state RNG sidecars.
+"""Execute the pinned OpenPI trainer with full-state RNG/data-cursor sidecars.
 
 The worker is launched by ``torchrun`` and imports the exact
 ``scripts/train_pytorch.py`` file from the audited OpenPI checkout.  It wraps
-only checkpoint save/load: model, data, optimizer, learning-rate calculation,
-and loss code remain the pinned upstream implementation.  A missing sidecar
-on resume is fatal, so an interrupted or legacy weights-only tree cannot be
-silently presented as a resumable C run.
+only checkpoint save/load plus a deterministic finite-epoch data-loader
+adapter: model, transforms, optimizer, learning-rate calculation, and loss
+code remain the pinned upstream implementation.  A missing sidecar or an
+unprovable loader cursor on resume is fatal, so an interrupted or legacy
+weights-only tree cannot be silently presented as a resumable C run.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ import os
 import random
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 
 def _parse_worker_args(argv: list[str]) -> tuple[Path, list[str]]:
@@ -90,6 +91,146 @@ def _restore_rng(torch: Any, state: dict[str, Any]) -> None:
         torch.cuda.set_rng_state_all([value.cpu() for value in cuda])
 
 
+def _torch_data_loader(base_loader: Any) -> Any:
+    """Resolve the pinned DataLoader without relying on private guessing."""
+
+    implementation = getattr(base_loader, "_data_loader", None)
+    candidate = getattr(implementation, "torch_loader", None)
+    if candidate is None:
+        raise RuntimeError(
+            "exact C resume refused; pinned loader does not expose a finite torch_loader"
+        )
+    if not hasattr(candidate, "__iter__") or not hasattr(candidate, "__len__"):
+        raise RuntimeError("exact C resume refused; pinned torch_loader lacks iteration/length")
+    return candidate
+
+
+def _latest_checkpoint_step(checkpoint_dir: Path) -> int:
+    steps = sorted(
+        int(child.name)
+        for child in checkpoint_dir.iterdir()
+        if child.is_dir() and child.name.isdigit()
+    )
+    if not steps:
+        raise RuntimeError(f"exact C resume refused; no numeric checkpoint in {checkpoint_dir}")
+    return steps[-1]
+
+
+def _resume_step(config: Any, torch: Any) -> int:
+    """Read and validate the native checkpoint cursor before data creation."""
+
+    checkpoint_dir = Path(config.checkpoint_dir).expanduser().resolve()
+    step = _latest_checkpoint_step(checkpoint_dir)
+    metadata_path = checkpoint_dir / str(step) / "metadata.pt"
+    if not metadata_path.is_file():
+        raise RuntimeError(f"exact C resume refused; missing checkpoint metadata {metadata_path}")
+    try:
+        metadata = torch.load(metadata_path, map_location="cpu", weights_only=False)
+    except TypeError:
+        metadata = torch.load(metadata_path, map_location="cpu")
+    if not isinstance(metadata, dict):
+        raise RuntimeError(f"exact C resume refused; invalid metadata {metadata_path}")
+    observed = int(metadata.get("global_step", -1))
+    if observed != step:
+        raise RuntimeError(
+            f"exact C resume refused; metadata global_step={observed} differs from directory step={step}"
+        )
+    return step
+
+
+class ExactCursorDataLoader:
+    """Expose one finite sampler epoch and skip the resumable batch cursor.
+
+    The pinned ``TorchDataLoader`` yields indefinitely, while its trainer
+    computes an epoch from ``global_step // len(loader)``.  This adapter makes
+    that intended contract executable: each iterator consumes exactly one
+    finite underlying DataLoader epoch, forwards ``DistributedSampler``'s
+    ``set_epoch``, and skips ``resume_step % epoch_length`` batches exactly
+    once after a resume.  C fixes ``num_workers=0`` so no hidden worker cursor
+    or worker RNG state is omitted from the checkpoint contract.
+    """
+
+    def __init__(self, base_loader: Any, *, resume_step: int = 0, require_sampler: bool = False):
+        self._base_loader = base_loader
+        self._torch_loader = _torch_data_loader(base_loader)
+        self._epoch_length = int(len(self._torch_loader))
+        if self._epoch_length <= 0:
+            raise RuntimeError("exact C resume refused; DataLoader epoch length is not positive")
+        self._pending_skip = int(resume_step) % self._epoch_length
+        self._require_sampler = bool(require_sampler)
+        self._sampler = getattr(self._torch_loader, "sampler", None)
+        if self._require_sampler and (
+            self._sampler is None or not callable(getattr(self._sampler, "set_epoch", None))
+        ):
+            raise RuntimeError(
+                "exact C resume refused; distributed loader has no DistributedSampler.set_epoch"
+            )
+
+    def __len__(self) -> int:
+        return self._epoch_length
+
+    def data_config(self) -> Any:
+        return self._base_loader.data_config()
+
+    def set_epoch(self, epoch: int) -> None:
+        if self._sampler is not None and callable(getattr(self._sampler, "set_epoch", None)):
+            self._sampler.set_epoch(int(epoch))
+        elif self._require_sampler:
+            raise RuntimeError("exact C resume refused; sampler epoch cannot be restored")
+
+    def __iter__(self) -> Iterator[Any]:
+        iterator = iter(self._base_loader)
+        skip = self._pending_skip
+        self._pending_skip = 0
+        for _ in range(skip):
+            try:
+                next(iterator)
+            except StopIteration as exc:
+                raise RuntimeError(
+                    "exact C resume refused; loader ended before cursor skip"
+                ) from exc
+        remaining = self._epoch_length - skip
+        yielded = 0
+        try:
+            while yielded < remaining:
+                try:
+                    batch = next(iterator)
+                except StopIteration as exc:
+                    raise RuntimeError(
+                        "exact C resume refused; loader ended before one full epoch"
+                    ) from exc
+                yield batch
+                yielded += 1
+        finally:
+            close = getattr(iterator, "close", None)
+            if callable(close):
+                close()
+
+
+def _patch_data_cursor(trainer: Any, torch: Any) -> None:
+    """Patch only the pinned loader boundary needed for exact resume."""
+
+    original_build = trainer.build_datasets
+
+    def build_datasets(config: Any) -> tuple[Any, Any]:
+        if int(getattr(config, "num_workers", -1)) != 0:
+            raise RuntimeError("exact C resume requires frozen --num_workers 0")
+        if bool(config.resume) and not torch.distributed.is_initialized():
+            raise RuntimeError("exact C resume requires the frozen 8-GPU distributed sampler")
+        if torch.distributed.is_initialized() and int(torch.distributed.get_world_size()) != 8:
+            raise RuntimeError("exact C training is frozen to an 8-rank distributed sampler")
+        base_loader, data_config = original_build(config)
+        start_step = _resume_step(config, torch) if bool(config.resume) else 0
+        wrapped = ExactCursorDataLoader(
+            base_loader,
+            resume_step=start_step,
+            require_sampler=bool(torch.distributed.is_initialized()),
+        )
+        return wrapped, data_config
+
+    trainer.build_datasets = build_datasets
+
+
 def _patch_checkpoint_io(trainer: Any, torch: Any) -> None:
     original_save = trainer.save_checkpoint
     original_load = trainer.load_checkpoint
@@ -132,6 +273,7 @@ def main(argv: list[str] | None = None) -> int:
     trainer = _load_trainer(root)
     import torch
 
+    _patch_data_cursor(trainer, torch)
     _patch_checkpoint_io(trainer, torch)
     sys.argv = [str(root / "scripts" / "train_pytorch.py"), *trainer_args]
     trainer.main()
