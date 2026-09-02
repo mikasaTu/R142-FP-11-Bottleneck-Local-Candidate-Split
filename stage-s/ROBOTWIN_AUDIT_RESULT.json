@@ -1,0 +1,91 @@
+{
+  "status": "BLOCKED_CAPABILITY",
+  "capability_error": "RoboTwin checkout 13c3c47ff4312dd62484bcd51be034af55c062d1; Evo-1 checkout 5fd14b015013c4fd0aacf5f8f48f868ca9b870a2; checkpoint files at HF revision ce8c583724706fbf7a03c17237761c65bf6813a7; all ten task modules and instruction files",
+  "pins": {
+    "checkpoint_repo": "MINT-SJTU/Evo1_RoboTwin2_clean",
+    "checkpoint_revision": "ce8c583724706fbf7a03c17237761c65bf6813a7",
+    "evo_repo": "https://github.com/MINT-SJTU/Evo-1.git",
+    "evo_revision": "5fd14b015013c4fd0aacf5f8f48f868ca9b870a2",
+    "robotwin_repo": "https://github.com/RoboTwin-Platform/RoboTwin.git",
+    "robotwin_revision": "13c3c47ff4312dd62484bcd51be034af55c062d1",
+    "robotwin_ref": "stable_2.0",
+    "curobo_repo": "https://github.com/NVlabs/curobo.git",
+    "curobo_revision": "d64c4b005459db10c5dd867d8b30a87d5bda9bdb"
+  },
+  "published_eval_source": "https://github.com/MINT-SJTU/Evo-1/blob/evo1-flash/RoboTwin_evaluation/README.md",
+  "source_inventory": {
+    "robotwin_root": "/workspace/leon/RoboTwin",
+    "robotwin_head": null,
+    "evo_root": "/workspace/leon/Evo_1",
+    "evo_head": null,
+    "checkpoint_dir": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/models/Evo1_RoboTwin2_clean",
+    "checkpoint_files": {
+      "config.json": null,
+      "norm_stats.json": null,
+      "mp_rank_00_model_states.pt": null
+    }
+  },
+  "selected_tasks": [
+    {
+      "task": "blocks_ranking_size",
+      "published_clean_success": 0.58,
+      "task_module_present": false,
+      "instruction_present": false
+    },
+    {
+      "task": "place_a2b_left",
+      "published_clean_success": 0.48,
+      "task_module_present": false,
+      "instruction_present": false
+    },
+    {
+      "task": "place_a2b_right",
+      "published_clean_success": 0.38,
+      "task_module_present": false,
+      "instruction_present": false
+    },
+    {
+      "task": "place_bread_basket",
+      "published_clean_success": 0.63,
+      "task_module_present": false,
+      "instruction_present": false
+    },
+    {
+      "task": "place_bread_skillet",
+      "published_clean_success": 0.63,
+      "task_module_present": false,
+      "instruction_present": false
+    },
+    {
+      "task": "place_can_basket",
+      "published_clean_success": 0.5,
+      "task_module_present": false,
+      "instruction_present": false
+    },
+    {
+      "task": "place_fan",
+      "published_clean_success": 0.34,
+      "task_module_present": false,
+      "instruction_present": false
+    },
+    {
+      "task": "place_object_scale",
+      "published_clean_success": 0.49,
+      "task_module_present": false,
+      "instruction_present": false
+    },
+    {
+      "task": "place_shoe",
+      "published_clean_success": 0.33,
+      "task_module_present": false,
+      "instruction_present": false
+    },
+    {
+      "task": "put_object_cabinet",
+      "published_clean_success": 0.39,
+      "task_module_present": false,
+      "instruction_present": false
+    }
+  ],
+  "synthetic_rollouts": false
+}

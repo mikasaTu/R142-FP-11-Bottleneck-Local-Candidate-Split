@@ -1,9 +1,4 @@
-"""Frozen statistical and artifact-integrity helpers for R142 Stage-S.
-
-The package intentionally contains no rollout adapter. It consumes persisted
-episode/family records and applies the Stage-S preregistered rules without
-changing the sampling or substrate implementation.
-"""
+"""Frozen analysis helpers and fail-closed substrate adapters for Stage-S."""
 
 from .analysis import (
     DECISION_CODES,
@@ -32,10 +27,25 @@ from .integrity import (
     write_completion,
     write_sha256sums,
 )
+from .robotwin import (
+    AtomicFamilyWriter,
+    CandidateRecord,
+    CapabilityError,
+    ExactReplayVerifier,
+    FamilyRolloutRunner,
+    RoboTwinPins,
+    select_published_tasks,
+)
 
 __all__ = [
+    "AtomicFamilyWriter",
     "CALIBRATION_SCHEMA",
+    "CandidateRecord",
+    "CapabilityError",
     "DECISION_CODES",
+    "ExactReplayVerifier",
+    "FamilyRolloutRunner",
+    "RoboTwinPins",
     "compute_divergence_curve",
     "compute_s1",
     "compute_s2",
@@ -49,6 +59,7 @@ __all__ = [
     "matched_time_tau",
     "normalized_workspace_pose_rms",
     "select_calibration_setting",
+    "select_published_tasks",
     "sha256_file",
     "verify_completion_bundle",
     "verify_completed_json",
