@@ -1,0 +1,56 @@
+{
+  "schema": "r142-stage-s-substrate-source-v1",
+  "frozen_before_outcomes": true,
+  "substrates": {
+    "A": {
+      "name": "RoboTwin-2.0 Evo-1 clean pinned policy",
+      "robotwin_repo": "https://github.com/RoboTwin-Platform/RoboTwin.git",
+      "robotwin_branch": "stable_2.0",
+      "robotwin_commit": "13c3c47ff4312dd62484bcd51be034af55c062d1",
+      "policy_repo": "https://github.com/MINT-SJTU/Evo-1.git",
+      "policy_branch": "evo1-flash",
+      "policy_commit": "5fd14b015013c4fd0aacf5f8f48f868ca9b870a2",
+      "checkpoint_repo": "MINT-SJTU/Evo1_RoboTwin2_clean",
+      "checkpoint_revision": "ce8c583724706fbf7a03c17237761c65bf6813a7",
+      "setting": "demo_clean",
+      "horizon": 37,
+      "selection_rule": "alphabetically first 10 tasks whose published clean success is in [0.25,0.65]",
+      "tasks": [
+        {"name": "blocks_ranking_size", "published_clean_success": 0.58},
+        {"name": "pick_diverse_bottles", "published_clean_success": 0.49},
+        {"name": "place_a2b_left", "published_clean_success": 0.48},
+        {"name": "place_a2b_right", "published_clean_success": 0.38},
+        {"name": "place_bread_basket", "published_clean_success": 0.63},
+        {"name": "place_bread_skillet", "published_clean_success": 0.63},
+        {"name": "place_can_basket", "published_clean_success": 0.50},
+        {"name": "place_fan", "published_clean_success": 0.34},
+        {"name": "place_object_scale", "published_clean_success": 0.49},
+        {"name": "place_shoe", "published_clean_success": 0.33}
+      ]
+    },
+    "B": {
+      "name": "LIBERO-Long referential ambiguity",
+      "suite": "libero_10",
+      "task_ids": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+      "calibration_task_ids": [0, 3, 6, 9],
+      "policy_config": "pi05_libero",
+      "policy_checkpoint": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/openpi/r16p15/openpi-assets/checkpoints/pi05_libero",
+      "policy_checkpoint_tree_sha256": "42d571fe2bb638081dea1c7fd4267be7db17eae9d22eb0a8de812a88f801d58b",
+      "stage_r_code_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
+      "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709"
+    },
+    "C": {
+      "name": "WEAK_SUBSTRATE under-trained pi0.5-LIBERO",
+      "suite": "libero_10",
+      "task_ids": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+      "calibration_task_ids": [0, 3, 6, 9],
+      "openpi_config": "pi05_libero",
+      "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+      "training_seed": 42,
+      "checkpoint_steps": [1000, 3000, 6000, 10000],
+      "full_training_reference_steps": 30000,
+      "selection_target_pooled_success": 0.45,
+      "label": "WEAK_SUBSTRATE"
+    }
+  }
+}

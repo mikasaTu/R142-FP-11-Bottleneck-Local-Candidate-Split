@@ -1,0 +1,114 @@
+{
+  "schema_version": 2,
+  "workspace_id": "179169",
+  "kind": "pytorchjob",
+  "name_prefix": "r142-stage-s-a-assets-idle",
+  "description": "R142 Stage-S substrate A exact-source asset, environment and GPU-rendering preflight; no scientific rollouts",
+  "resource_alias": "idle-a800-robot-stage-s-graphics-8gpu",
+  "provenance": {
+    "contract_source_job_id": "dlckjz66iwcv38gw",
+    "resource_source_job_id": "dlckjz66iwcv38gw",
+    "source_role": "readback_reference",
+    "submission_method": "cli_create",
+    "pai_clone_performed": false
+  },
+  "network": {},
+  "worker": {
+    "count": 1,
+    "gpu": 8,
+    "cpu": 88,
+    "memory": "1525Gi",
+    "shared_memory": "1525Gi",
+    "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04"
+  },
+  "storage": {
+    "data_sources": [
+      {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+      {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+      {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""}
+    ],
+    "output_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/assets"
+  },
+  "runtime": {
+    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_asset_preflight.sh",
+    "command_file_sha256": "729c2c0db259d8a04ab2efcd6ce2de8f4f5ef809b6bde7a2b329a43b7c71da92",
+    "payload_sha256": "729c2c0db259d8a04ab2efcd6ce2de8f4f5ef809b6bde7a2b329a43b7c71da92",
+    "uid": 2254,
+    "gid": 2254,
+    "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
+    "output_mode": "new",
+    "create_artifact_dir": false,
+    "recursive_repair": false,
+    "secret_env_names": [],
+    "pod_env": {"NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"},
+    "write_paths": [
+      "{{ARTIFACT_DIR}}",
+      "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/{{RUN_ID}}",
+      "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s"
+    ]
+  },
+  "fault_tolerance": {
+    "application_auto_resume": true,
+    "retry_sleep_seconds": 30,
+    "launcher_attempts": 1,
+    "pai_automatic_fault_tolerance": true,
+    "maximum_platform_restarts": 50,
+    "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure",
+    "complete_state_save_interval_steps": 500
+  },
+  "evidence": {
+    "kind": "r142_stage_s_asset_preflight_formal_evaluation",
+    "workload_type": "evaluation",
+    "success_gate": "persisted_completed_evaluation_result",
+    "task_id": "r142-stage-s-substrate-a-asset-preflight",
+    "model_id": "evo1-robotwin2-clean-ce8c583",
+    "contract_ready": true,
+    "scientific_rollouts": false,
+    "require_actual_idle": true,
+    "idle_8gpu_contract": "generic_formal_idle_8gpu_v1",
+    "pai_probe_created": false,
+    "validation_status": "passed",
+    "validation_method": "static",
+    "validated_payload_sha256": "729c2c0db259d8a04ab2efcd6ce2de8f4f5ef809b6bde7a2b329a43b7c71da92",
+    "expected_first_work_uid": 2254,
+    "expected_first_work_gid": 2254,
+    "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/r142-stage-s-a-assets-20260902-r4/FIRST_WORK.json",
+    "runtime_gpu_smoke_only": true,
+    "evo_commit": "5fd14b015013c4fd0aacf5f8f48f868ca9b870a2",
+    "robotwin_commit": "13c3c47ff4312dd62484bcd51be034af55c062d1",
+    "curobo_commit": "d64c4b005459db10c5dd867d8b30a87d5bda9bdb",
+    "checkpoint_revision": "ce8c583724706fbf7a03c17237761c65bf6813a7",
+    "explicit_user_resource_authorization": {
+      "date": "2026-09-02",
+      "scope": "r142-stage-s-a-assets-20260902-r4",
+      "user_request": "PAI 4-16 A800, robot idle pool, 88 CPU and 1.4 TB ceiling",
+      "current_quota_name": "exp-robot",
+      "resource_id": "quota1ssrabud0bh",
+      "oversold_type": "AcceptQuotaOverSold",
+      "gpu": 8,
+      "cpu": 88,
+      "memory": "1525Gi",
+      "shared_memory": "1525Gi",
+      "worker_count": 1,
+      "shared_quota_modified": false
+    }
+  },
+  "submission": {
+    "priority": 9,
+    "disable_ecs_stock_check": true,
+    "job_max_running_time_minutes": 0,
+    "job_reserved_minutes": 0,
+    "job_reserved_policy": "",
+    "tags": {
+      "managed_by": "pai-job-registry",
+      "purpose": "formal-evaluation",
+      "project": "r142-fp-11-stage-s",
+      "substrate": "A",
+      "task": "r142-stage-s-substrate-a-asset-preflight",
+      "model": "evo1-robotwin2-clean-ce8c583",
+      "resource_pool": "exp-robot",
+      "hardware": "8xa800-idle",
+      "autoresume": "application-idempotent"
+    }
+  }
+}
