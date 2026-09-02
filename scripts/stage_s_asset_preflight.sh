@@ -18,7 +18,10 @@ mkdir -p "$OUT" "$MODEL" "$PIP_CACHE"
 blocked_window() {
   local hm
   hm=$(TZ=Asia/Shanghai date +%H%M)
-  [[ "$hm" -ge 0930 && "$hm" -lt 0940 ]] || [[ "$hm" -ge 1930 && "$hm" -lt 1940 ]]
+  case "$hm" in
+    09[3][0-9]|19[3][0-9]) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 if blocked_window; then
   printf '%s\n' 'REFUSED_DAILY_NO_JOB_WINDOW' >"$OUT/REFUSED_WINDOW.txt"
@@ -67,6 +70,9 @@ if [[ ! -d "$RT/envs/curobo/.git" ]]; then
 fi
 git -C "$RT/envs/curobo" checkout --detach d64c4b005459db10c5dd867d8b30a87d5bda9bdb
 
+if ! "$TOOLS_ENV/bin/python" -c 'import huggingface_hub' >/dev/null 2>&1; then
+  PIP_CACHE_DIR="$PIP_CACHE" "$TOOLS_ENV/bin/pip" install 'huggingface_hub==0.36.2'
+fi
 "$TOOLS_ENV/bin/hf" download MINT-SJTU/Evo1_RoboTwin2_clean \
   --revision ce8c583724706fbf7a03c17237761c65bf6813a7 --local-dir "$MODEL"
 
