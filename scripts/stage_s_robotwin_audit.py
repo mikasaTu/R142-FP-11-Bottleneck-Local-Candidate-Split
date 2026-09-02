@@ -94,6 +94,7 @@ def audit(
     evo_root: Path,
     checkpoint_dir: Path,
     runtime_wrapper: Optional[Path] = None,
+    server_runtime_wrapper: Optional[Path] = None,
     pins: RoboTwinPins = RoboTwinPins(),
 ) -> Dict[str, Any]:
     selected = select_published_tasks()
@@ -120,10 +121,18 @@ def audit(
         "checkpoint_revision_evidence": revision_evidence,
         "checkpoint_hash_mismatches": hash_mismatches,
         "runtime_wrapper": str(runtime_wrapper) if runtime_wrapper else None,
+        "server_runtime_wrapper": (
+            str(server_runtime_wrapper) if server_runtime_wrapper else None
+        ),
     }
     wrapper_text = ""
     if runtime_wrapper is not None and runtime_wrapper.is_file():
         wrapper_text = runtime_wrapper.read_text(encoding="utf-8", errors="replace")
+    server_wrapper_text = ""
+    if server_runtime_wrapper is not None and server_runtime_wrapper.is_file():
+        server_wrapper_text = server_runtime_wrapper.read_text(
+            encoding="utf-8", errors="replace"
+        )
     concrete_wrapper_verified = all(
         symbol in wrapper_text
         for symbol in ("ConcreteRoboTwinRuntime", "EvoProxyStateAdapter")
@@ -196,9 +205,11 @@ def audit(
     server_control_deployed = bool(
         server_source_inventory["control_dispatch_marker"]
         or (
-            "EvoServerReplayDispatcher" in wrapper_text
-            and "control_response" in wrapper_text
-            and "infer_from_json_dict" in wrapper_text
+            "EvoServerReplayDispatcher" in server_wrapper_text
+            and "control_response" in server_wrapper_text
+            and "infer_from_json_dict" in server_wrapper_text
+            and "build_handle_request" in server_wrapper_text
+            and "require_torch=True" in server_wrapper_text
         )
     )
     tasks = [
@@ -263,6 +274,7 @@ def audit(
         "concrete_wrapper_verified": concrete_wrapper_verified,
         "server_control_protocol_verified": server_control_protocol_verified,
         "server_control_deployed": server_control_deployed,
+        "server_runtime_wrapper_present": bool(server_wrapper_text),
         "selected_tasks": tasks,
         "synthetic_rollouts": False,
     }
@@ -275,6 +287,7 @@ def main() -> int:
     parser.add_argument("--evo-root", type=Path, required=True)
     parser.add_argument("--checkpoint-dir", type=Path, required=True)
     parser.add_argument("--runtime-wrapper", type=Path)
+    parser.add_argument("--server-runtime-wrapper", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     result = audit(
@@ -282,6 +295,7 @@ def main() -> int:
         evo_root=args.evo_root,
         checkpoint_dir=args.checkpoint_dir,
         runtime_wrapper=args.runtime_wrapper,
+        server_runtime_wrapper=args.server_runtime_wrapper,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

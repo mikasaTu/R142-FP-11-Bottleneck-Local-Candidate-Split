@@ -476,6 +476,8 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         evo_root=evo_root,
         checkpoint_dir=checkpoint_dir,
         runtime_wrapper=Path(__file__).resolve().parents[1] / "src" / "r142_stage_s" / "robotwin.py",
+        server_runtime_wrapper=Path(__file__).resolve().parents[0]
+        / "stage_s_robotwin_evo_server.py",
         pins=pins,
     )
     if not audit_result["status"].startswith("READY"):
