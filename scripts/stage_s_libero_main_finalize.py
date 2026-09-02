@@ -269,6 +269,10 @@ def finalize(
         }
         if not isinstance(listed, list) or {str(Path(str(value)).resolve()) for value in listed} != expected_paths:
             raise MainEvaluationError(f"rank family assignment drifted: {marker_path}")
+        rank_manifest_name = marker.get("sha256sums")
+        if not isinstance(rank_manifest_name, str) or Path(rank_manifest_name).name != rank_manifest_name:
+            raise MainEvaluationError(f"rank marker checksum name is unsafe: {marker_path}")
+        _verify_manifest(root, root / rank_manifest_name)
         summary = root / str(marker.get("summary", ""))
         summary_payload = _read_json(summary)
         if summary_payload.get("rank") != rank or summary_payload.get("world_size") != WORLD_SIZE:
