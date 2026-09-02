@@ -17,6 +17,7 @@ from r142_stage_s.libero import (
     MAIN_CANDIDATE_COUNT,
     PROXIMITY_MAGNITUDES,
     MissingRegeneratedInitialStates,
+    VariantGenerationError,
     audit_undertrained_checkpoint_set,
     audit_c_checkpoint_schedule,
     build_b_variant_matrix,
@@ -179,8 +180,18 @@ def test_b_build_requires_regenerated_qpos_and_accepts_manifest(tmp_path: Path) 
 
 class FakeQposSimulator:
     def __init__(self, seed: int) -> None:
+        class FakeState:
+            def __init__(self, value: np.ndarray) -> None:
+                self.value = value
+
+            def flatten(self) -> np.ndarray:
+                return self.value
+
         self.sim = types.SimpleNamespace(
-            data=types.SimpleNamespace(qpos=np.arange(10, dtype=np.float64) + float(seed % 100000) / 100000.0)
+            data=types.SimpleNamespace(qpos=np.arange(10, dtype=np.float64) + float(seed % 100000) / 100000.0),
+            get_state=lambda: FakeState(
+                np.arange(21, dtype=np.float64) + float(seed % 100000) / 100000.0
+            ),
         )
         self.seed_value = int(seed)
 
@@ -213,6 +224,38 @@ def test_b_matrix_uses_fixed_seed_real_simulator_callback(tmp_path: Path, monkey
         == B_INIT_STATE_COUNT
         for row in result
     )
+    assert all(
+        json.loads(Path(row["regenerated_init_states"]).read_text(encoding="utf-8"))["tasks"][0]["state_dim"] > 4
+        for row in result
+    )
+
+
+def test_b_generator_rejects_qpos_only_simulator_state(tmp_path: Path) -> None:
+    source_bddl, source_init = _fake_source_roots(tmp_path)
+
+    class QposOnlySimulator:
+        def __init__(self, seed: int) -> None:
+            del seed
+            self.sim = types.SimpleNamespace(
+                data=types.SimpleNamespace(qpos=np.arange(10, dtype=np.float64))
+            )
+
+        def reset(self) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+    with pytest.raises(VariantGenerationError, match="sim.data.qpos alone"):
+        libero.generate_variant_initial_qpos(
+            lambda **kwargs: QposOnlySimulator(int(kwargs["seed"])),
+            tmp_path / "generated.pruned_init",
+            task_id=0,
+            bddl_path=source_bddl / f"{libero.LIBERO_TASK_SPECS[0].name}.bddl",
+            source_init_path=source_init / f"{libero.LIBERO_TASK_SPECS[0].name}.pruned_init",
+            count=B_INIT_STATE_COUNT,
+            seeds=tuple(range(B_INIT_STATE_COUNT)),
+        )
 
 
 def test_calibration_persists_aggregate_only() -> None:
