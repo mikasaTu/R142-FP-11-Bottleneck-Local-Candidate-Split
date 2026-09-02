@@ -364,6 +364,16 @@ class OfficialEvoPolicy:
     def set_rng(self, rng: np.random.Generator) -> None:
         self.stateful.set_rng(rng)
 
+    def seed(self, seed: int) -> None:
+        """Set the exact integer seed on the server-backed Evo policy.
+
+        ``FamilyRolloutRunner`` calls this before its legacy Generator
+        fallback, so the persisted SeedSequence value is the seed applied to
+        Python/NumPy/Torch/CUDA in the server control shim.
+        """
+
+        self.stateful.set_seed(int(seed))
+
     def capture_observation_history(self) -> Any:
         return self.stateful.capture_observation_history()
 

@@ -9,9 +9,12 @@ policy observation history, action queue, and every RNG stream.
 from __future__ import annotations
 
 import copy
+import base64
 import hashlib
+import itertools
 import json
 import os
+import pickle
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,6 +25,325 @@ import numpy as np
 
 class CapabilityError(RuntimeError):
     """Missing/non-deterministic real-runtime capability, not an episode fail."""
+
+
+# The released Evo-1 WebSocket payload is intentionally left unchanged.  These
+# control messages are opt-in messages on the same connection and are consumed
+# only by the Stage-S server shim below.  Keeping the protocol version and
+# request id explicit prevents an unpatched/public server from being mistaken
+# for an exact-replay server.
+EVO_EXACT_REPLAY_PROTOCOL = "r142-evo-exact-replay/v1"
+EVO_CONTROL_KEY = "r142_control"
+
+
+def _b64_encode(value: bytes) -> str:
+    return base64.b64encode(bytes(value)).decode("ascii")
+
+
+def _b64_decode(value: Any, label: str) -> bytes:
+    if not isinstance(value, str):
+        raise CapabilityError(f"{label} must be a base64 string")
+    try:
+        return base64.b64decode(value.encode("ascii"), validate=True)
+    except (ValueError, TypeError) as exc:
+        raise CapabilityError(f"{label} is not valid base64") from exc
+
+
+def _pickle_encode(value: Any) -> str:
+    # The control channel is local/trusted and carries Python/NumPy state that
+    # cannot be represented as JSON without losing exact dtype/tuple details.
+    # It is never used to load a checkpoint or execute user-supplied objects.
+    return _b64_encode(pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL))
+
+
+def _pickle_decode(value: Any, label: str) -> Any:
+    try:
+        return pickle.loads(_b64_decode(value, label))
+    except (pickle.PickleError, EOFError, ValueError, TypeError, AttributeError) as exc:
+        raise CapabilityError(f"{label} is not a valid serialized RNG state") from exc
+
+
+class EvoExactReplayServerControl:
+    """Server-side RNG controller for the pinned Evo-1 inference process.
+
+    The public ``Evo_1/scripts/Evo1_server.py`` only dispatches every JSON
+    message to ``infer_from_json_dict``.  A real deployment must call
+    :meth:`handle_message` before that function and send its non-``None``
+    response directly to the same WebSocket.  Ordinary inference messages
+    return ``None`` and therefore retain the released model/inference code
+    byte-for-byte.  This class changes no model weights, normalization, or
+    flow-matching algorithm; it only snapshots/restores the process RNGs.
+
+    ``require_torch=True`` is mandatory for the real server because Evo-1's
+    flow-matching head samples its initial action from Torch (and CUDA on the
+    A800).  Tests may explicitly disable it when Torch is unavailable.
+    """
+
+    def __init__(self, *, require_torch: bool = True):
+        self.require_torch = bool(require_torch)
+
+    @staticmethod
+    def _torch_or_error(require_torch: bool):
+        try:
+            import torch
+        except ImportError as exc:
+            if require_torch:
+                raise CapabilityError(
+                    "Evo server exact replay requires Torch/CUDA RNG support"
+                ) from exc
+            return None
+        return torch
+
+    @staticmethod
+    def _encode_torch_bytes(tensor: Any) -> Dict[str, Any]:
+        import numpy as _np
+
+        raw = tensor.detach().to(device="cpu", dtype=tensor.dtype).contiguous()
+        # RNG states are ByteTensors.  Rejecting another dtype avoids a silent
+        # numeric conversion that would make replay look successful.
+        if str(raw.dtype) != "torch.uint8":
+            raise CapabilityError(f"Torch RNG state has unexpected dtype {raw.dtype}")
+        data = raw.numpy()
+        return {
+            "dtype": "uint8",
+            "shape": list(raw.shape),
+            "data": _b64_encode(_np.asarray(data, dtype=_np.uint8).tobytes()),
+        }
+
+    @staticmethod
+    def _decode_torch_bytes(value: Any, torch: Any, label: str) -> Any:
+        import numpy as _np
+
+        if not isinstance(value, Mapping):
+            raise CapabilityError(f"{label} must be a mapping")
+        if value.get("dtype") != "uint8":
+            raise CapabilityError(f"{label} has unsupported dtype")
+        shape = value.get("shape")
+        if not isinstance(shape, list) or not all(isinstance(x, int) and x >= 0 for x in shape):
+            raise CapabilityError(f"{label} has invalid shape")
+        raw = _b64_decode(value.get("data"), label)
+        expected = int(np.prod(shape, dtype=np.int64))
+        if len(raw) != expected:
+            raise CapabilityError(
+                f"{label} byte length mismatch: expected {expected}, got {len(raw)}"
+            )
+        array = _np.frombuffer(raw, dtype=_np.uint8).copy().reshape(tuple(shape))
+        return torch.from_numpy(array).clone()
+
+    def _capture(self) -> Dict[str, Any]:
+        import random
+
+        torch = self._torch_or_error(self.require_torch)
+        state: Dict[str, Any] = {
+            "protocol": EVO_EXACT_REPLAY_PROTOCOL,
+            "python": _pickle_encode(random.getstate()),
+            "numpy": _pickle_encode(np.random.get_state()),
+        }
+        if torch is None:
+            state["torch"] = None
+            state["torch_cuda"] = []
+            state["torch_cuda_available"] = False
+        else:
+            state["torch"] = self._encode_torch_bytes(torch.get_rng_state())
+            cuda_available = bool(torch.cuda.is_available())
+            state["torch_cuda_available"] = cuda_available
+            state["torch_cuda"] = (
+                [self._encode_torch_bytes(item) for item in torch.cuda.get_rng_state_all()]
+                if cuda_available
+                else []
+            )
+        return state
+
+    def _restore(self, state: Mapping[str, Any]) -> None:
+        import random
+
+        if not isinstance(state, Mapping):
+            raise CapabilityError("Evo server RNG restore state must be a mapping")
+        if state.get("protocol") != EVO_EXACT_REPLAY_PROTOCOL:
+            raise CapabilityError(
+                "Evo server RNG restore protocol mismatch; refusing approximate replay"
+            )
+        random_state = _pickle_decode(state.get("python"), "python RNG state")
+        numpy_state = _pickle_decode(state.get("numpy"), "NumPy RNG state")
+        torch = self._torch_or_error(self.require_torch)
+        torch_state = None
+        cuda_states = []
+        current_cuda = False
+        if torch is not None:
+            # Decode and validate every stream before mutating any global RNG;
+            # a malformed CUDA state must not leave Python/NumPy half-restored.
+            torch_state = self._decode_torch_bytes(
+                state.get("torch"), torch, "Torch CPU RNG state"
+            )
+            captured_cuda = bool(state.get("torch_cuda_available"))
+            current_cuda = bool(torch.cuda.is_available())
+            if captured_cuda != current_cuda:
+                raise CapabilityError(
+                    "Torch CUDA availability changed across replay snapshot "
+                    f"(captured={captured_cuda}, current={current_cuda})"
+                )
+            cuda_states_raw = state.get("torch_cuda", [])
+            if not isinstance(cuda_states_raw, list):
+                raise CapabilityError("Torch CUDA RNG state must be a list")
+            if current_cuda:
+                current_count = int(torch.cuda.device_count())
+                if len(cuda_states_raw) != current_count:
+                    raise CapabilityError(
+                        "Torch CUDA device count changed across replay snapshot "
+                        f"(captured={len(cuda_states_raw)}, current={current_count})"
+                    )
+                cuda_states = [
+                    self._decode_torch_bytes(item, torch, f"Torch CUDA RNG state {i}")
+                    for i, item in enumerate(cuda_states_raw)
+                ]
+            elif cuda_states_raw:
+                raise CapabilityError(
+                    "Torch CUDA RNG state is present while CUDA is unavailable"
+                )
+        elif state.get("torch") is not None or state.get("torch_cuda"):
+            raise CapabilityError("Torch RNG state cannot be restored without Torch")
+
+        try:
+            random.setstate(random_state)
+        except (TypeError, ValueError) as exc:
+            raise CapabilityError("Python RNG state is not restorable") from exc
+        try:
+            np.random.set_state(numpy_state)
+        except (TypeError, ValueError) as exc:
+            raise CapabilityError("NumPy RNG state is not restorable") from exc
+        if torch is None:
+            return
+        try:
+            torch.set_rng_state(torch_state)
+        except (RuntimeError, TypeError, ValueError) as exc:
+            raise CapabilityError("Torch CPU RNG state is not restorable") from exc
+        if current_cuda:
+            try:
+                torch.cuda.set_rng_state_all(cuda_states)
+            except (RuntimeError, TypeError, ValueError) as exc:
+                raise CapabilityError("Torch CUDA RNG state is not restorable") from exc
+
+    def _set_seed(self, seed: Any) -> Dict[str, Any]:
+        import random
+
+        try:
+            integer_seed = int(seed)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise CapabilityError("Evo server seed must be an integer") from exc
+        if integer_seed < 0:
+            raise CapabilityError("Evo server seed must be non-negative")
+        torch = self._torch_or_error(self.require_torch)
+        random.seed(integer_seed)
+        np.random.seed(integer_seed % (2**32))
+        if torch is not None:
+            torch.manual_seed(integer_seed)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(integer_seed)
+        return {"protocol": EVO_EXACT_REPLAY_PROTOCOL, "seed": integer_seed}
+
+    def handle_message(self, message: Any) -> Optional[Dict[str, Any]]:
+        """Handle one control message, or return ``None`` for inference JSON."""
+
+        if not isinstance(message, Mapping) or EVO_CONTROL_KEY not in message:
+            return None
+        request_id = message.get("request_id")
+        operation = message.get(EVO_CONTROL_KEY)
+        response: Dict[str, Any] = {
+            EVO_CONTROL_KEY: "ok",
+            "protocol": EVO_EXACT_REPLAY_PROTOCOL,
+            "request_id": request_id,
+            "operation": operation,
+        }
+        try:
+            if message.get("protocol") != EVO_EXACT_REPLAY_PROTOCOL:
+                raise CapabilityError("Evo exact-replay control protocol mismatch")
+            if not isinstance(request_id, str) or not request_id:
+                raise CapabilityError("Evo exact-replay control request_id is required")
+            if operation == "set_seed":
+                response["state"] = self._set_seed(message.get("seed"))
+            elif operation == "capture_rng":
+                response["state"] = self._capture()
+            elif operation == "restore_rng":
+                self._restore(message.get("state"))
+            else:
+                raise CapabilityError(f"unsupported Evo exact-replay operation: {operation!r}")
+        except (CapabilityError, RuntimeError, TypeError, ValueError) as exc:
+            response[EVO_CONTROL_KEY] = "error"
+            response["error_type"] = type(exc).__name__
+            response["error"] = str(exc)
+        return response
+
+
+class EvoExactReplayClient:
+    """Synchronous control client layered over the released Evo1Proxy.
+
+    ``Evo1Proxy.infer`` already owns an event loop and WebSocket.  Reusing
+    those exact objects avoids changing the inference payload or introducing a
+    second connection whose server RNG would not correspond to inference.
+    """
+
+    def __init__(self, proxy: Any):
+        self.proxy = proxy
+        self._request_ids = itertools.count()
+
+    def _request(self, operation: str, **fields: Any) -> Mapping[str, Any]:
+        ws = getattr(self.proxy, "ws", None)
+        loop = getattr(self.proxy, "loop", None)
+        if ws is None or loop is None or not callable(getattr(loop, "run_until_complete", None)):
+            raise CapabilityError(
+                "Evo exact-replay control requires the proxy's live WebSocket and event loop"
+            )
+        if bool(getattr(loop, "is_running", lambda: False)()):
+            raise CapabilityError(
+                "Evo exact-replay control cannot run on an already-running proxy event loop"
+            )
+        request_id = f"r142-{next(self._request_ids):08d}"
+        payload = {
+            EVO_CONTROL_KEY: operation,
+            "protocol": EVO_EXACT_REPLAY_PROTOCOL,
+            "request_id": request_id,
+            **fields,
+        }
+
+        async def exchange() -> Mapping[str, Any]:
+            await ws.send(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+            raw = await ws.recv()
+            try:
+                result = json.loads(raw)
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                raise CapabilityError("Evo server returned non-JSON control response") from exc
+            if not isinstance(result, Mapping):
+                raise CapabilityError("Evo server control response is not a mapping")
+            return result
+
+        try:
+            result = loop.run_until_complete(exchange())
+        except CapabilityError:
+            raise
+        except Exception as exc:
+            raise CapabilityError(
+                "Evo exact-replay control exchange failed; the pinned public server "
+                "may be unpatched"
+            ) from exc
+        if result.get("protocol") != EVO_EXACT_REPLAY_PROTOCOL:
+            raise CapabilityError("Evo server did not acknowledge exact-replay protocol")
+        if result.get("request_id") != request_id:
+            raise CapabilityError("Evo server control response request_id mismatch")
+        if result.get(EVO_CONTROL_KEY) != "ok":
+            raise CapabilityError(
+                "Evo server rejected exact-replay control: "
+                f"{result.get('error', 'unknown error')}"
+            )
+        return result
+
+    def set_seed(self, seed: int) -> Mapping[str, Any]:
+        return self._request("set_seed", seed=int(seed))
+
+    def capture_rng_state(self) -> Any:
+        return _copy(self._request("capture_rng").get("state"))
+
+    def restore_rng_state(self, state: Mapping[str, Any]) -> None:
+        self._request("restore_rng", state=_copy(state))
 
 
 @dataclass(frozen=True)
@@ -383,11 +705,17 @@ class EvoProxyStateAdapter:
     while requiring an explicit server-side RNG hook for exact replay.
     """
 
-    def __init__(self, proxy: Any):
+    def __init__(self, proxy: Any, protocol: Optional[EvoExactReplayClient] = None):
         self.proxy = proxy
         self.observation_history = []
         self.action_queue = []
         self.rng = np.random.default_rng()
+        # The released proxy has no RNG methods, but it exposes the live
+        # ``ws``/``loop`` pair used by infer().  Attach the exact control
+        # protocol to that same connection; never create a second socket.
+        self.protocol = protocol
+        if self.protocol is None and getattr(proxy, "ws", None) is not None:
+            self.protocol = EvoExactReplayClient(proxy)
 
     def infer(self, *args: Any, **kwargs: Any) -> Any:
         response = self.proxy.infer(*args, **kwargs)
@@ -416,21 +744,67 @@ class EvoProxyStateAdapter:
 
     def capture_rng_state(self) -> Any:
         hook = getattr(self.proxy, "capture_rng_state", None)
-        if not callable(hook):
+        if callable(hook):
+            server_state = hook()
+        elif self.protocol is not None:
+            server_state = self.protocol.capture_rng_state()
+        else:
             raise CapabilityError(
                 "Evo proxy exact replay unavailable: the released WebSocket "
                 "server exposes no Torch/CUDA RNG snapshot hook"
             )
-        return {"local": _copy(self.rng.bit_generator.state), "server": _copy(hook())}
+        return {
+            "protocol": EVO_EXACT_REPLAY_PROTOCOL if self.protocol is not None else "hook",
+            "local": _copy(self.rng.bit_generator.state),
+            "server": _copy(server_state),
+        }
 
     def restore_rng_state(self, value: Any) -> None:
         hook = getattr(self.proxy, "restore_rng_state", None)
-        if not callable(hook):
+        if not isinstance(value, Mapping) or "local" not in value or "server" not in value:
+            raise CapabilityError("Evo proxy RNG restore state has an invalid schema")
+        if callable(hook):
+            hook(_copy(value["server"]))
+        elif self.protocol is not None:
+            self.protocol.restore_rng_state(_copy(value["server"]))
+        else:
             raise CapabilityError(
                 "Evo proxy exact replay unavailable: server RNG restore hook missing"
             )
         self.rng.bit_generator.state = _copy(value["local"])
-        hook(_copy(value["server"]))
+
+    @staticmethod
+    def _seed_from_rng(rng: np.random.Generator) -> int:
+        """Derive a stable server seed without consuming the caller RNG."""
+
+        state = _jsonable(rng.bit_generator.state)
+        encoded = json.dumps(state, sort_keys=True, separators=(",", ":")).encode()
+        return int.from_bytes(hashlib.sha256(encoded).digest()[:8], "little")
+
+    def set_seed(self, seed: int) -> None:
+        try:
+            integer_seed = int(seed)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise CapabilityError("Evo proxy seed must be an integer") from exc
+        if integer_seed < 0:
+            raise CapabilityError("Evo proxy seed must be non-negative")
+        self.rng = np.random.default_rng(integer_seed)
+        hook = getattr(self.proxy, "set_seed", None)
+        if not callable(hook):
+            hook = getattr(self.proxy, "seed", None)
+        if callable(hook):
+            try:
+                hook(integer_seed)
+            except TypeError as exc:
+                raise CapabilityError("Evo proxy seed hook must accept an integer") from exc
+            return
+        if self.protocol is not None:
+            self.protocol.set_seed(integer_seed)
+            return
+        raise CapabilityError(
+            "Evo proxy independent sampling unavailable: server policy must expose "
+            "set_seed/seed or the Stage-S exact-replay WebSocket protocol"
+        )
 
     def set_rng(self, rng: np.random.Generator) -> None:
         self.rng = rng
@@ -440,20 +814,20 @@ class EvoProxyStateAdapter:
         # rejected here (and also lacks the snapshot hooks required by the
         # replay gate).
         hook = getattr(self.proxy, "set_rng", None)
-        if not callable(hook):
-            hook = getattr(self.proxy, "seed", None)
-        if not callable(hook):
-            raise CapabilityError(
-                "Evo proxy independent sampling unavailable: server policy "
-                "must expose set_rng(rng) or seed(seed)"
-            )
-        try:
-            hook(rng)
-        except TypeError:
+        if callable(hook):
             try:
-                hook(_copy(rng.bit_generator.state))
+                hook(rng)
             except TypeError:
-                hook(int(rng.integers(0, 2**32, dtype=np.uint32)))
+                try:
+                    hook(_copy(rng.bit_generator.state))
+                except TypeError as exc:
+                    raise CapabilityError("Evo proxy set_rng hook rejected Generator/state") from exc
+            return
+        # Legacy wrappers sometimes expose only seed(seed).  The derivation is
+        # stable and does not advance the candidate-local generator.  The real
+        # runner prefers set_seed(seed), preserving the registered genealogy
+        # seed exactly; this branch is compatibility for generic wrappers.
+        self.set_seed(self._seed_from_rng(rng))
 
 
 class ConcreteRoboTwinRuntime:
@@ -1027,13 +1401,16 @@ class FamilyRolloutRunner:
 
     @staticmethod
     def _seed_policy(policy: Any, seed: int) -> None:
+        # Prefer an explicit integer seed so the server-side Torch/CUDA stream
+        # is tied exactly to the persisted SeedSequence genealogy.  The
+        # Generator path remains for local/fake policy adapters only.
+        fn = getattr(policy, "seed", None)
+        if callable(fn):
+            fn(int(seed))
+            return
         fn = getattr(policy, "set_rng", None)
         if callable(fn):
             fn(np.random.default_rng(seed))
-            return
-        fn = getattr(policy, "seed", None)
-        if callable(fn):
-            fn(seed)
             return
         raise CapabilityError(
             "independent candidate RNG unavailable: "

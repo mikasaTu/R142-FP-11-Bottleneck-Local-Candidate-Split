@@ -51,7 +51,9 @@ RoboTwin stable_2.0 at 13c3c47ff4312dd62484bcd51be034af55c062d1 and Evo-1 at
 5fd14b015013c4fd0aacf5f8f48f868ca9b870a2. All ten selected task modules and
 instruction files are present. The explicit checkpoint path
 /mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/models/Evo1_RoboTwin2_clean_ce8c583724706fbf7a03c17237761c65bf6813a7
-exists but is empty while the checkpoint download is pending. RoboTwin
+contains `config.json` and `norm_stats.json`, but the required
+`mp_rank_00_model_states.pt` is still absent while the checkpoint download is
+pending. RoboTwin
 stable 2.0 requires SAPIEN/CuRobo and the Evo-1 plugin/server.
 
 Therefore the current live asset status is `BLOCKED_CAPABILITY` because the
@@ -93,8 +95,40 @@ never submits PAI), with one rank shard per shared output root, robot idle
 fail-closed scheduler guards. The visible calibration command refuses
 Step-0 because substrate A has no registered calibration phase.
 
-The released public WebSocket proxy currently exposes no policy RNG snapshot
-or restore hook. Until the deployed server supplies that concrete hook and
-the three checkpoint files plus exact HF revision evidence are verified, a
-real A rollout remains `BLOCKED_CAPABILITY`; this is an infrastructure
-precondition, not a scientific result.
+## Evo exact-replay control protocol
+
+Inspection of the pinned `Evo_1/scripts/Evo1_server.py` and
+`RoboTwin_evaluation/policy/Evo1/deploy_policy.py` found that the released
+server accepts only inference JSON and the released `Evo1Proxy` exposes only
+`infer`/`close`; its `reset_model` is a no-op. In particular, the pinned
+flow-matching action head samples its initial action with Torch, so a
+client-local NumPy seed cannot establish candidate independence or replay.
+
+`src/r142_stage_s/robotwin.py` now supplies an opt-in, versioned control
+protocol on the *same* WebSocket used by `infer`:
+
+| Control | Purpose |
+|---|---|
+| `set_seed` | Set Python, NumPy, Torch CPU, and all CUDA streams from the persisted integer candidate seed |
+| `capture_rng` | Return exact serialized Python/NumPy/Torch/CUDA states |
+| `restore_rng` | Validate protocol, device count/availability, byte shape, and restore all streams |
+
+Every message has `r142-evo-exact-replay/v1` and a request id. Inference
+payloads are not changed. `scripts/stage_s_robotwin_evo_server_patch.py`
+contains the minimal dispatcher: call `control_response()` before the
+unchanged pinned `infer_from_json_dict()` branch and send a control response
+on the same socket. A malformed, unversioned, or rejected control fails
+closed; there is no local-RNG or synthetic fallback. The runner prefers the
+exact integer `SeedSequence([initial_seed, candidate_index])` via
+`OfficialEvoPolicy.seed()` and retains `set_rng(Generator)` only for local
+test adapters.
+
+The bridge implementation is unit-tested in-process, including policy
+history/action-queue restoration and the exact same-action/next-state
+`1e-9` wiring. It is not evidence that a server has been deployed: the
+currently inspected public pinned server source is still unpatched, and the
+audit reports `server_control_deployed=false` until the dispatcher is
+installed in its message loop (or an equivalent in-process server wrapper is
+explicitly supplied). Together with missing checkpoint files/revision
+evidence, this keeps a real A rollout `BLOCKED_CAPABILITY`; it is an
+infrastructure precondition, not a scientific result.

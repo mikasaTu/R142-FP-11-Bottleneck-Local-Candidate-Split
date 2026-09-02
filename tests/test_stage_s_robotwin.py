@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+import random
 from datetime import datetime
 from pathlib import Path
 
@@ -15,10 +17,176 @@ from r142_stage_s.robotwin import (
     CapabilityError,
     ConcreteRoboTwinRuntime,
     ExactReplayVerifier,
+    EVO_EXACT_REPLAY_PROTOCOL,
+    EvoExactReplayServerControl,
+    EvoProxyStateAdapter,
     FamilyRolloutRunner,
     PUBLISHED_CLEAN_SUCCESS,
     select_published_tasks,
 )
+from scripts.stage_s_robotwin_evo_server_patch import build_handle_request
+
+
+class ControlSocket:
+    """In-process WebSocket fake; control state is owned by the server shim."""
+
+    def __init__(self, controller):
+        self.controller = controller
+        self.responses = []
+
+    async def send(self, payload):
+        response = self.controller.handle_message(json.loads(payload))
+        if response is not None:
+            self.responses.append(json.dumps(response))
+
+    async def recv(self):
+        if not self.responses:
+            raise RuntimeError("control response queue is empty")
+        return self.responses.pop(0)
+
+
+class ControlProxy:
+    def __init__(self, controller):
+        self.ws = ControlSocket(controller)
+        self.loop = asyncio.new_event_loop()
+
+    def infer(self, *_args, **_kwargs):
+        # This is only the transport fake.  The exact replay implementation
+        # never treats this as evidence of a real model rollout.
+        return [[0.1, 0.2]]
+
+
+class HandlerSocket:
+    def __init__(self, incoming):
+        self.incoming = list(incoming)
+        self.sent = []
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if not self.incoming:
+            raise StopAsyncIteration
+        return self.incoming.pop(0)
+
+    async def send(self, payload):
+        self.sent.append(payload)
+
+
+def test_evo_control_server_rejects_unversioned_and_ignores_inference():
+    controller = EvoExactReplayServerControl(require_torch=False)
+    assert controller.handle_message({"image": []}) is None
+    result = controller.handle_message({"r142_control": "capture_rng"})
+    assert result["r142_control"] == "error"
+    assert "protocol" in result["error"]
+
+
+def test_evo_proxy_protocol_restores_policy_rng_history_and_action_queue():
+    controller = EvoExactReplayServerControl(require_torch=False)
+    proxy = ControlProxy(controller)
+    adapter = EvoProxyStateAdapter(proxy)
+    try:
+        adapter.set_seed(424242)
+        adapter.observation_history = [{"state": [1.0], "prompt": "pick"}]
+        adapter.action_queue = [[0.25, 0.5], [0.75, 1.0]]
+        snapshot = {
+            "history": adapter.capture_observation_history(),
+            "queue": adapter.capture_action_queue(),
+            "rng": adapter.capture_rng_state(),
+        }
+        # Advance both local and server-side streams and mutate the queues.
+        adapter.rng.random()
+        random.random()
+        np.random.random()
+        adapter.observation_history.append({"state": [9.0]})
+        adapter.action_queue.pop()
+        adapter.restore_observation_history(snapshot["history"])
+        adapter.restore_action_queue(snapshot["queue"])
+        adapter.restore_rng_state(snapshot["rng"])
+        assert adapter.capture_observation_history() == snapshot["history"]
+        assert adapter.capture_action_queue() == snapshot["queue"]
+        restored = adapter.capture_rng_state()
+        assert json.dumps(restored, sort_keys=True, default=str) == json.dumps(
+            snapshot["rng"], sort_keys=True, default=str
+        )
+    finally:
+        proxy.loop.close()
+
+
+def test_evo_proxy_protocol_wires_exact_same_action_next_state_contract():
+    controller = EvoExactReplayServerControl(require_torch=False)
+    proxy = ControlProxy(controller)
+    adapter = EvoProxyStateAdapter(proxy)
+
+    class ProtocolPolicy:
+        def capture_observation_history(self):
+            return adapter.capture_observation_history()
+
+        def restore_observation_history(self, value):
+            adapter.restore_observation_history(value)
+
+        def capture_action_queue(self):
+            return adapter.capture_action_queue()
+
+        def restore_action_queue(self, value):
+            adapter.restore_action_queue(value)
+
+        def capture_rng_state(self):
+            return adapter.capture_rng_state()
+
+        def restore_rng_state(self, value):
+            adapter.restore_rng_state(value)
+
+        def act(self, _observation):
+            raw = adapter.infer(None, None, None, [0.0], "pick")
+            return np.asarray(raw[0])
+
+    try:
+        adapter.set_seed(1234)
+        result = ExactReplayVerifier(FakeEnv(), ProtocolPolicy()).verify_restore()
+        assert result["passed"]
+        assert result["action_error"] <= 1e-9
+        assert result["next_state_error"] <= 1e-9
+    finally:
+        proxy.loop.close()
+
+
+def test_evo_server_drop_in_handler_keeps_inference_branch_unchanged():
+    calls = []
+
+    def infer(payload, model, normalizer, arm_key, dataset_key):
+        calls.append((payload, model, normalizer, arm_key, dataset_key))
+        return [[7.0]]
+
+    handler = build_handle_request(
+        infer_from_json_dict=infer,
+        model="model",
+        normalizer="normalizer",
+        arm_key="aloha_joint",
+        dataset_key="robotwin_blocks_ranking_size",
+        require_torch=False,
+    )
+    inference_payload = {"image": [], "state": [], "prompt": "pick"}
+    control_payload = {
+        "r142_control": "capture_rng",
+        "protocol": EVO_EXACT_REPLAY_PROTOCOL,
+        "request_id": "test-request",
+    }
+    websocket = HandlerSocket(
+        [json.dumps(inference_payload), json.dumps(control_payload)]
+    )
+    asyncio.run(handler(websocket))
+    assert calls == [(
+        inference_payload,
+        "model",
+        "normalizer",
+        "aloha_joint",
+        "robotwin_blocks_ranking_size",
+    )]
+    assert json.loads(websocket.sent[0]) == [[7.0]]
+    control_response = json.loads(websocket.sent[1])
+    assert control_response["r142_control"] == "ok"
+    assert control_response["request_id"] == "test-request"
 
 
 def test_task_selection_is_lexical_and_exact():
