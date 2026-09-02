@@ -52,7 +52,7 @@ def test_launcher_is_valid_shell_and_binds_all_eight_pairs() -> None:
     assert "2254:2254" in text
     assert 'REQUIRED_RUNTIME_REPO="$ROOT/code/r142-stage-s-a-runtime-20260903"' in text
     assert "r142-stage-s-runtime-20260902" not in text
-    assert "FROZEN_SOURCE_COMMIT=\"ea06996168bd460c98cb3e2ee77b929aafced12e\"" in text
+    assert "FROZEN_SOURCE_COMMIT=\"047f15c5cbad99e76ac47e2ce608a40bae22c49e\"" in text
     assert "ACCEPTED_ASSET_PREFLIGHT_PATH=\"$ROOT/stage_s/protocol/ACCEPTED_A_ASSET_PREFLIGHT.json\"" in text
     assert "ASSET_PREFLIGHT_RUN_ID" not in text
     assert "r142-stage-s-a-assets-20260902-r15" not in text
@@ -92,7 +92,7 @@ def test_config_freezes_real_resource_and_evaluation_contract() -> None:
         "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-a-runtime-20260903"
     )
     assert config["runtime"]["source_commit"] == (
-        "ea06996168bd460c98cb3e2ee77b929aafced12e"
+        "047f15c5cbad99e76ac47e2ce608a40bae22c49e"
     )
     assert config["runtime"]["frozen_protocol_path"] == (
         "/mnt/cpfs/zbl-cpfs-new/USERS/leon/stage_s/protocol/FROZEN_PROTOCOL.json"
