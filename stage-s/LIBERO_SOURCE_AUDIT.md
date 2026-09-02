@@ -62,7 +62,9 @@ task, leaves `(:language)` and `(:goal)` unchanged, excludes the duplicate from
 `obj_of_interest`, and places it in a deterministic translated copy of the
 target init region.  The four frozen center offsets are `0.06`, `0.08`, `0.10`,
 and `0.12` meters.  The target mapping is the table above (for task 8 the
-target region is `moka_pot_right_init_region`).
+target region is `moka_pot_right_init_region`).  The init placement uses the
+actual source table fixture (including `kitchen_table` and `study_table`), not
+a hard-coded living-room fixture.
 
 The generated BDDL is executable only with a separately regenerated init-state
 tensor.  Reusing the old `.pruned_init` is explicitly rejected because adding a
@@ -74,11 +76,24 @@ and `REGENERATED_INIT_STATES.json` asserting:
 {"regenerated": true, "old_init_reused": false}
 ```
 
-No such regenerated B init-state directory was present during this audit.
-Consequently B generation is implemented and unit-tested, but a real B
-rollout is **blocked fail-closed** until a simulator-generated qpos bundle is
-provided.  The existing unperturbed Stage-R archive remains the B null
-control; it is not relabeled as the perturbed arm.
+`build_b_variant_matrix` and `scripts/stage_s_libero_b.py` now create all
+`10 tasks x 4 offsets`.  For each setting they write a fresh staging bundle,
+reset the pinned LIBERO `OffScreenRenderEnv` once per fixed seed, and require
+at least 16 finite, distinct qpos rows.  The old `.pruned_init` is read only
+for a dimensionality/identity audit and is never passed to the simulator or
+copied as generated state.  The output contains a per-setting
+`REGENERATED_INIT_STATES.json` plus the executable nested BDDL/init-state
+tree.  Fake simulator tests cover the callback and fixed-seed contract; no
+real B simulator run was performed in this implementation pass.
+
+No real regenerated B init-state directory was present during this audit.
+Consequently a real B rollout remains **blocked fail-closed** until the
+generator is run with the pinned LIBERO/MuJoCo runtime and its output is
+audited.  A one-task OffScreenRenderEnv smoke reached the real constructor
+but the dev14 EGL device initialization failed (`PLATFORM_DEVICE` is not
+available); this is an execution-environment blocker, not a successful qpos
+generation result.  The existing unperturbed Stage-R archive remains the B
+null control; it is not relabeled as the perturbed arm.
 
 ## Substrate C: under-trained exact policy checkpoints
 
@@ -94,24 +109,34 @@ were found; unrelated small LIBERO actors and critics do not satisfy the
 same-policy contract and are not substituted.
 
 `scripts/stage_s_libero_c.py` emits a fail-closed audit and the real OpenPI
-PyTorch launcher contract. The frozen calibration steps are 1000, 3000,
-6000, and 10000, so the launcher saves every 1000 steps and ends at 10001:
+PyTorch launcher contract. The frozen C lineage uses seed 42, ends at 10001
+optimizer steps, saves every 1000 steps, and retains/audits the exact steps
+1000, 3000, 6000, and 10000; 30000 is the full-training reference:
 
 ```text
-cd <QPILOTS>/third_party/openpi && torchrun --standalone --nproc_per_node=4 \
+cd <QPILOTS>/third_party/openpi && torchrun --standalone --nnodes=1 --nproc_per_node=8 \
   scripts/train_pytorch.py pi05_libero \
-  --exp_name r142_stage_s_c_undertrained \
-  --checkpoint-dir <output> --save-interval 1000 --num-train-steps 10001
+  --exp_name r142_stage_s_c_undertrained_seed42 \
+  --checkpoint_base_dir <output> --save_interval 1000 \
+  --num_train_steps 10001 --seed 42 --keep_period 1000
 ```
 
 The contract labels all C-derived output `WEAK_SUBSTRATE`, requires exactly
-four unique real checkpoints with declared steps below 30,000, and explicitly
-sets interpolation and artificial degradation to false.  It does not submit
-the launcher.  **C status: unavailable pending four exact real checkpoints.**
+four unique real checkpoints with the frozen steps below 30,000, and explicitly
+sets interpolation and artificial degradation to false.  It includes a
+full-state resume command and records the `8 GPU / 88 CPU / 1525 GiB` ceiling;
+an external real base checkpoint is still required.  It does not submit the
+launcher.  `scripts/stage_s_libero_pai.py` renders a non-submitting idle-PAI
+payload with persistent resume paths, the robot idle resource contract, and
+the Beijing no-job windows `09:30-09:40` and `19:30-19:40` (Asia/Shanghai).
+**C status: unavailable pending four exact real checkpoints and base assets.**
 
 ## Snapshot and execution boundary
 
-The Stage-S adapter captures the Stage-R-compatible simulator snapshot,
+The Stage-S adapter now exposes `StageRPolicyAdapter` and
+`make_stage_r_task64_factory`, which call the maintained Stage-R
+`CleanPi05LiberoPolicy`/`Task64Environment` wrappers and preserve real episode
+termination.  It captures the Stage-R-compatible simulator snapshot,
 observation history, action queue, Python RNG, NumPy RNG, policy RNG state
 when exposed, seed/counter, and control step.  `validate_restore_same_action`
 restores and executes one identical action twice, requiring max absolute

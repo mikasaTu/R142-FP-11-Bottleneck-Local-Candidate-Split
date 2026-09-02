@@ -13,6 +13,11 @@ import json
 from pathlib import Path
 
 from r142_stage_s.libero import (
+    C_RETAIN_STEPS,
+    C_SAVE_INTERVAL,
+    C_TRAINING_SEED,
+    C_TRAINING_STEPS,
+    PAI_MAX_GPU,
     audit_undertrained_checkpoint_set,
     atomic_json,
     build_c_training_launcher_contract,
@@ -25,8 +30,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, action="append", default=[])
     parser.add_argument("--expected-step", type=int, action="append", default=[])
+    parser.add_argument("--base-checkpoint", type=Path, help="real pi05 base checkpoint for C training; never synthesized")
     parser.add_argument("--python", default="python")
-    parser.add_argument("--gpu-count", type=int, default=4)
+    parser.add_argument("--gpu-count", type=int, default=PAI_MAX_GPU)
     parser.add_argument("--resource-pool", default="idle")
     parser.add_argument("--output", type=Path, required=True)
     return parser
@@ -42,6 +48,7 @@ def main(argv: list[str] | None = None) -> int:
         output_root=args.output_root,
         checkpoint_paths=args.checkpoint,
         expected_steps=expected_steps,
+        base_checkpoint=args.base_checkpoint,
         python=args.python,
         gpu_count=args.gpu_count,
         resource_pool=args.resource_pool,
