@@ -45,6 +45,14 @@ CALIBRATION_TASK_IDS = (0, 3, 6, 9)
 CALIBRATION_INITIAL_STATES = tuple(range(8))
 CALIBRATION_CANDIDATE_COUNT = 8
 CALIBRATION_TARGET_SUCCESS = 0.45
+# A single explicit seed is carried by the plan, every shard, and the
+# aggregate marker.  It is deliberately independent of B's qpos seed base.
+CALIBRATION_SEED = 142042
+CALIBRATION_SHARD_SCHEMA = "r142-stage-s-calibration-shard-v1"
+CALIBRATION_RESULT_SCHEMA = "r142-stage-s-calibration-result-v1"
+CALIBRATION_PLAN_SCHEMA = "r142-stage-s-calibration-plan-v1"
+CALIBRATION_SHARD_MARKER = "CALIBRATION_SHARD_COMPLETE"
+CALIBRATION_RESULT_MARKER = "CALIBRATION_COMPLETE"
 MAIN_ACTION_HORIZON = 10
 REPLAN_STEPS = 5
 SNAPSHOT_REPLAY_TOLERANCE = 1e-9
@@ -1036,6 +1044,30 @@ def _configure_stage_r_sources(qpilots_root: str | Path, libero_root: str | Path
     return qpilots, libero_site
 
 
+def _select_libero_config(config_root: str | Path) -> Path:
+    """Bind the current process to one run-scoped LIBERO config.
+
+    The pinned LIBERO package snapshots ``LIBERO_CONFIG_PATH`` in module
+    globals at first import.  Stage-S B uses four different BDDL roots in one
+    calibration process, so merely changing the environment variable is not
+    sufficient after rank 0 has constructed its first Task64 environment.
+    Update the package globals as well before every environment construction;
+    this keeps each setting's BDDL/init-state pair isolated and deterministic.
+    """
+
+    root = Path(config_root).expanduser().resolve()
+    config_file = root / "config.yaml"
+    if not config_file.is_file():
+        raise StageSError(f"run-scoped LIBERO config is missing: {config_file}")
+    os.environ["LIBERO_CONFIG_PATH"] = str(root)
+    for module_name in ("libero.libero", "libero.libero.utils"):
+        module = sys.modules.get(module_name)
+        if module is not None:
+            setattr(module, "libero_config_path", str(root))
+            setattr(module, "config_file", str(config_file))
+    return root
+
+
 class StageRPolicyAdapter:
     """Adapter from the maintained Stage-R pi05 policy to Stage-S callbacks."""
 
@@ -1113,6 +1145,7 @@ def make_stage_r_task64_factory(
     *,
     checkpoint: str | Path | None = None,
     variant_root: str | Path | None = None,
+    libero_config_root: str | Path | None = None,
     max_steps: int = 520,
     init_state_count: int | None = None,
     num_steps_wait: int = 10,
@@ -1127,11 +1160,14 @@ def make_stage_r_task64_factory(
 
     qpilots, libero_site = _configure_stage_r_sources(qpilots_root, libero_root)
     variant = Path(variant_root).resolve() if variant_root is not None else None
+    base_config = Path(libero_config_root).expanduser().resolve() if libero_config_root is not None else None
     if variant is not None:
         marker = variant / "REGENERATED_INIT_STATES.json"
         if not marker.is_file():
             raise MissingRegeneratedInitialStates(f"B variant root has no regenerated-state marker: {marker}")
-        os.environ["LIBERO_CONFIG_PATH"] = str(variant)
+        _select_libero_config(variant)
+    elif base_config is not None:
+        _select_libero_config(base_config)
     state_count = int(init_state_count if init_state_count is not None else (B_INIT_STATE_COUNT if variant is not None else 50))
     if state_count <= 0:
         raise ValueError("init_state_count must be positive")
@@ -1143,7 +1179,9 @@ def make_stage_r_task64_factory(
     def factory(*, task_id: int, init_state: int, candidate_id: int, seed: int, variant: Any = None) -> Any:
         del candidate_id, variant
         if variant_root is not None:
-            os.environ["LIBERO_CONFIG_PATH"] = str(Path(variant_root).resolve())
+            _select_libero_config(Path(variant_root).resolve())
+        elif base_config is not None:
+            _select_libero_config(base_config)
         try:
             environment_module = importlib.import_module("qpilots_libero.environment")
             environment_class = getattr(environment_module, "Task64Environment")
@@ -1699,6 +1737,666 @@ def write_pooled_calibration(path: str | Path, result: Mapping[str, Any]) -> dic
     return payload
 
 
+# ---------------------------------------------------------------------------
+# Real B/C calibration shards
+# ---------------------------------------------------------------------------
+
+_CALIBRATION_ROW_FIELDS = frozenset({"setting", "successes", "total", "pooled_success"})
+_CALIBRATION_RESULT_FIELDS = frozenset(
+    {"schema", "protocol_id", "calibration_seed", "world_size", "rows", "target_pooled_success", "selected_setting"}
+)
+_CALIBRATION_LEAKAGE_FIELDS = frozenset(
+    {
+        "success",
+        "final_success",
+        "family",
+        "trajectory",
+        "genealogy",
+        "actions",
+        "action_prefix",
+        "poses",
+        "forwards",
+        "environment_steps",
+        "s2",
+        "s3",
+        "s4",
+        "s5",
+        "divergence",
+        "overdispersion",
+        "all_fail",
+        "mode_discovery",
+    }
+)
+
+
+def calibration_trial_seed(
+    calibration_seed: int,
+    setting_index: int,
+    task_id: int,
+    init_state: int,
+    candidate_id: int,
+) -> int:
+    """Derive one explicit, rank-independent calibration trial seed."""
+
+    return stable_seed(
+        STAGE_S_PROTOCOL_ID,
+        "calibration",
+        int(calibration_seed),
+        int(setting_index),
+        int(task_id),
+        int(init_state),
+        int(candidate_id),
+    )
+
+
+def _calibration_setting_value(value: Any) -> str | int | float | bool:
+    """Convert a setting descriptor to a deterministic JSON scalar."""
+
+    if isinstance(value, Path):
+        return str(value.resolve())
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
+
+
+def _validate_calibration_axes(
+    settings: Sequence[Any],
+    *,
+    task_ids: Sequence[int],
+    initial_states: Sequence[int],
+    candidate_count: int,
+    world_size: int,
+    rank: int,
+) -> tuple[list[str | int | float | bool], tuple[int, ...], tuple[int, ...], int]:
+    values = [_calibration_setting_value(value) for value in settings]
+    if len(values) != 4 or len({canonical_json(value) for value in values}) != 4:
+        raise ValueError("Stage-S calibration fixes four unique B/C settings")
+    tasks = tuple(int(value) for value in task_ids)
+    states = tuple(int(value) for value in initial_states)
+    if tasks != tuple(CALIBRATION_TASK_IDS):
+        raise ValueError(f"calibration tasks are frozen to {CALIBRATION_TASK_IDS}, got {tasks}")
+    if states != tuple(CALIBRATION_INITIAL_STATES):
+        raise ValueError(f"calibration initial states are frozen to {CALIBRATION_INITIAL_STATES}, got {states}")
+    if int(candidate_count) != CALIBRATION_CANDIDATE_COUNT:
+        raise ValueError(f"calibration candidates are frozen to {CALIBRATION_CANDIDATE_COUNT}")
+    if int(world_size) <= 0:
+        raise ValueError("world_size must be positive")
+    if not 0 <= int(rank) < int(world_size):
+        raise ValueError(f"rank must be in [0,{world_size}), got {rank}")
+    total_trials = len(values) * len(tasks) * len(states) * int(candidate_count)
+    if int(world_size) > total_trials:
+        raise ValueError(f"world_size={world_size} exceeds calibration trials={total_trials}")
+    return values, tasks, states, int(candidate_count)
+
+
+def _calibration_trial_count_per_setting() -> int:
+    return len(CALIBRATION_TASK_IDS) * len(CALIBRATION_INITIAL_STATES) * CALIBRATION_CANDIDATE_COUNT
+
+
+def _calibration_assigned_count(setting_index: int, world_size: int, rank: int) -> int:
+    per_setting = _calibration_trial_count_per_setting()
+    start = int(setting_index) * per_setting
+    return sum(1 for ordinal in range(start, start + per_setting) if ordinal % int(world_size) == int(rank))
+
+
+def _calibration_plan_payload(
+    settings: Sequence[Any],
+    *,
+    calibration_seed: int,
+    world_size: int,
+    substrate: str | None,
+    sources: Sequence[str] | None,
+    task_ids: Sequence[int] = CALIBRATION_TASK_IDS,
+    initial_states: Sequence[int] = CALIBRATION_INITIAL_STATES,
+    candidate_count: int = CALIBRATION_CANDIDATE_COUNT,
+) -> dict[str, Any]:
+    values, tasks, states, count = _validate_calibration_axes(
+        settings,
+        task_ids=task_ids,
+        initial_states=initial_states,
+        candidate_count=candidate_count,
+        world_size=world_size,
+        rank=0,
+    )
+    payload: dict[str, Any] = {
+        "schema": CALIBRATION_PLAN_SCHEMA,
+        "protocol_id": STAGE_S_PROTOCOL_ID,
+        "calibration_seed": int(calibration_seed),
+        "world_size": int(world_size),
+        "substrate": str(substrate) if substrate is not None else None,
+        "settings": values,
+        "task_ids": list(tasks),
+        "initial_states": list(states),
+        "candidate_count": count,
+        "trials_per_setting": _calibration_trial_count_per_setting(),
+        "total_trials": len(values) * _calibration_trial_count_per_setting(),
+        "persisted_row_fields": sorted(_CALIBRATION_ROW_FIELDS),
+        "forbidden_persisted_fields": sorted(_CALIBRATION_LEAKAGE_FIELDS),
+    }
+    if sources is not None:
+        if len(sources) != len(values):
+            raise ValueError("calibration sources must have one descriptor per setting")
+        payload["setting_sources"] = [str(value) for value in sources]
+    return payload
+
+
+def write_calibration_plan(
+    output_root: str | Path,
+    settings: Sequence[Any],
+    *,
+    calibration_seed: int,
+    world_size: int,
+    substrate: str | None = None,
+    sources: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Write or verify the immutable shard plan before any episode runs."""
+
+    root = Path(output_root)
+    root.mkdir(parents=True, exist_ok=True)
+    payload = _calibration_plan_payload(
+        settings,
+        calibration_seed=calibration_seed,
+        world_size=world_size,
+        substrate=substrate,
+        sources=sources,
+    )
+    path = root / "CALIBRATION_PLAN.json"
+    if path.is_file():
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise StageSError(f"invalid existing calibration plan: {path}: {exc}") from exc
+        if canonical_json(existing) != canonical_json(payload):
+            raise StageSError("existing calibration plan does not match the frozen shard contract")
+    else:
+        atomic_json(path, payload)
+    return payload
+
+
+def validate_b_calibration_variants(
+    variant_roots: Sequence[str | Path],
+    source_init_root: str | Path,
+    *,
+    expected_settings: Sequence[str] = tuple(f"proximity_{value:.2f}m" for value in PROXIMITY_MAGNITUDES),
+) -> list[dict[str, Any]]:
+    """Validate four executable B roots before allowing calibration episodes."""
+
+    if len(variant_roots) != len(expected_settings):
+        raise MissingRegeneratedInitialStates("B calibration requires exactly four variant roots")
+    resolved = [Path(value).resolve() for value in variant_roots]
+    if len(set(resolved)) != len(resolved):
+        raise MissingRegeneratedInitialStates("B calibration variant roots must be unique")
+    results: list[dict[str, Any]] = []
+    for setting_id, root in zip(expected_settings, resolved):
+        marker = root / "REGENERATED_INIT_STATES.json"
+        if not marker.is_file():
+            raise MissingRegeneratedInitialStates(f"missing B variant marker: {marker}")
+        try:
+            payload = json.loads(marker.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise MissingRegeneratedInitialStates(f"invalid B variant marker {marker}: {exc}") from exc
+        if payload.get("substrate") != "B" or payload.get("regenerated") is not True or payload.get("old_init_reused") is not False:
+            raise MissingRegeneratedInitialStates(f"B variant marker is not a regenerated fail-closed bundle: {marker}")
+        if payload.get("setting_id") not in (None, setting_id):
+            raise MissingRegeneratedInitialStates(
+                f"B variant setting mismatch for {root}: {payload.get('setting_id')!r} != {setting_id!r}"
+            )
+        audit = validate_regenerated_initial_states(root, source_init_root)
+        if not audit["valid"]:
+            raise MissingRegeneratedInitialStates(f"B variant qpos audit failed for {root}: {'; '.join(audit['errors'])}")
+        results.append({"setting_id": setting_id, "root": str(root), "audit": audit})
+    return results
+
+
+def run_stage_s_calibration_episode(
+    environment_factory: Callable[..., Any],
+    policy: Any,
+    *,
+    setting_index: int,
+    task_id: int,
+    init_state: int,
+    candidate_id: int,
+    calibration_seed: int,
+    max_steps: int = 520,
+    variant: Any = None,
+) -> bool:
+    """Run one real Stage-R episode to termination without persisting a trace."""
+
+    if int(max_steps) <= 0:
+        raise ValueError("max_steps must be positive")
+    trial_seed = calibration_trial_seed(calibration_seed, setting_index, task_id, init_state, candidate_id)
+    environment_seed = stable_seed(
+        STAGE_S_PROTOCOL_ID,
+        "calibration-environment",
+        int(calibration_seed),
+        int(setting_index),
+        int(task_id),
+        int(init_state),
+    )
+    environment = _factory_call(environment_factory, int(task_id), int(init_state), int(candidate_id), trial_seed, variant)
+    try:
+        observation = seeded_reset(environment, int(init_state), environment_seed)
+        queue: list[np.ndarray] = []
+        forwards = 0
+        for _ in range(int(max_steps)):
+            if not queue:
+                queue.extend(_sample_chunk(policy, observation, trial_seed, forwards).tolist())
+                forwards += 1
+            action = np.asarray(queue.pop(0), dtype=np.float32)
+            result = _execute_one(environment, action)
+            observation = _observation(environment)
+            if bool(result.get("done", False)):
+                return bool(result.get("success", False))
+        raise StageSError(
+            f"calibration episode did not terminate: setting={setting_index}, task={task_id}, "
+            f"init={init_state}, candidate={candidate_id}, max_steps={max_steps}"
+        )
+    finally:
+        if hasattr(environment, "close"):
+            environment.close()
+
+
+def _reject_calibration_leakage(value: Any, path: str = "payload") -> None:
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            normalised = str(key).strip().lower().replace("-", "_").replace(" ", "_")
+            if normalised in _CALIBRATION_LEAKAGE_FIELDS:
+                raise ValueError(f"calibration payload contains forbidden field {path}.{key}")
+            _reject_calibration_leakage(child, f"{path}.{key}")
+    elif isinstance(value, (list, tuple)):
+        for index, child in enumerate(value):
+            _reject_calibration_leakage(child, f"{path}[{index}]")
+
+
+def _validate_calibration_rows(
+    rows: Any,
+    settings: Sequence[Any],
+    *,
+    expected_totals: Sequence[int] | None = None,
+) -> list[dict[str, Any]]:
+    if not isinstance(rows, list) or len(rows) != len(settings):
+        raise ValueError(f"calibration result must contain one row for each of {len(settings)} settings")
+    values = [_calibration_setting_value(value) for value in settings]
+    validated: list[dict[str, Any]] = []
+    for index, row in enumerate(rows):
+        if not isinstance(row, Mapping) or set(row) != set(_CALIBRATION_ROW_FIELDS):
+            raise ValueError("calibration rows may persist only setting/successes/total/pooled_success")
+        if canonical_json(row["setting"]) != canonical_json(values[index]):
+            raise ValueError(f"calibration setting order mismatch at index {index}")
+        successes = int(row["successes"])
+        total = int(row["total"])
+        if total < 0 or successes < 0 or successes > total:
+            raise ValueError(f"invalid calibration counts at setting {index}: {successes}/{total}")
+        if expected_totals is not None and total != int(expected_totals[index]):
+            raise ValueError(f"calibration total mismatch at setting {index}: {total} != {expected_totals[index]}")
+        pooled = float(row["pooled_success"])
+        expected_pooled = float(successes / total) if total else 0.0
+        if not math.isfinite(pooled) or abs(pooled - expected_pooled) > 1e-12:
+            raise ValueError(f"pooled_success mismatch at setting {index}")
+        validated.append(
+            {
+                "setting": values[index],
+                "successes": successes,
+                "total": total,
+                "pooled_success": pooled,
+            }
+        )
+    return validated
+
+
+def _validate_calibration_shard_payload(
+    payload: Mapping[str, Any],
+    settings: Sequence[Any],
+    *,
+    calibration_seed: int,
+    world_size: int,
+    rank: int,
+    expected_totals: Sequence[int] | None = None,
+) -> dict[str, Any]:
+    _reject_calibration_leakage(payload)
+    required = {"schema", "protocol_id", "calibration_seed", "world_size", "rank", "rows"}
+    if set(payload) != required:
+        raise ValueError(f"calibration shard fields drifted: {sorted(set(payload) - required)}")
+    if payload.get("schema") != CALIBRATION_SHARD_SCHEMA or payload.get("protocol_id") != STAGE_S_PROTOCOL_ID:
+        raise ValueError("unsupported calibration shard schema")
+    if int(payload["calibration_seed"]) != int(calibration_seed) or int(payload["world_size"]) != int(world_size) or int(payload["rank"]) != int(rank):
+        raise ValueError("calibration shard identity does not match the requested plan")
+    rows = _validate_calibration_rows(payload["rows"], settings, expected_totals=expected_totals)
+    return {"schema": payload["schema"], "protocol_id": payload["protocol_id"], "calibration_seed": int(payload["calibration_seed"]), "world_size": int(payload["world_size"]), "rank": int(payload["rank"]), "rows": rows}
+
+
+def write_calibration_shard_atomic(shard_root: str | Path, payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Persist one aggregate-only shard, with marker written last."""
+
+    _reject_calibration_leakage(payload)
+    required = {"schema", "protocol_id", "calibration_seed", "world_size", "rank", "rows"}
+    if set(payload) != required:
+        raise ValueError("calibration shard writer accepts only aggregate counters and shard identity")
+    if payload.get("schema") != CALIBRATION_SHARD_SCHEMA or payload.get("protocol_id") != STAGE_S_PROTOCOL_ID:
+        raise ValueError("unsupported calibration shard schema")
+    rows = payload.get("rows")
+    if not isinstance(rows, list) or len(rows) != 4:
+        raise ValueError("calibration shard writer requires four aggregate rows")
+    for row in rows:
+        if not isinstance(row, Mapping) or set(row) != set(_CALIBRATION_ROW_FIELDS):
+            raise ValueError("calibration shard writer accepts only setting/successes/total/pooled_success rows")
+        successes = int(row["successes"])
+        total = int(row["total"])
+        pooled = float(row["pooled_success"])
+        if total < 0 or successes < 0 or successes > total or not math.isfinite(pooled):
+            raise ValueError("invalid calibration shard aggregate counts")
+        expected = float(successes / total) if total else 0.0
+        if abs(pooled - expected) > 1e-12:
+            raise ValueError("calibration shard pooled_success is inconsistent with its counters")
+    root = Path(shard_root)
+    root.mkdir(parents=True, exist_ok=True)
+    result_path = root / "RESULT.json"
+    atomic_json(result_path, dict(payload))
+    result_sha = sha256_file(result_path)
+    atomic_text(root / "SHA256SUMS", f"{result_sha}  RESULT.json\n")
+    marker = {
+        "schema": CALIBRATION_SHARD_SCHEMA,
+        "protocol_id": STAGE_S_PROTOCOL_ID,
+        "calibration_seed": int(payload["calibration_seed"]),
+        "world_size": int(payload["world_size"]),
+        "rank": int(payload["rank"]),
+        "result_file": "RESULT.json",
+        "result_sha256": result_sha,
+        "checkpoint": CALIBRATION_SHARD_MARKER,
+    }
+    atomic_json(root / "COMPLETED_SHARD.json", marker)
+    return marker
+
+
+def verify_calibration_shard(
+    shard_root: str | Path,
+    settings: Sequence[Any],
+    *,
+    calibration_seed: int,
+    world_size: int,
+    rank: int,
+) -> dict[str, Any]:
+    """Verify shard marker, SHA, identity, and exact aggregate-only rows."""
+
+    root = Path(shard_root)
+    result_path = root / "RESULT.json"
+    sums_path = root / "SHA256SUMS"
+    marker_path = root / "COMPLETED_SHARD.json"
+    if not result_path.is_file() or not sums_path.is_file() or not marker_path.is_file():
+        raise StageSError(f"incomplete calibration shard: {root}")
+    expected_line = f"{sha256_file(result_path)}  RESULT.json"
+    if sums_path.read_text(encoding="utf-8").splitlines() != [expected_line]:
+        raise StageSError(f"calibration shard SHA mismatch: {root}")
+    try:
+        payload = json.loads(result_path.read_text(encoding="utf-8"))
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise StageSError(f"invalid calibration shard JSON: {root}: {exc}") from exc
+    validated = _validate_calibration_shard_payload(
+        payload,
+        settings,
+        calibration_seed=calibration_seed,
+        world_size=world_size,
+        rank=rank,
+        expected_totals=[_calibration_assigned_count(index, world_size, rank) for index in range(len(settings))],
+    )
+    if (
+        marker.get("schema") != CALIBRATION_SHARD_SCHEMA
+        or marker.get("protocol_id") != STAGE_S_PROTOCOL_ID
+        or marker.get("checkpoint") != CALIBRATION_SHARD_MARKER
+    ):
+        raise StageSError(f"invalid calibration shard completion marker: {marker_path}")
+    if int(marker.get("calibration_seed", -1)) != int(calibration_seed) or int(marker.get("world_size", -1)) != int(world_size) or int(marker.get("rank", -1)) != int(rank):
+        raise StageSError(f"calibration shard completion identity mismatch: {marker_path}")
+    if marker.get("result_file") != "RESULT.json" or marker.get("result_sha256") != sha256_file(result_path):
+        raise StageSError(f"calibration shard completion SHA mismatch: {marker_path}")
+    return validated
+
+
+def run_calibration_shard(
+    evaluator: Callable[[int, Any, int, int, int, int], bool],
+    settings: Sequence[Any],
+    output_root: str | Path,
+    *,
+    calibration_seed: int = CALIBRATION_SEED,
+    world_size: int = 1,
+    rank: int = 0,
+    substrate: str | None = None,
+    sources: Sequence[str] | None = None,
+    task_ids: Sequence[int] = CALIBRATION_TASK_IDS,
+    initial_states: Sequence[int] = CALIBRATION_INITIAL_STATES,
+    candidate_count: int = CALIBRATION_CANDIDATE_COUNT,
+) -> dict[str, Any]:
+    """Run this rank's deterministic trials and persist only four row counters."""
+
+    values, tasks, states, count = _validate_calibration_axes(
+        settings,
+        task_ids=task_ids,
+        initial_states=initial_states,
+        candidate_count=candidate_count,
+        world_size=world_size,
+        rank=rank,
+    )
+    root = Path(output_root)
+    write_calibration_plan(
+        root,
+        values,
+        calibration_seed=calibration_seed,
+        world_size=world_size,
+        substrate=substrate,
+        sources=sources,
+    )
+    shard_root = root / "shards" / f"rank-{int(rank):05d}"
+    if (shard_root / "COMPLETED_SHARD.json").is_file():
+        existing = verify_calibration_shard(shard_root, values, calibration_seed=calibration_seed, world_size=world_size, rank=rank)
+        return {"status": "already_complete", "shard_root": str(shard_root), "payload": existing}
+    successes = [0] * len(values)
+    totals = [0] * len(values)
+    ordinal = 0
+    for setting_index, setting in enumerate(values):
+        for task_id in tasks:
+            for init_state in states:
+                for candidate_id in range(count):
+                    if ordinal % int(world_size) == int(rank):
+                        trial_seed = calibration_trial_seed(calibration_seed, setting_index, task_id, init_state, candidate_id)
+                        successes[setting_index] += int(bool(evaluator(setting_index, setting, int(task_id), int(init_state), int(candidate_id), trial_seed)))
+                        totals[setting_index] += 1
+                    ordinal += 1
+    rows = [
+        {
+            "setting": setting,
+            "successes": int(successes[index]),
+            "total": int(totals[index]),
+            "pooled_success": float(successes[index] / totals[index]) if totals[index] else 0.0,
+        }
+        for index, setting in enumerate(values)
+    ]
+    payload = {
+        "schema": CALIBRATION_SHARD_SCHEMA,
+        "protocol_id": STAGE_S_PROTOCOL_ID,
+        "calibration_seed": int(calibration_seed),
+        "world_size": int(world_size),
+        "rank": int(rank),
+        "rows": rows,
+    }
+    _validate_calibration_shard_payload(
+        payload,
+        values,
+        calibration_seed=calibration_seed,
+        world_size=world_size,
+        rank=rank,
+        expected_totals=totals,
+    )
+    marker = write_calibration_shard_atomic(shard_root, payload)
+    return {"status": "completed", "shard_root": str(shard_root), "payload": payload, "marker": marker}
+
+
+def _aggregate_result_payload(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    calibration_seed: int,
+    world_size: int,
+) -> dict[str, Any]:
+    validated_rows = [
+        {
+            "setting": row["setting"],
+            "successes": int(row["successes"]),
+            "total": int(row["total"]),
+            "pooled_success": float(row["pooled_success"]),
+        }
+        for row in rows
+    ]
+    selected = min(
+        validated_rows,
+        key=lambda row: (abs(float(row["pooled_success"]) - CALIBRATION_TARGET_SUCCESS), str(row["setting"])),
+    )
+    return {
+        "schema": CALIBRATION_RESULT_SCHEMA,
+        "protocol_id": STAGE_S_PROTOCOL_ID,
+        "calibration_seed": int(calibration_seed),
+        "world_size": int(world_size),
+        "rows": validated_rows,
+        "target_pooled_success": CALIBRATION_TARGET_SUCCESS,
+        "selected_setting": selected["setting"],
+    }
+
+
+def write_calibration_aggregate_atomic(report_path: str | Path, payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Write aggregate result, SHA, and completion marker atomically."""
+
+    _reject_calibration_leakage(payload)
+    if set(payload) != set(_CALIBRATION_RESULT_FIELDS):
+        raise ValueError("calibration aggregate writer accepts only the frozen result schema")
+    if payload.get("schema") != CALIBRATION_RESULT_SCHEMA or payload.get("protocol_id") != STAGE_S_PROTOCOL_ID:
+        raise ValueError("unsupported calibration aggregate schema")
+    rows = payload.get("rows")
+    if not isinstance(rows, list) or len(rows) != 4:
+        raise ValueError("calibration aggregate writer requires four aggregate rows")
+    settings = [row.get("setting") for row in rows if isinstance(row, Mapping)]
+    if len(settings) != 4 or len({canonical_json(value) for value in settings}) != 4:
+        raise ValueError("calibration aggregate settings must be four unique values")
+    _validate_calibration_rows(rows, settings, expected_totals=[_calibration_trial_count_per_setting()] * 4)
+    target = Path(report_path)
+    atomic_json(target, dict(payload))
+    result_sha = sha256_file(target)
+    atomic_text(target.with_name("SHA256SUMS"), f"{result_sha}  {target.name}\n")
+    marker = {
+        "schema": CALIBRATION_RESULT_SCHEMA,
+        "protocol_id": STAGE_S_PROTOCOL_ID,
+        "calibration_seed": int(payload["calibration_seed"]),
+        "world_size": int(payload["world_size"]),
+        "result_file": target.name,
+        "result_sha256": result_sha,
+        "checkpoint": CALIBRATION_RESULT_MARKER,
+    }
+    atomic_json(target.with_name("COMPLETED_CALIBRATION.json"), marker)
+    return marker
+
+
+def verify_calibration_aggregate(
+    report_path: str | Path,
+    settings: Sequence[Any],
+    *,
+    calibration_seed: int,
+    world_size: int,
+) -> dict[str, Any]:
+    target = Path(report_path)
+    sums = target.with_name("SHA256SUMS")
+    marker_path = target.with_name("COMPLETED_CALIBRATION.json")
+    if not target.is_file() or not sums.is_file() or not marker_path.is_file():
+        raise StageSError(f"incomplete calibration aggregate: {target}")
+    expected_line = f"{sha256_file(target)}  {target.name}"
+    if sums.read_text(encoding="utf-8").splitlines() != [expected_line]:
+        raise StageSError(f"calibration aggregate SHA mismatch: {target}")
+    try:
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise StageSError(f"invalid calibration aggregate JSON: {target}: {exc}") from exc
+    _reject_calibration_leakage(payload)
+    if set(payload) != set(_CALIBRATION_RESULT_FIELDS) or payload.get("schema") != CALIBRATION_RESULT_SCHEMA or payload.get("protocol_id") != STAGE_S_PROTOCOL_ID:
+        raise StageSError(f"calibration aggregate schema drift: {target}")
+    if int(payload["calibration_seed"]) != int(calibration_seed) or int(payload["world_size"]) != int(world_size):
+        raise StageSError(f"calibration aggregate identity mismatch: {target}")
+    rows = _validate_calibration_rows(payload["rows"], settings, expected_totals=[_calibration_trial_count_per_setting()] * 4)
+    if payload.get("target_pooled_success") != CALIBRATION_TARGET_SUCCESS:
+        raise StageSError("calibration aggregate target drift")
+    if payload.get("selected_setting") != min(rows, key=lambda row: (abs(float(row["pooled_success"]) - CALIBRATION_TARGET_SUCCESS), str(row["setting"])))['setting']:
+        raise StageSError("calibration aggregate selected setting drift")
+    if (
+        marker.get("schema") != CALIBRATION_RESULT_SCHEMA
+        or marker.get("protocol_id") != STAGE_S_PROTOCOL_ID
+        or marker.get("calibration_seed") != int(calibration_seed)
+        or marker.get("world_size") != int(world_size)
+        or marker.get("checkpoint") != CALIBRATION_RESULT_MARKER
+        or marker.get("result_file") != target.name
+        or marker.get("result_sha256") != sha256_file(target)
+    ):
+        raise StageSError(f"invalid calibration aggregate completion marker: {marker_path}")
+    return {**payload, "rows": rows}
+
+
+def aggregate_calibration_shards(
+    shard_root: str | Path,
+    settings: Sequence[Any],
+    *,
+    calibration_seed: int = CALIBRATION_SEED,
+    world_size: int = 1,
+    report_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Require all rank shards, sum counters, and publish one verified result."""
+
+    values, tasks, states, count = _validate_calibration_axes(
+        settings,
+        task_ids=CALIBRATION_TASK_IDS,
+        initial_states=CALIBRATION_INITIAL_STATES,
+        candidate_count=CALIBRATION_CANDIDATE_COUNT,
+        world_size=world_size,
+        rank=0,
+    )
+    del tasks, states, count
+    root = Path(shard_root)
+    plan_path = root / "CALIBRATION_PLAN.json"
+    if not plan_path.is_file():
+        raise StageSError(f"missing calibration plan: {plan_path}")
+    try:
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise StageSError(f"invalid calibration plan: {plan_path}: {exc}") from exc
+    expected_plan = _calibration_plan_payload(
+        values,
+        calibration_seed=calibration_seed,
+        world_size=world_size,
+        substrate=plan.get("substrate"),
+        sources=plan.get("setting_sources"),
+    )
+    if canonical_json(plan) != canonical_json(expected_plan):
+        raise StageSError("calibration plan does not match aggregate request")
+    shard_parent = root / "shards"
+    rows_by_setting = [[0, 0] for _ in values]
+    for rank in range(int(world_size)):
+        shard = shard_parent / f"rank-{rank:05d}"
+        payload = verify_calibration_shard(shard, values, calibration_seed=calibration_seed, world_size=world_size, rank=rank)
+        for index, row in enumerate(payload["rows"]):
+            rows_by_setting[index][0] += int(row["successes"])
+            rows_by_setting[index][1] += int(row["total"])
+    rows = [
+        {
+            "setting": values[index],
+            "successes": successes,
+            "total": total,
+            "pooled_success": float(successes / total) if total else 0.0,
+        }
+        for index, (successes, total) in enumerate(rows_by_setting)
+    ]
+    _validate_calibration_rows(rows, values, expected_totals=[_calibration_trial_count_per_setting()] * 4)
+    payload = _aggregate_result_payload(rows, calibration_seed=calibration_seed, world_size=world_size)
+    _reject_calibration_leakage(payload)
+    target = Path(report_path) if report_path is not None else root / "CALIBRATION_RESULT.json"
+    write_calibration_aggregate_atomic(target, payload)
+    return payload
+
+
 def _read_json_candidates(path: Path) -> list[dict[str, Any]]:
     values = []
     for name in ("CHECKPOINT_PROVENANCE.json", "metadata.json", "checkpoint.json", "manifest.json"):
@@ -2165,6 +2863,12 @@ __all__ = [
     "BVariant",
     "CALIBRATION_CANDIDATE_COUNT",
     "CALIBRATION_INITIAL_STATES",
+    "CALIBRATION_PLAN_SCHEMA",
+    "CALIBRATION_RESULT_MARKER",
+    "CALIBRATION_RESULT_SCHEMA",
+    "CALIBRATION_SEED",
+    "CALIBRATION_SHARD_MARKER",
+    "CALIBRATION_SHARD_SCHEMA",
     "CALIBRATION_TASK_IDS",
     "CandidateOutcome",
     "C_FULL_REFERENCE_STEP",
@@ -2191,12 +2895,14 @@ __all__ = [
     "audit_c_checkpoint_schedule",
     "audit_undertrained_checkpoint",
     "audit_undertrained_checkpoint_set",
+    "aggregate_calibration_shards",
     "b_init_state_seed",
     "build_b_variant_suite",
     "build_b_variant_matrix",
     "build_c_training_launcher_contract",
     "build_pai_stage_s_payload",
     "calibration_plan",
+    "calibration_trial_seed",
     "capture_stage_r_snapshot",
     "collect_family",
     "family_is_complete",
@@ -2207,15 +2913,23 @@ __all__ = [
     "make_stage_r_policy_factory",
     "make_stage_r_task64_factory",
     "run_main_screen",
+    "run_calibration_shard",
     "run_pooled_calibration",
+    "run_stage_s_calibration_episode",
     "seeded_reset",
     "stable_seed",
     "validate_regenerated_initial_states",
+    "validate_b_calibration_variants",
+    "verify_calibration_aggregate",
+    "verify_calibration_shard",
     "validate_restore_same_action",
     "write_b_variant",
     "write_family_atomic",
     "write_pai_stage_s_payload",
     "write_pooled_calibration",
+    "write_calibration_aggregate_atomic",
+    "write_calibration_plan",
+    "write_calibration_shard_atomic",
     "_execute_one",
     "_observation",
     "_pose_vector",

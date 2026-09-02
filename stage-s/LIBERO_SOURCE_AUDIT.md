@@ -36,8 +36,8 @@ The original BDDL files are present under
 `$OPENPI/third_party/libero/libero/libero/bddl_files/libero_10/`, and the ten
 original `.pruned_init` files are present under the matching
 `init_files/libero_10/` directory.  `Task64Environment` resolves both through
-`LIBERO_CONFIG_PATH`; its qpos layout is changed by adding a free duplicate
-object.
+`LIBERO_CONFIG_PATH`; its flattened simulator-state layout is changed by
+adding a free duplicate object.
 
 ## Substrate A: RoboTwin
 
@@ -68,7 +68,8 @@ a hard-coded living-room fixture.
 
 The generated BDDL is executable only with a separately regenerated init-state
 tensor.  Reusing the old `.pruned_init` is explicitly rejected because adding a
-free object changes MuJoCo qpos dimensionality and object ordering.  The
+free object changes the MuJoCo flattened state (`sim.get_state().flatten()`)
+dimensionality and object ordering.  The
 required hand-off is a directory containing all ten new `.pruned_init` files
 and `REGENERATED_INIT_STATES.json` asserting:
 
@@ -79,9 +80,11 @@ and `REGENERATED_INIT_STATES.json` asserting:
 `build_b_variant_matrix` and `scripts/stage_s_libero_b.py` now create all
 `10 tasks x 4 offsets`.  For each setting they write a fresh staging bundle,
 reset the pinned LIBERO `OffScreenRenderEnv` once per fixed seed, and require
-at least 16 finite, distinct qpos rows.  The old `.pruned_init` is read only
-for a dimensionality/identity audit and is never passed to the simulator or
-copied as generated state.  The output contains a per-setting
+at least 16 finite, distinct flattened simulator-state rows obtained from
+`get_sim_state()` (strictly equivalent to `sim.get_state().flatten()`).  The
+old `.pruned_init` is read only for a dimensionality/identity audit and is
+never passed to the simulator or copied as generated state.  A qpos-only
+simulator interface is rejected.  The output contains a per-setting
 `REGENERATED_INIT_STATES.json` plus the executable nested BDDL/init-state
 tree.  Fake simulator tests cover the callback and fixed-seed contract; no
 real B simulator run was performed in this implementation pass.
@@ -91,8 +94,8 @@ Consequently a real B rollout remains **blocked fail-closed** until the
 generator is run with the pinned LIBERO/MuJoCo runtime and its output is
 audited.  A one-task OffScreenRenderEnv smoke reached the real constructor
 but the dev14 EGL device initialization failed (`PLATFORM_DEVICE` is not
-available); this is an execution-environment blocker, not a successful qpos
-generation result.  The existing unperturbed Stage-R archive remains the B
+available); this is an execution-environment blocker, not a successful
+sim-state generation result.  The existing unperturbed Stage-R archive remains the B
 null control; it is not relabeled as the perturbed arm.
 
 ## Substrate C: under-trained exact policy checkpoints
@@ -150,3 +153,53 @@ success.
 This audit contains no scientific gate verdict.  It records that B and C are
 contract-complete but not currently executable with real assets, and A lacks a
 qualifying local learned-policy source.
+
+## Calibration-shard runtime (B/C)
+
+The calibration entry point is
+`scripts/stage_s_libero_calibrate.py`.  It has no evaluator callback and no
+synthetic fallback: `--mode shard` constructs the maintained Stage-R
+`CleanPi05LiberoPolicy` and `Task64Environment`, executes each assigned episode
+until the real environment reports termination, and `--mode aggregate` verifies
+all rank markers before summing them.
+
+The axes are frozen to four settings, task IDs `(0, 3, 6, 9)`, initial-state
+indices `0..7`, and eight candidates per task/state.  A rank owns the
+deterministic round-robin subset of the global trial order, so rerunning a
+completed rank is an idempotent hash-verified read.  Every trial receives a
+seed derived from the explicit calibration seed `142042`; rank assignment does
+not change that seed.  The only persisted row fields are `setting`,
+`successes`, `total`, and `pooled_success`.  No family, trajectory, genealogy,
+action, pose, or S2--S5 field is written by calibration.
+
+Each rank writes `RESULT.json`, `SHA256SUMS`, and a last-written
+`COMPLETED_SHARD.json`.  Aggregation refuses missing ranks, mismatched plan
+identity, malformed rows, or SHA/marker drift, then writes
+`CALIBRATION_RESULT.json` (or the explicit `--report`) with its own
+`SHA256SUMS` and `COMPLETED_CALIBRATION.json`.
+
+For B, shard mode requires exactly four `--variant-root` directories plus
+`--source-init-root`; each root must carry the real regenerated-sim-state marker and
+must pass the existing old-init/hash/shape audit.  The unchanged Stage-R
+policy is supplied with `--policy-checkpoint`.  For C, shard mode requires the
+four exact real checkpoints at steps 1000, 3000, 6000, and 10000 and audits
+their complete training state before any episode.  A missing or incompatible
+asset fails closed; paths are never interpolated or artificially degraded.
+The C command also requires `--libero-config-root` containing a run-scoped
+`config.yaml`.  Before every Task64 construction the adapter binds both the
+environment variable and the already-imported pinned LIBERO module globals to
+that directory.  B similarly rebinds to each variant root's `config.yaml`, so
+the first setting imported in a process cannot silently pin the later settings.
+
+Example (non-submitting, after the external assets are available):
+
+```text
+PYTHONPATH=src python scripts/stage_s_libero_calibrate.py --substrate B \
+  --mode shard --output-root <run> --world-size 8 --rank <rank> \
+  --variant-root <B-0.06> --variant-root <B-0.08> \
+  --variant-root <B-0.10> --variant-root <B-0.12> \
+  --source-init-root <old-init> --policy-checkpoint <pi05> \
+  --qpilots-root <QPILOTS> --libero-root <LIBERO>
+PYTHONPATH=src python scripts/stage_s_libero_calibrate.py --substrate B \
+  --mode aggregate --output-root <run> --world-size 8
+```
