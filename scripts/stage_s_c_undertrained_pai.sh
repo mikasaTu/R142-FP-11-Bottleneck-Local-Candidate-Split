@@ -14,7 +14,7 @@ USER_ROOT=$NEW_ROOT/USERS/leon
 # registry manifest instead of injecting custom pod environment variables.
 STAGE_S_C_PROJECT_DIR=$USER_ROOT/code/r142-stage-s-c-runtime-20260903
 STAGE_S_C_REGISTRY_CONFIG=$USER_ROOT/code/r142-stage-s-pai-20260902/stage_s_c_undertrained.json
-STAGE_S_SOURCE_COMMIT=7575da585be31eb369a604d90048b338bbbf2c92
+STAGE_S_SOURCE_COMMIT=d1b9b2582f386e838f10847d83cf2443ae9d33a8
 PROJECT_DIR=$(realpath -e -- "$STAGE_S_C_PROJECT_DIR") || {
   echo "C runtime clone path does not exist: $STAGE_S_C_PROJECT_DIR" >&2
   exit 43

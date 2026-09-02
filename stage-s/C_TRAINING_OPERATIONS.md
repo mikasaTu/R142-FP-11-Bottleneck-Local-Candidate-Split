@@ -44,10 +44,10 @@ gate.
 
 ```text
 RUNTIME_PROJECT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903
-STAGE_S_SOURCE_COMMIT=7575da585be31eb369a604d90048b338bbbf2c92
+STAGE_S_SOURCE_COMMIT=d1b9b2582f386e838f10847d83cf2443ae9d33a8
 STAGE_S_C_PAYLOAD=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained_pai.sh
 STAGE_S_C_CONFIG=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained.json
-STAGE_S_C_PAYLOAD_SHA256=49eebae79d178c239d9f5343ef6c3624eef149b65c6a74754617a507cfc8fd90
+STAGE_S_C_PAYLOAD_SHA256=a5a241472becd4e859143e511ea1862d960ae15ade08cfff22cde0282d17fd9a
 PAI_CANARY_RUN_ID=<registry-injected run id>
 OPENPI=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi
 OPENPI_PYTHON=/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python
