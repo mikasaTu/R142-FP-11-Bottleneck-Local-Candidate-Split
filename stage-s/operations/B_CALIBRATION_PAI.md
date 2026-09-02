@@ -39,6 +39,7 @@ Before a single episode, the launcher requires:
   `torch.save(sim.get_state().flatten())`, with manifest hashes and state width
   checks; and
 * pinned clean source trees:
+  `Stage-S=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-bcal-runtime-20260903`,
   `Stage-S=afe353bbc5997355f35cb0c77c5446fd4df5f1e3`,
   `QPILOTS=eacf47b981e3b22357f8a74902f8dad8cfcfa375`,
   `OpenPI=54cbaee6ae0c010a1ed431871cdaa8f4684ac709`, and
@@ -51,7 +52,7 @@ fails closed; it is not a scientific result.
 ## Resource and controller contract
 
 The manifest selects the registered robot idle alias
-`idle-a800-robot-native3-8gpu` (`quota1ssrabud0bh`, `exp-robot`) with one
+`idle-a800-robot-stage-s-graphics-8gpu` (`quota1ssrabud0bh`, `exp-robot`) with one
 worker, exactly 8 A800 GPUs, 88 CPU cores, 1525 GiB memory, and 1525 GiB
 shared memory. The manifest has no secrets, uses the controller's numeric
 `2254:2254` identity, and declares only `{{ARTIFACT_DIR}}` as a write path.
@@ -108,10 +109,18 @@ PYTHONPATH=src python -m pytest -q tests/test_stage_s_b_calibration_pai.py
 bash -n scripts/stage_s_libero_b_calibration_pai.sh
 ```
 
-The registry shape was checked with `pai-job validate` using the registered
-robot-idle profile and exact 8/88/1525 resource contract. The final registry
-validation must be rerun after copying this launcher to the canonical
-dev14 code path named by `runtime.command_file`; the manifest binds its
-payload SHA to
-`6ac55999b6d919f26acca23f4c29e192b0b398ac81df755b5ee83d45a3134119`.
+The registry shape was checked with `pai-job validate` using the exact
+robot-idle resource contract. Before an authorized submission, this launcher
+must be installed at the external payload path named by the manifest:
+
+```text
+/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/
+  stage_s_libero_b_calibration_pai.sh
+```
+
+The installed payload must match SHA256
+`a9c1db905e1dbc9c7c732fbe62b279130142233d1b4873fdc1e7cc965b429d49`, and its
+independent runtime source must be the B-only tree
+`/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-bcal-runtime-20260903`
+at the pinned commit above. No PAI job was submitted by this change.
 No PAI job was submitted by this change.
