@@ -682,6 +682,8 @@ def freeze_protocol(
     missing = _protocol_requirement_errors(protocol_text)
     if missing:
         raise CalibrationFreezeError("PROTOCOL.md is missing frozen requirements: " + ", ".join(missing))
+    if protocol_git_commit not in protocol_text:
+        raise CalibrationFreezeError("protocol Git commit is not recorded in stage-s/PROTOCOL.md")
     b_path = _path(b_report, label="B calibration report", directory=False)
     c_path = _path(c_report, label="C calibration report", directory=False)
     b_payload = _validate_report_for_protocol(b_path, substrate="B")

@@ -282,18 +282,32 @@ def test_training_lineage_tamper_fails_closed(tmp_path: Path) -> None:
 
 def test_protocol_freeze_and_acceptance_tamper_detection(tmp_path: Path) -> None:
     paths, _ = _freeze_inputs(tmp_path)
-    commit = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip()
-    source_md = tmp_path / "repo" / "stage-s" / "PROTOCOL.md"
+    repo = tmp_path / "protocol-repo"
+    source_md = repo / "stage-s" / "PROTOCOL.md"
+    # The commit has to contain the exact markdown bytes; create the fixture
+    # once with a placeholder, then commit the final text and read its SHA.
     source_md.parent.mkdir(parents=True)
-    source_md.write_text(_protocol_markdown(commit), encoding="utf-8")
+    source_md.write_text("placeholder\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.name", "test"], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.email", "test@example.invalid"], check=True)
+    commit_file = repo / "commit.txt"
+    commit_file.write_text("protocol fixture\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "stage-s/PROTOCOL.md", "commit.txt"], check=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-qm", "protocol fixture"], check=True)
+    commit = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
+    protocol_commit = commit
+    source_md.write_text(_protocol_markdown(protocol_commit), encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "stage-s/PROTOCOL.md"], check=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-qm", "protocol content"], check=True)
     acceptance_path = tmp_path / "logs" / "stage_s" / "protocol" / "FROZEN_PROTOCOL.json"
     payload = freeze_protocol(
         protocol_md=source_md,
-        protocol_git_commit=commit,
+        protocol_git_commit=protocol_commit,
         b_report=tmp_path / "out" / "b" / "CALIBRATION_REPORT.json",
         c_report=tmp_path / "out" / "c" / "CALIBRATION_REPORT.json",
         output_path=acceptance_path,
-        repo_root=ROOT,
+        repo_root=repo,
     )
     assert payload["schema"] == "r142-stage-s-protocol-acceptance-v1"
     read_frozen_protocol(
@@ -312,10 +326,16 @@ def test_protocol_freeze_and_acceptance_tamper_detection(tmp_path: Path) -> None
 
 def test_protocol_missing_requirement_or_commit_is_rejected(tmp_path: Path) -> None:
     _freeze_inputs(tmp_path)
-    commit = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True).strip()
-    bad_md = tmp_path / "bad" / "PROTOCOL.md"
+    repo = tmp_path / "bad-repo"
+    bad_md = repo / "stage-s" / "PROTOCOL.md"
     bad_md.parent.mkdir(parents=True)
     bad_md.write_text("S1 0.30 0.60\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.name", "test"], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.email", "test@example.invalid"], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "stage-s/PROTOCOL.md"], check=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-qm", "bad protocol fixture"], check=True)
+    commit = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
     with pytest.raises(CalibrationFreezeError, match="requirements"):
         freeze_protocol(
             protocol_md=bad_md,
@@ -323,5 +343,5 @@ def test_protocol_missing_requirement_or_commit_is_rejected(tmp_path: Path) -> N
             b_report=tmp_path / "out" / "b" / "CALIBRATION_REPORT.json",
             c_report=tmp_path / "out" / "c" / "CALIBRATION_REPORT.json",
             output_path=tmp_path / "bad-out" / "FROZEN_PROTOCOL.json",
-            repo_root=ROOT,
+            repo_root=repo,
         )
