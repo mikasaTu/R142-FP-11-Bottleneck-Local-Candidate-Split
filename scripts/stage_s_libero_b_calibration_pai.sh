@@ -19,7 +19,7 @@ readonly WORLD_SIZE=8
 # Pinned real Stage-R/LIBERO source trees. A dirty tree or commit drift is
 # refused before the first simulator import.
 readonly STAGE_S_REPO="$ROOT/code/r142-stage-s-bcal-runtime-20260903"
-readonly STAGE_S_SOURCE_COMMIT=afe353bbc5997355f35cb0c77c5446fd4df5f1e3
+readonly STAGE_S_SOURCE_COMMIT=87d59e59db9b48bef5db3613e326a66390352df1
 readonly QPILOTS="$ROOT/code/QPILOTS-r16p15-stage1-task64-20260812"
 readonly QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
 readonly OPENPI="$QPILOTS/third_party/openpi"
@@ -135,7 +135,7 @@ PHASE=bootstrap
 [[ "$(stat -c '%u:%g' "$OUT")" == "$LEON_UID:$LEON_GID" ]]
 [[ "$(stat -c '%a' "$OUT")" == 700 ]]
 [[ "$(id -u):$(id -g)" == "$LEON_UID:$LEON_GID" ]]
-for command_name in bash date find git nvidia-smi realpath sha256sum stat torchrun "$PYTHON" python3; do
+for command_name in bash date find git nvidia-smi realpath sha256sum stat "$PYTHON" python3; do
   if [[ "$command_name" == /* ]]; then
     [[ -x "$command_name" ]] || { echo "B_CALIBRATION_REFUSED missing executable: $command_name" >&2; exit 69; }
   else
@@ -270,7 +270,7 @@ payload = {
     "gid": os.getgid(),
     "gpu_count": 8,
     "world_size": 8,
-    "stage_s_source_commit": "afe353bbc5997355f35cb0c77c5446fd4df5f1e3",
+    "stage_s_source_commit": "87d59e59db9b48bef5db3613e326a66390352df1",
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
     "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
     "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
@@ -291,10 +291,20 @@ VARIANT_ARGS=(
   --variant-root "$B_VARIANT_RUN_ROOT/variants/proximity_0.12m"
 )
 
-# torchrun supplies rank/local-rank. WORLD_SIZE and nproc are both explicitly
-# eight; the Python runtime refuses any other world size.
+# Only the controller writes the immutable plan.  CPFS does not guarantee
+# coherent concurrent create/replace semantics for eight writers using the
+# same temporary path, so plan creation must finish before torch workers start.
+"$PYTHON" scripts/stage_s_libero_calibrate.py \
+  --substrate B --mode prepare --output-root "$OUT" \
+  --world-size "$WORLD_SIZE" \
+  "${VARIANT_ARGS[@]}" \
+  --source-init-root "$SOURCE_INIT_ROOT"
+
+# The pinned OpenPI interpreter owns torch, JAX and the policy dependencies.
+# Invoking its module entrypoint prevents PATH's system torchrun from silently
+# selecting /usr/local/bin/python.  WORLD_SIZE remains frozen to eight.
 cd "$STAGE_S_REPO"
-torchrun --standalone --nnodes=1 --nproc_per_node="$WORLD_SIZE" \
+"$PYTHON" -m torch.distributed.run --standalone --nnodes=1 --nproc_per_node="$WORLD_SIZE" \
   scripts/stage_s_libero_calibrate.py \
   --substrate B --mode shard --output-root "$OUT" \
   --world-size "$WORLD_SIZE" \

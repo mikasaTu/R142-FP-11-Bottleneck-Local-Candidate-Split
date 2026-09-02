@@ -20,9 +20,12 @@ def test_b_launcher_is_shell_valid_and_non_submitting() -> None:
     text = SCRIPT.read_text(encoding="utf-8")
     assert "pai-job submit" not in text
     assert "CreateJob" not in text
-    assert "torchrun --standalone" in text
+    assert '"$PYTHON" -m torch.distributed.run --standalone' in text
+    assert "torchrun --standalone" not in text
     assert "--nproc_per_node=\"$WORLD_SIZE\"" in text
     assert "--world-size \"$WORLD_SIZE\"" in text
+    assert "--substrate B --mode prepare" in text
+    assert text.index("--substrate B --mode prepare") < text.index("-m torch.distributed.run")
     assert "COMPLETED_B_CALIBRATION.json" in text
     assert "B_SHA256SUMS" in text
     assert 'ARTIFACT_DIR="$OUT_ROOT/$RUN_ID"' in text
@@ -135,7 +138,7 @@ def test_source_provenance_compute_and_daily_resume_contract() -> None:
         "pai_clone_performed": False,
         "source_role": "readback_reference",
     }
-    assert evidence["stage_s_source_commit"] == "afe353bbc5997355f35cb0c77c5446fd4df5f1e3"
+    assert evidence["stage_s_source_commit"] == "87d59e59db9b48bef5db3613e326a66390352df1"
     assert evidence["qpilots_commit"] == "eacf47b981e3b22357f8a74902f8dad8cfcfa375"
     assert evidence["openpi_commit"] == "54cbaee6ae0c010a1ed431871cdaa8f4684ac709"
     assert evidence["libero_commit"] == "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c"
