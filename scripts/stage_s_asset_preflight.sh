@@ -17,6 +17,10 @@ FLASH_ATTN_TMP="$PIP_CACHE/flash-attn-tmp/$RUN_ID"
 PIP_INDEX_URL="${PIP_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple}"
 HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
 mkdir -p "$OUT" "$MODEL" "$PIP_CACHE" "$FLASH_ATTN_TMP"
+# PAI may inherit an unreadable launcher cwd such as /root even after the
+# payload drops to uid 2254.  Anchor the entire workload in Leon's readable
+# CPFS root so GNU find can restore its initial directory after traversal.
+cd "$ROOT"
 export PIP_CACHE_DIR="$PIP_CACHE"
 export PIP_INDEX_URL
 export PIP_DEFAULT_TIMEOUT=120
