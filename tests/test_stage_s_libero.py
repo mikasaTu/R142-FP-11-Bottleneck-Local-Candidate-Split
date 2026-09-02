@@ -200,12 +200,20 @@ class FakeQposSimulator:
             ),
         )
         self.seed_value = int(seed)
+        self.last_state: np.ndarray | None = None
 
     def seed(self, seed: int) -> None:
         self.seed_value = int(seed)
 
     def reset(self) -> None:
         return None
+
+    def get_sim_state(self) -> np.ndarray:
+        return self.sim.get_state().flatten()
+
+    def set_init_state(self, state: np.ndarray) -> dict[str, np.ndarray]:
+        self.last_state = np.asarray(state, dtype=np.float64).copy()
+        return {"state": self.last_state.copy()}
 
     def close(self) -> None:
         return None
@@ -234,6 +242,8 @@ def test_b_matrix_uses_fixed_seed_real_simulator_callback(tmp_path: Path, monkey
         json.loads(Path(row["regenerated_init_states"]).read_text(encoding="utf-8"))["tasks"][0]["state_dim"] > 4
         for row in result
     )
+    probe = FakeQposSimulator(3)
+    assert np.array_equal(probe.get_sim_state(), probe.sim.get_state().flatten())
 
 
 def test_b_generator_rejects_qpos_only_simulator_state(tmp_path: Path) -> None:
