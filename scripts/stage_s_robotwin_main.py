@@ -28,6 +28,11 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
+from r142_stage_s.frozen_protocol import (
+    DEFAULT_PROTOCOL_PATH,
+    FrozenProtocolError,
+    load_frozen_protocol,
+)
 from r142_stage_s.robotwin import (
     AtomicFamilyWriter,
     CapabilityError,
@@ -430,13 +435,27 @@ def _make_policy_factory(
     return factory
 
 
-def _write_rank_completion(output_root: Path, rank: int, world_size: int, manifests: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
+def _write_rank_completion(
+    output_root: Path,
+    rank: int,
+    world_size: int,
+    manifests: Sequence[Mapping[str, Any]],
+    frozen_protocol: Mapping[str, Any],
+) -> Dict[str, Any]:
     payload = {
         "status": "COMPLETED",
         "rank": int(rank),
         "world_size": int(world_size),
         "family_count": len(manifests),
         "families": list(manifests),
+        "frozen_protocol": dict(frozen_protocol),
+        "protocol_git_commit": frozen_protocol["protocol_git_commit"],
+        "protocol_json_sha256": frozen_protocol["protocol_json_sha256"],
+        "protocol_md_sha256": frozen_protocol["protocol_md_sha256"],
+        "calibration_report_sha256": {
+            name: item["sha256"]
+            for name, item in frozen_protocol["calibration_reports"].items()
+        },
     }
     path = output_root / f"COMPLETED_A_RANK-{rank:04d}.json"
     digest = _atomic_json(path, payload)
@@ -455,6 +474,10 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         raise CapabilityError("rank/world-size must satisfy 0 <= rank < world-size")
     if args.families_per_task != 16 or args.candidates != 32:
         raise CapabilityError("Stage-S A is frozen at 16 families x 32 candidates per task")
+    try:
+        frozen_protocol = load_frozen_protocol(args.frozen_protocol)
+    except FrozenProtocolError as exc:
+        raise CapabilityError(f"frozen protocol gate: {exc}") from exc
     robotwin_root = args.robotwin_root.resolve()
     evo_root = args.evo_root.resolve()
     checkpoint_dir = args.checkpoint_dir.resolve()
@@ -496,6 +519,14 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         "synthetic_rollouts": False,
         "expert_trajectory": False,
         "termination": "official eval_success or step_lim",
+        "frozen_protocol": frozen_protocol,
+        "protocol_git_commit": frozen_protocol["protocol_git_commit"],
+        "protocol_json_sha256": frozen_protocol["protocol_json_sha256"],
+        "protocol_md_sha256": frozen_protocol["protocol_md_sha256"],
+        "calibration_report_sha256": {
+            name: item["sha256"]
+            for name, item in frozen_protocol["calibration_reports"].items()
+        },
         "blackout_windows": [
             "09:30-09:40 Asia/Shanghai",
             "19:30-19:40 Asia/Shanghai",
@@ -547,7 +578,9 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
                 )
             finally:
                 episode.close()
-    return _write_rank_completion(output_root, args.rank, args.world_size, manifests)
+    return _write_rank_completion(
+        output_root, args.rank, args.world_size, manifests, frozen_protocol
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -563,6 +596,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--families-per-task", type=int, default=16)
     parser.add_argument("--candidates", type=int, default=32)
     parser.add_argument("--seed-base", type=int, default=14211)
+    parser.add_argument(
+        "--frozen-protocol",
+        type=Path,
+        default=DEFAULT_PROTOCOL_PATH,
+        help="stable CPFS Stage-S protocol authority",
+    )
     return parser
 
 
