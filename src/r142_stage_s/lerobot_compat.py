@@ -140,7 +140,19 @@ def _stack_scalar_column(
         dim = kwargs["dim"]
     if dim not in (0, -1):
         raise TypeError(f"Stage-S Column bridge rejects torch.stack dim={dim}")
-    materialized = list(values)
+    source = getattr(values, "source", None)
+    column_name = getattr(values, "column_name", None)
+    if callable(getattr(source, "with_format", None)) and isinstance(column_name, str):
+        # With datasets 4.8.4, iterating a Column backed by LeRobot's custom
+        # transform evaluates that transform for every complete row.  On the
+        # full LIBERO snapshot that needlessly decodes image fields hundreds
+        # of thousands of times before training starts.  Read the exact same
+        # scalar Arrow column through a transform-free Dataset view instead;
+        # this changes only materialization cost, never the stored values.
+        raw_column = source.with_format(None)[column_name]
+        materialized = list(raw_column)
+    else:
+        materialized = list(values)
     if not materialized:
         raise TypeError(
             "Stage-S Column bridge accepts only non-empty scalar real timestamp/index columns"

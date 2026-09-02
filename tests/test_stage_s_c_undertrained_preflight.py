@@ -227,6 +227,24 @@ def test_column_bridge_converts_only_scalar_dataset_columns() -> None:
         "tensor",
         [0.0, 1.0],
     )
+
+    class TransformFreeSource:
+        def __init__(self) -> None:
+            self.formats = []
+
+        def with_format(self, value):
+            self.formats.append(value)
+            return {"timestamp": [2.0, 3.0]}
+
+    source = TransformFreeSource()
+    transformed = Column([99.0])
+    transformed.source = source
+    transformed.column_name = "timestamp"
+    assert _stack_scalar_column(original_stack, FakeTorch, Column, transformed) == (
+        "tensor",
+        [2.0, 3.0],
+    )
+    assert source.formats == [None]
     assert _stack_scalar_column(original_stack, FakeTorch, Column, [0.0, 1.0]) == "native"
     assert calls == [([0.0, 1.0], (), {})]
     assert _stack_scalar_column(
