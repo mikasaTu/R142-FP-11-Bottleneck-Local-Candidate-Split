@@ -1,0 +1,185 @@
+{
+  "schema_version": 2,
+  "kind": "pytorchjob",
+  "name_prefix": "r142-stage-s-b-calibration",
+  "description": "R142 Stage-S B pooled-success calibration; eight fixed ranks, real LIBERO simulator, aggregate-only output",
+  "resource_alias": "idle-a800-robot-native3-8gpu",
+  "workspace_id": "179169",
+  "provenance": {
+    "contract_source_job_id": "dlct3tq8a7z5lsdd",
+    "resource_source_job_id": "dlc1k4y4965q71yw",
+    "submission_method": "cli_create",
+    "pai_clone_performed": false,
+    "source_role": "readback_reference"
+  },
+  "network": {},
+  "storage": {
+    "data_sources": [
+      {
+        "id": "d-mkixtohdn75dp8x9tb",
+        "version": "v1",
+        "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon",
+        "options": ""
+      },
+      {
+        "id": "d-36p023eg0f2vuqny8y",
+        "version": "v1",
+        "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon",
+        "options": ""
+      },
+      {
+        "id": "d-ejgj2ej7io1t2t32uc",
+        "version": "v1",
+        "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon",
+        "options": ""
+      }
+    ],
+    "output_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration"
+  },
+  "worker": {
+    "count": 1,
+    "gpu": 8,
+    "cpu": 88,
+    "memory": "1525Gi",
+    "shared_memory": "1525Gi",
+    "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04"
+  },
+  "runtime": {
+    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-runtime-20260902/scripts/stage_s_libero_b_calibration_pai.sh",
+    "command_file_sha256": "6ac55999b6d919f26acca23f4c29e192b0b398ac81df755b5ee83d45a3134119",
+    "payload_sha256": "6ac55999b6d919f26acca23f4c29e192b0b398ac81df755b5ee83d45a3134119",
+    "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
+    "uid": 2254,
+    "gid": 2254,
+    "output_mode": "resume",
+    "create_artifact_dir": true,
+    "recursive_repair": false,
+    "secret_env_names": [],
+    "pod_env": {},
+    "write_paths": [
+      "{{ARTIFACT_DIR}}"
+    ]
+  },
+  "fault_tolerance": {
+    "application_auto_resume": true,
+    "retry_sleep_seconds": 30,
+    "launcher_attempts": 1,
+    "pai_automatic_fault_tolerance": true,
+    "maximum_platform_restarts": 50,
+    "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure"
+  },
+  "evidence": {
+    "kind": "r142_stage_s_b_calibration_formal_evaluation",
+    "workload_type": "evaluation",
+    "task_id": "r142-stage-s-substrate-b-calibration-20260903",
+    "model_id": "pi05-libero-stage-r-pinned",
+    "success_gate": "persisted_completed_evaluation_result",
+    "contract_ready": true,
+    "validation_method": "static",
+    "validation_status": "passed",
+    "validated_payload_sha256": "6ac55999b6d919f26acca23f4c29e192b0b398ac81df755b5ee83d45a3134119",
+    "pai_probe_created": false,
+    "explicit_user_resource_authorization": {
+      "resource_id": "quota1ssrabud0bh",
+      "oversold_type": "AcceptQuotaOverSold",
+      "scope": "{{RUN_ID}}",
+      "source": "explicit_user_request_20260831_exp_robot_idle_88CPU_1525Gi"
+    },
+    "require_actual_idle": true,
+    "idle_8gpu_contract": "generic_formal_idle_8gpu_v1",
+    "expected_first_work_uid": 2254,
+    "expected_first_work_gid": 2254,
+    "first_work_evidence_path": "{{ARTIFACT_DIR}}/FIRST_WORK.json",
+    "completed_evidence_path": "{{ARTIFACT_DIR}}/COMPLETED_B_CALIBRATION.json",
+    "stage_s_source_commit": "afe353bbc5997355f35cb0c77c5446fd4df5f1e3",
+    "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
+    "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+    "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
+    "calibration_contract": {
+      "settings": [
+        "proximity_0.06m",
+        "proximity_0.08m",
+        "proximity_0.10m",
+        "proximity_0.12m"
+      ],
+      "task_ids": [0, 3, 6, 9],
+      "initial_state_indices": [0, 1, 2, 3, 4, 5, 6, 7],
+      "candidate_count": 8,
+      "trials_per_setting": 256,
+      "world_size": 8,
+      "persisted_row_fields": [
+        "setting",
+        "successes",
+        "total",
+        "pooled_success"
+      ],
+      "completion_marker": "COMPLETED_B_CALIBRATION.json",
+      "aggregate_sha_file": "SHA256SUMS",
+      "bundle_sha_file": "B_SHA256SUMS"
+    },
+    "input_contract": {
+      "variant_run_id": "r142-stage-s-b-variants-20260903-r7",
+      "variant_completion": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/b_variants/r142-stage-s-b-variants-20260903-r7/COMPLETED_B_VARIANTS.json",
+      "variant_sha": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/b_variants/r142-stage-s-b-variants-20260903-r7/SHA256SUMS",
+      "variant_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/b_variants/r142-stage-s-b-variants-20260903-r7/variants",
+      "state_format": "torch.save(sim.get_state().flatten())",
+      "requires_flattened_state": true,
+      "old_init_reused": false,
+      "completion_and_sha_required": true
+    },
+    "source_provenance": {
+      "stage_s_repo": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-runtime-20260902",
+      "qpilots_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812",
+      "openpi_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi",
+      "libero_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi/third_party/libero"
+    },
+    "compute_contract": {
+      "worker_count": 1,
+      "gpu_count": 8,
+      "cpu_cores": 88,
+      "memory_gib": 1525,
+      "shared_memory_gib": 1525,
+      "rank_world_size_fixed": 8,
+      "resource_pool": "exp-robot",
+      "resource_alias": "idle-a800-robot-native3-8gpu",
+      "resource_id": "quota1ssrabud0bh"
+    },
+    "resume_contract": {
+      "same_artifact_dir": true,
+      "same_run_id": true,
+      "idempotent_rank_markers": true,
+      "aggregate_requires_all_ranks": true,
+      "fail_closed_on_preemption": true
+    },
+    "daily_no_job_windows": [
+      {
+        "start": "09:30",
+        "end": "09:40",
+        "timezone": "Asia/Shanghai"
+      },
+      {
+        "start": "19:30",
+        "end": "19:40",
+        "timezone": "Asia/Shanghai"
+      }
+    ]
+  },
+  "submission": {
+    "priority": 9,
+    "disable_ecs_stock_check": true,
+    "job_max_running_time_minutes": 0,
+    "job_reserved_minutes": 0,
+    "job_reserved_policy": "",
+    "tags": {
+      "managed_by": "pai-job-registry",
+      "purpose": "formal-evaluation",
+      "project": "r142-fp-11-stage-s",
+      "task": "r142-stage-s-substrate-b-calibration-20260903",
+      "model": "pi05-libero-stage-r-pinned",
+      "dataset": "libero-10-b-variants-r7",
+      "hardware": "8xa800-idle",
+      "resource_pool": "exp-robot",
+      "autoresume": "application-idempotent"
+    }
+  }
+}
