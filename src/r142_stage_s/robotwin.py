@@ -34,6 +34,11 @@ class CapabilityError(RuntimeError):
 # for an exact-replay server.
 EVO_EXACT_REPLAY_PROTOCOL = "r142-evo-exact-replay/v1"
 EVO_CONTROL_KEY = "r142_control"
+ROBOTWIN_WORKSPACE_POSE_DIMENSION = 14
+ROBOTWIN_WORKSPACE_POSE_SCALE = (
+    1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0,
+    1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0,
+)
 
 
 def _b64_encode(value: bytes) -> str:
@@ -1267,14 +1272,59 @@ class AtomicFamilyWriter:
         return {**marker, "completion_sha256": marker_sha, "path": str(directory)}
 
 
+def _canonical_pose7(value: Any, label: str) -> np.ndarray:
+    """Return XYZ + a sign-canonical unit WXYZ quaternion."""
+
+    pose = np.asarray(value, dtype=np.float64).reshape(-1)
+    if pose.shape != (7,) or not np.all(np.isfinite(pose)):
+        raise CapabilityError(f"{label} must be a finite XYZ+WXYZ 7-vector")
+    quaternion = pose[3:].copy()
+    norm = float(np.linalg.norm(quaternion))
+    if not np.isfinite(norm) or norm <= 0.0:
+        raise CapabilityError(f"{label} quaternion must have positive finite norm")
+    quaternion /= norm
+    # q and -q denote the same orientation.  A deterministic hemisphere
+    # prevents an arbitrary sign flip from being counted as trajectory
+    # divergence.  Break the w==0 tie by the first non-zero component.
+    first_nonzero = next((float(v) for v in quaternion if abs(float(v)) > 1e-15), 0.0)
+    if first_nonzero < 0.0:
+        quaternion *= -1.0
+    return np.concatenate((pose[:3], quaternion))
+
+
 def _pose(observation: Any) -> Any:
+    """Extract real bimanual EEF workspace pose, never joint/qpos state."""
+
     if isinstance(observation, Mapping):
-        for key in ("endpose", "ee_pose", "pose", "joint_action"):
+        if "endpose" in observation:
+            endpose = observation["endpose"]
+            if isinstance(endpose, Mapping):
+                if "left_endpose" not in endpose or "right_endpose" not in endpose:
+                    raise CapabilityError(
+                        "RoboTwin endpose must contain left_endpose and right_endpose"
+                    )
+                left = _canonical_pose7(endpose["left_endpose"], "left_endpose")
+                right = _canonical_pose7(endpose["right_endpose"], "right_endpose")
+                return np.concatenate((left, right))
+            # Lightweight unit adapters may expose a direct numeric endpose;
+            # the real pinned RoboTwin path above is deliberately stricter.
+            direct = np.asarray(endpose, dtype=np.float64).reshape(-1)
+            if direct.size == 0 or not np.all(np.isfinite(direct)):
+                raise CapabilityError("direct endpose must be a finite non-empty vector")
+            return direct
+        for key in ("ee_pose", "pose"):
             if key in observation:
-                return observation[key]
+                direct = np.asarray(observation[key], dtype=np.float64).reshape(-1)
+                if direct.size == 0 or not np.all(np.isfinite(direct)):
+                    raise CapabilityError(f"{key} must be a finite non-empty vector")
+                return direct
         if "observation" in observation:
             return _pose(observation["observation"])
-    return None
+        if "joint_action" in observation:
+            raise CapabilityError(
+                "RoboTwin observation exposes joint_action but no EEF workspace pose"
+            )
+    raise CapabilityError("RoboTwin observation lacks an EEF workspace pose")
 
 
 def _object_poses(env: Any) -> Dict[str, Any]:

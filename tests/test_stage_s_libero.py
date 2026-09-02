@@ -97,6 +97,26 @@ class FakePolicy:
         return np.tile(np.asarray([1.0, 0.0], dtype=np.float32), (5, 1))
 
 
+def test_task64_pose_vector_uses_only_eef_workspace_state():
+    from r142_stage_s.libero import _pose_vector
+
+    observation = {
+        "observation/state": np.asarray(
+            [0.1, -0.2, 0.3, 0.4, -0.5, 0.6, 9.0, 8.0], dtype=np.float32
+        )
+    }
+    pose = _pose_vector(object(), observation)
+    np.testing.assert_allclose(pose, observation["observation/state"][:6])
+    assert pose.shape == (6,)
+
+
+def test_task64_pose_vector_rejects_schema_drift():
+    from r142_stage_s.libero import StageSError, _pose_vector
+
+    with pytest.raises(StageSError, match="exactly"):
+        _pose_vector(object(), {"observation/state": np.zeros(7, dtype=np.float32)})
+
+
 def _fake_bddl(task: object) -> str:
     task_id = int(getattr(task, "task_id"))
     target = str(getattr(task, "target_object"))

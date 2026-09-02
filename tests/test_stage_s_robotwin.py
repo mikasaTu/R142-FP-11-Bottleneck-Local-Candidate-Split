@@ -496,6 +496,29 @@ class RolloutPolicy(FakePolicy):
         return np.array([0.1, 0.2])
 
 
+def test_robotwin_pose_extracts_canonical_bimanual_workspace_pose():
+    from r142_stage_s.robotwin import _pose
+
+    value = _pose(
+        {
+            "endpose": {
+                "left_endpose": [0.1, 0.2, 0.3, -2.0, 0.0, 0.0, 0.0],
+                "right_endpose": [0.4, 0.5, 0.6, 0.0, 0.0, 0.0, -3.0],
+            }
+        }
+    )
+    assert value.shape == (14,)
+    np.testing.assert_allclose(value[:7], [0.1, 0.2, 0.3, 1.0, 0.0, 0.0, 0.0])
+    np.testing.assert_allclose(value[7:], [0.4, 0.5, 0.6, 0.0, 0.0, 0.0, 1.0])
+
+
+def test_robotwin_pose_rejects_joint_state_fallback():
+    from r142_stage_s.robotwin import CapabilityError, _pose
+
+    with pytest.raises(CapabilityError, match="joint_action"):
+        _pose({"joint_action": {"vector": np.zeros(14)}})
+
+
 def test_runner_requires_gate_and_persists_seed_eef_object_genealogy(tmp_path):
     writer = AtomicFamilyWriter(tmp_path)
     runner = FamilyRolloutRunner(

@@ -56,6 +56,12 @@ CALIBRATION_RESULT_MARKER = "CALIBRATION_COMPLETE"
 MAIN_ACTION_HORIZON = 10
 REPLAN_STEPS = 5
 SNAPSHOT_REPLAY_TOLERANCE = 1e-9
+# Stage-S S3 represents one arm as XYZ in metres followed by an axis-angle
+# rotation in radians.  The literal normalization vector is committed in the
+# frozen protocol; keeping the producer contract here prevents an accidental
+# return to joint/qpos distance.
+LIBERO_WORKSPACE_POSE_DIMENSION = 6
+LIBERO_WORKSPACE_POSE_SCALE = (1.0, 1.0, 1.0, math.pi, math.pi, math.pi)
 FULL_PI05_LIBERO_TRAINING_STEPS = 30_000
 UNDERTRAINED_CHECKPOINT_COUNT = 4
 
@@ -1330,7 +1336,25 @@ def _pose_vector(environment: Any, observation: Any = None) -> np.ndarray:
     for name in ("pose_vector", "get_pose_vector", "current_pose_vector"):
         if hasattr(environment, name):
             value = getattr(environment, name)
-            return np.asarray(value() if callable(value) else value, dtype=np.float64).reshape(-1)
+            pose = np.asarray(value() if callable(value) else value, dtype=np.float64).reshape(-1)
+            if not np.all(np.isfinite(pose)):
+                raise StageSError("workspace pose hook returned non-finite values")
+            return pose
+    # The pinned Stage-R Task64Environment exposes raw observation/state as
+    # [eef_xyz(3), eef_axis_angle(3), gripper_qpos(2)].  S3 is defined on the
+    # workspace trajectory, so the gripper/joint suffix must never leak into
+    # D(t).  Fail closed if that pinned contract drifts.
+    if isinstance(observation, Mapping) and "observation/state" in observation:
+        state = np.asarray(observation["observation/state"], dtype=np.float64).reshape(-1)
+        if state.shape != (8,):
+            raise StageSError(
+                "pinned Task64 observation/state must contain exactly "
+                "eef_xyz(3)+eef_axis_angle(3)+gripper_qpos(2)"
+            )
+        pose = state[:LIBERO_WORKSPACE_POSE_DIMENSION].copy()
+        if not np.all(np.isfinite(pose)):
+            raise StageSError("pinned Task64 workspace pose contains non-finite values")
+        return pose
     return _state_vector(environment, observation)
 
 
