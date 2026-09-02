@@ -59,9 +59,10 @@
     "project_dir": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903",
     "project_dir_env": "STAGE_S_C_PROJECT_DIR",
     "command_file_relative": "scripts/stage_s_c_undertrained_pai.sh",
-    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903/scripts/stage_s_c_undertrained_pai.sh",
-    "command_file_sha256": "85efff1581bd4428d5b64700bf677efeb53eed412a137c71519deb7d5d078da6",
-    "payload_sha256": "85efff1581bd4428d5b64700bf677efeb53eed412a137c71519deb7d5d078da6",
+    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained_pai.sh",
+    "companion_config": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained.json",
+    "command_file_sha256": "c269192a7f610f1dd033b9b6214dcc1c8d8c92d36a70cb3b26412125bfd728d5",
+    "payload_sha256": "c269192a7f610f1dd033b9b6214dcc1c8d8c92d36a70cb3b26412125bfd728d5",
     "payload_sha256_env": "STAGE_S_C_PAYLOAD_SHA256",
     "stage_s_source_commit_env": "STAGE_S_SOURCE_COMMIT",
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
@@ -76,12 +77,8 @@
     "recursive_repair": false,
     "secret_env_names": [],
     "pod_env": {
-      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics",
-      "STAGE_S_C_PROJECT_DIR": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903",
-      "STAGE_S_C_PAYLOAD_SHA256": "85efff1581bd4428d5b64700bf677efeb53eed412a137c71519deb7d5d078da6",
-      "STAGE_S_SOURCE_COMMIT": "7575da585be31eb369a604d90048b338bbbf2c92"
+      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
     },
-    "required_env_names": ["PAI_CANARY_RUN_ID", "STAGE_S_SOURCE_COMMIT", "STAGE_S_C_PROJECT_DIR", "STAGE_S_C_PAYLOAD_SHA256"],
     "write_paths": [
       "{{ARTIFACT_DIR}}",
       "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base",
@@ -134,7 +131,7 @@
     "pai_probe_created": false,
     "validation_status": "passed",
     "validation_method": "static+dev14_smoke",
-    "validated_payload_sha256": "85efff1581bd4428d5b64700bf677efeb53eed412a137c71519deb7d5d078da6",
+    "validated_payload_sha256": "c269192a7f610f1dd033b9b6214dcc1c8d8c92d36a70cb3b26412125bfd728d5",
     "expected_first_work_uid": 2254,
     "expected_first_work_gid": 2254,
     "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c_status/{{RUN_ID}}/RUNTIME_IDENTITY.json",
