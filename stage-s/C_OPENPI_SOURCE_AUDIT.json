@@ -19,12 +19,13 @@
     "required_pod_env": {
       "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
     },
-    "requested_runtime_pod_env": {
-      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics",
-      "STAGE_S_SOURCE_COMMIT": "7575da585be31eb369a604d90048b338bbbf2c92"
+    "runtime_pod_env": {
+      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
     },
-    "requested_manifest_validation": "refused_runtime_pod_env_superset",
-    "requested_manifest_validation_message": "REFUSED: runtime.pod_env differs from the resource registry contract",
+    "required_env_names": ["PAI_CANARY_RUN_ID"],
+    "external_command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained_pai.sh",
+    "external_companion_config": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained.json",
+    "payload_sha256": "79a4976e4b0956036ccf186264aa46b71527888a4ea535e82a8aa4d9ea68c948",
     "control_probe_validation": "valid=true",
     "no_pai_submit_performed": true
   },
@@ -36,9 +37,9 @@
   "qpilots_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812",
   "qpilots_expected_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
   "stage_s_runtime_project_dir": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903",
-  "stage_s_runtime_project_dir_env": "STAGE_S_C_PROJECT_DIR",
-  "stage_s_source_commit_env": "STAGE_S_SOURCE_COMMIT",
-  "payload_sha256_env": "STAGE_S_C_PAYLOAD_SHA256",
+  "stage_s_runtime_project_dir_source": "launcher_hardcoded_and_git_verified",
+  "stage_s_source_commit": "7575da585be31eb369a604d90048b338bbbf2c92",
+  "payload_sha256_source": "companion_config_and_executed_dollar_zero",
   "stage_s_source_commit": "7575da585be31eb369a604d90048b338bbbf2c92",
   "config_name": "pi05_libero",
   "official_converter": "examples/convert_jax_model_to_pytorch.py",

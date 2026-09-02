@@ -8,10 +8,11 @@ agent performs the external credential, mount, UID/GID, and resource readback.
 
 ```text
 RUNTIME_PROJECT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903
-STAGE_S_C_PROJECT_DIR=$RUNTIME_PROJECT
 STAGE_S_SOURCE_COMMIT=7575da585be31eb369a604d90048b338bbbf2c92
-STAGE_S_C_PAYLOAD_SHA256=85efff1581bd4428d5b64700bf677efeb53eed412a137c71519deb7d5d078da6
 PAI_CANARY_RUN_ID=<registry-injected run id>
+DEPLOY_DIR=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902
+DEPLOY_PAYLOAD=$DEPLOY_DIR/stage_s_c_undertrained_pai.sh
+DEPLOY_CONFIG=$DEPLOY_DIR/stage_s_c_undertrained.json
 OPENPI=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi
 OPENPI_PYTHON=/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python
 BASE_JAX=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base
@@ -33,14 +34,11 @@ The idle resource provenance is readback-only: both
 `contract_source_job_id` and `resource_source_job_id` are
 `dlckjz66iwcv38gw`, with `source_role=readback_reference`,
 `submission_method=cli_create`, and `pai_clone_performed=false`. The target
-contract separately requires `NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics`.
-The clean-registry readback currently enforces `runtime.pod_env` equality with
-that one-key `required_pod_env`; consequently the requested additional
-`STAGE_S_SOURCE_COMMIT`/project/payload keys are recorded in the C manifest but
-are refused by the unmodified registry validator. A graphics-only control
-manifest validates (`valid=true`); the source-bound manifest remains
-fail-closed until the registry controller adds an allowlisted task-environment
-injection path. This is an admission-layer blocker, not a C training result.
+contract separately requires exactly
+`NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics`; the registry injects
+only `PAI_CANARY_RUN_ID`. The launcher obtains the source commit and payload
+digest from its hard-coded pins and external companion config, so no custom
+pod environment is needed.
 
 ## Asset and conversion commands
 
@@ -167,15 +165,15 @@ full-state.
 
 For registry execution, submit only the checked-in
 `configs/pai/stage_s_c_undertrained.json` (schema v2) through the canonical
-`pai-job-registry`; it binds the robot-idle alias/id/quota, UID/GID, CPFS
-write paths, pinned Python, sequential stage payload, and application
-autoresume. Before execution the controller must bind
-`STAGE_S_C_PROJECT_DIR`, `STAGE_S_SOURCE_COMMIT`, and
-`STAGE_S_C_PAYLOAD_SHA256` exactly as recorded in the registry config. The
-launcher checks the source Git HEAD and cleanliness, the QPILOTS parent
-commit, the OpenPI commit, and both the registry and invoked-payload SHA;
-missing or mismatched values fail closed. The payload itself is
-non-interactive and never changes `HOME`.
+`pai-job-registry`; it binds the external command file, robot-idle
+alias/id/quota, UID/GID, CPFS write paths, pinned Python, sequential stage
+payload, and application autoresume. Deploy both
+`$DEPLOY_PAYLOAD` and `$DEPLOY_CONFIG` under the canonical code root before
+validation. The launcher checks the hard-coded runtime Git HEAD and
+cleanliness, the QPILOTS parent commit, the OpenPI commit, the companion
+config SHA, and both the external and executed-payload SHA; missing or
+mismatched values fail closed. The payload itself is non-interactive and
+never changes `HOME`.
 
 No scientific C success/gate claim is made until these artifacts are read
 back from CPFS and the parent agent separately verifies the terminal PAI JobId.

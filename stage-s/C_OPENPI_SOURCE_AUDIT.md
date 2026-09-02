@@ -42,20 +42,22 @@ source commit, config, source-manifest digest, and model SHA-256.
 
 ## Runtime checkout and launcher admission
 
-The registry command file is bound to the independent C runtime clone
-`/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903`.
-The launcher receives that path through `STAGE_S_C_PROJECT_DIR` and refuses a
-missing, relative, or differently located checkout; it never assumes the
-research repository name as a runtime path. The controller must also inject
-the exact 40-hex `STAGE_S_SOURCE_COMMIT` (the frozen runtime commit for this
-payload is `7575da585be31eb369a604d90048b338bbbf2c92`) and the exact
-`STAGE_S_C_PAYLOAD_SHA256`. Admission checks the bound checkout's clean Git
-HEAD, the QPILOTS parent commit
+The registry command file is the external launcher
+`/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained_pai.sh`;
+its companion manifest is in the same external directory. The launcher
+hard-codes the independent C runtime clone
+`/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903` and
+refuses a missing, non-canonical, dirty, or differently pinned checkout. The
+frozen runtime commit is
+`7575da585be31eb369a604d90048b338bbbf2c92`; the launcher also verifies the
+QPILOTS parent commit
 `eacf47b981e3b22357f8a74902f8dad8cfcfa375`, the OpenPI commit above, the
-invoked payload's SHA-256, and the matching hashes in the registry JSON. It
-writes `RUNTIME_IDENTITY.json` and a hashed `COMPLETED_preflight.json` before
-any download, conversion, or training mutation. Missing or mismatched
-identity fails closed and cannot produce a stage completion marker.
+external companion manifest's payload SHA-256, and the actual executed `$0`
+payload SHA-256. Only `PAI_CANARY_RUN_ID` is controller-injected; no custom
+payload/source/project environment is required. It writes
+`RUNTIME_IDENTITY.json` and a hashed `COMPLETED_preflight.json` before any
+download, conversion, or training mutation. Missing or mismatched identity
+fails closed and cannot produce a stage completion marker.
 
 ## Canonical registry admission readback
 
@@ -63,22 +65,14 @@ The C manifest carries the exact resource provenance required by the clean
 registry: `contract_source_job_id` and `resource_source_job_id` are both
 `dlckjz66iwcv38gw`, `source_role` is `readback_reference`,
 `submission_method` is `cli_create`, and `pai_clone_performed` is `false`.
-The frozen runtime public environment includes
-`NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics` plus the explicit
-`STAGE_S_SOURCE_COMMIT=7575da585be31eb369a604d90048b338bbbf2c92` admission
-value and the project/payload bindings; `required_env_names` names the
-controller-injected `PAI_CANARY_RUN_ID`, not the unsupported `PAI_RUN_ID`.
-
-The canonical resource readback declares only the NVIDIA graphics key in
-`required_pod_env`, and its current validator compares `runtime.pod_env` for
-exact equality. Therefore the requested manifest is intentionally fail-closed
-at this boundary until the controller admits an allowlisted task environment:
+The frozen runtime public environment contains exactly
+`NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics`, matching the canonical
+`required_pod_env`; `required_env_names` contains only the
+controller-injected `PAI_CANARY_RUN_ID`. The external companion config and
+payload were deployed to the canonical code root, and
 `pai-job validate ... --run-id r142-stage-s-c-undertrained-20260903-r1
---no-wandb` returns `REFUSED: runtime.pod_env differs from the resource
-registry contract` when the source/project/payload bindings are present. A
-control probe with only the exact graphics key returns `{"valid": true}`.
-No PAI submission was made; this is a registry/controller capability mismatch,
-not a training result.
+--no-wandb` returned `{"valid": true}`. No PAI submission was made; this is
+an admission validation result, not a training result.
 
 ## Public GCS object contract
 

@@ -9,46 +9,26 @@ umask 077
 
 NEW_ROOT=/mnt/cpfs/zbl-cpfs-new
 USER_ROOT=$NEW_ROOT/USERS/leon
-# The registry resource contract permits only its exact graphics pod env.
-# Keep the scientific/runtime identity in this immutable payload + companion
-# registry manifest instead of injecting custom pod environment variables.
-STAGE_S_C_PROJECT_DIR=$USER_ROOT/code/r142-stage-s-c-runtime-20260903
-STAGE_S_C_REGISTRY_CONFIG=$USER_ROOT/code/r142-stage-s-pai-20260902/stage_s_c_undertrained.json
-STAGE_S_SOURCE_COMMIT=7575da585be31eb369a604d90048b338bbbf2c92
-PROJECT_DIR=$(realpath -e -- "$STAGE_S_C_PROJECT_DIR") || {
-  echo "C runtime clone path does not exist: $STAGE_S_C_PROJECT_DIR" >&2
-  exit 43
-}
-export STAGE_S_C_PROJECT_DIR
+# The deployed launcher and its companion registry manifest are deliberately
+# outside the pinned source checkout.  The source checkout is an immutable
+# runtime dependency; this script verifies it rather than using it as $0.
+PROJECT_DIR=$USER_ROOT/code/r142-stage-s-c-runtime-20260903
+COMPANION_CONFIG=$USER_ROOT/code/r142-stage-s-pai-20260902/stage_s_c_undertrained.json
+EXPECTED_PAYLOAD_PATH=$USER_ROOT/code/r142-stage-s-pai-20260902/stage_s_c_undertrained_pai.sh
+EXPECTED_STAGE_S_SOURCE_COMMIT=7575da585be31eb369a604d90048b338bbbf2c92
 PYTHON_BIN=$USER_ROOT/envs/openpi_py311/bin/python
 QPILOTS=$USER_ROOT/code/QPILOTS-r16p15-stage1-task64-20260812
 OPENPI=$QPILOTS/third_party/openpi
 EXPECTED_QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
 EXPECTED_OPENPI_COMMIT=54cbaee6ae0c010a1ed431871cdaa8f4684ac709
-PAYLOAD_FILE=$(realpath -e -- "$0") || { echo "cannot resolve invoked C payload" >&2; exit 43; }
-CONFIG_FILE=$(realpath -e -- "$STAGE_S_C_REGISTRY_CONFIG") || {
-  echo "missing external C registry companion config: $STAGE_S_C_REGISTRY_CONFIG" >&2
-  exit 43
-}
-STAGE_S_C_PAYLOAD_SHA256=$($PYTHON_BIN - "$CONFIG_FILE" <<'PY'
-import json
-import pathlib
-import sys
-
-runtime = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))["runtime"]
-command_sha = runtime.get("command_file_sha256")
-payload_sha = runtime.get("payload_sha256")
-if not isinstance(command_sha, str) or command_sha != payload_sha:
-    raise SystemExit("registry payload SHA fields are missing or disagree")
-print(payload_sha)
-PY
-)
-export STAGE_S_SOURCE_COMMIT STAGE_S_C_PAYLOAD_SHA256 STAGE_S_C_REGISTRY_CONFIG
+STAGE_S_SOURCE_COMMIT=$EXPECTED_STAGE_S_SOURCE_COMMIT
+STAGE_S_C_PROJECT_DIR=$PROJECT_DIR
+export STAGE_S_SOURCE_COMMIT STAGE_S_C_PROJECT_DIR
 BASE_JAX=$USER_ROOT/cache/r142_stage_s/pi05_base
 BASE_PT=$USER_ROOT/cache/r142_stage_s/pi05_base_pytorch
 ASSETS=$USER_ROOT/cache/openpi/r16p15/openpi-assets/checkpoints
 CHECKPOINT_BASE=$NEW_ROOT/CKPT/leon/r142_stage_s_c
-RUN_ID=${PAI_RUN_ID:-${PAI_CANARY_RUN_ID:?registry must inject PAI_RUN_ID}}
+RUN_ID=${PAI_CANARY_RUN_ID:?registry must inject PAI_CANARY_RUN_ID}
 LOG_ROOT=$USER_ROOT/logs/r142_fp11_stage_s/c/$RUN_ID
 STATUS_ROOT=$USER_ROOT/logs/r142_fp11_stage_s/c_status/$RUN_ID
 
@@ -71,7 +51,7 @@ payload = {
     "status": status,
     "stage": stage,
     "exit_code": int(exit_code),
-    "run_id": os.environ.get("PAI_RUN_ID") or os.environ.get("PAI_CANARY_RUN_ID"),
+    "run_id": os.environ.get("PAI_CANARY_RUN_ID"),
     "job_id": os.environ.get("PAI_TASK_JOB_ID") or os.environ.get("PAI_JOB_ID"),
     "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
@@ -144,20 +124,28 @@ for checkout in "$PROJECT_DIR" "$QPILOTS" "$OPENPI"; do
     exit 43
   }
 done
-[[ -f "$PAYLOAD_FILE" && -f "$CONFIG_FILE" ]] || {
-  echo "missing invoked C payload or companion registry config" >&2
+[[ -f "$COMPANION_CONFIG" && ! -L "$COMPANION_CONFIG" ]] || {
+  echo "missing external C companion registry config: $COMPANION_CONFIG" >&2
+  exit 43
+}
+[[ -f "$EXPECTED_PAYLOAD_PATH" && ! -L "$EXPECTED_PAYLOAD_PATH" ]] || {
+  echo "missing external C registry payload: $EXPECTED_PAYLOAD_PATH" >&2
+  exit 43
+}
+[[ "$(realpath -e -- "$PROJECT_DIR")" == "$PROJECT_DIR" ]] || {
+  echo "independent C runtime path is not canonical: $PROJECT_DIR" >&2
   exit 43
 }
 [[ "$STAGE_S_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || {
-  echo "STAGE_S_SOURCE_COMMIT must be a full lowercase Git commit" >&2
+  echo "frozen Stage-S source commit is invalid" >&2
   exit 44
 }
-[[ "$(git -C "$PROJECT_DIR" rev-parse HEAD)" == "$STAGE_S_SOURCE_COMMIT" ]] || {
-  echo "Stage-S source checkout does not match injected STAGE_S_SOURCE_COMMIT" >&2
+[[ "$(git -C "$PROJECT_DIR" rev-parse HEAD)" == "$EXPECTED_STAGE_S_SOURCE_COMMIT" ]] || {
+  echo "independent C runtime is not pinned to $EXPECTED_STAGE_S_SOURCE_COMMIT" >&2
   exit 44
 }
 [[ -z "$(git -C "$PROJECT_DIR" status --porcelain)" ]] || {
-  echo "Stage-S source checkout is dirty" >&2
+  echo "independent C runtime checkout is dirty" >&2
   exit 45
 }
 [[ "$(git -C "$QPILOTS" rev-parse HEAD)" == "$EXPECTED_QPILOTS_COMMIT" ]] || {
@@ -170,38 +158,47 @@ done
   exit 48
 }
 [[ -z "$(git -C "$OPENPI" status --porcelain)" ]] || { echo "OpenPI checkout is dirty" >&2; exit 49; }
-[[ "$STAGE_S_C_PAYLOAD_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
-  echo "STAGE_S_C_PAYLOAD_SHA256 must be a full lowercase SHA-256" >&2
-  exit 50
-}
-CONFIG_PAYLOAD_SHA256=$("$PYTHON_BIN" - "$CONFIG_FILE" <<'PY'
+CONFIG_PAYLOAD_SHA256=$("$PYTHON_BIN" - "$COMPANION_CONFIG" "$PROJECT_DIR" "$EXPECTED_PAYLOAD_PATH" <<'PY'
 import json
-import os
 import pathlib
 import sys
 
-payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+config_path, expected_project, expected_payload = sys.argv[1:]
+payload = json.loads(pathlib.Path(config_path).read_text(encoding="utf-8"))
 runtime = payload.get("runtime", {})
-project_dir = runtime.get("project_dir")
-if project_dir != os.environ.get("STAGE_S_C_PROJECT_DIR"):
-    raise SystemExit("registry project_dir does not match STAGE_S_C_PROJECT_DIR")
-command_file = runtime.get("command_file")
-if command_file != str(pathlib.Path(sys.argv[1]).with_name("stage_s_c_undertrained_pai.sh")):
-    raise SystemExit("registry command_file is not beside the companion config")
+if runtime.get("project_dir") != expected_project:
+    raise SystemExit("companion registry project_dir is not the pinned runtime")
+if runtime.get("command_file") != expected_payload:
+    raise SystemExit("companion registry command_file is not the deployed payload")
+relative = runtime.get("command_file_relative")
+if not isinstance(relative, str) or not relative:
+    raise SystemExit("companion registry command_file_relative is missing")
+if (pathlib.Path(expected_project) / relative).resolve() != pathlib.Path(expected_payload).resolve():
+    raise SystemExit("companion registry relative command path does not resolve to deployed payload")
+if runtime.get("pod_env") != {"NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"}:
+    raise SystemExit("companion registry pod_env is not the exact resource contract")
+if runtime.get("required_env_names") != ["PAI_CANARY_RUN_ID"]:
+    raise SystemExit("companion registry required_env_names is not controller-only")
 command_sha = runtime.get("command_file_sha256")
 payload_sha = runtime.get("payload_sha256")
 if not isinstance(command_sha, str) or not isinstance(payload_sha, str) or command_sha != payload_sha:
-    raise SystemExit("registry payload SHA fields are missing or disagree")
+    raise SystemExit("companion registry payload SHA fields are missing or disagree")
 print(payload_sha)
 PY
 )
-[[ "$CONFIG_PAYLOAD_SHA256" == "$STAGE_S_C_PAYLOAD_SHA256" ]] || {
-  echo "injected payload SHA differs from pinned registry config" >&2
+[[ "$CONFIG_PAYLOAD_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
+  echo "companion registry payload SHA is not a full lowercase SHA-256" >&2
+  exit 50
+}
+STAGE_S_C_PAYLOAD_SHA256=$CONFIG_PAYLOAD_SHA256
+export STAGE_S_C_PAYLOAD_SHA256
+OBSERVED_DEPLOYED_PAYLOAD_SHA256=$(sha256sum "$EXPECTED_PAYLOAD_PATH" | awk '{print $1}')
+[[ "$OBSERVED_DEPLOYED_PAYLOAD_SHA256" == "$CONFIG_PAYLOAD_SHA256" ]] || {
+  echo "deployed external C payload SHA differs from companion registry config" >&2
   exit 51
 }
-OBSERVED_PAYLOAD_SHA256=$(sha256sum "$PAYLOAD_FILE" | awk '{print $1}')
-[[ "$OBSERVED_PAYLOAD_SHA256" == "$STAGE_S_C_PAYLOAD_SHA256" ]] || {
-  echo "invoked C payload SHA differs from injected SHA" >&2
+[[ -f "$0" && "$(sha256sum "$0" | awk '{print $1}')" == "$CONFIG_PAYLOAD_SHA256" ]] || {
+  echo "executed C payload SHA differs from companion registry config" >&2
   exit 52
 }
 for writable in "$BASE_JAX" "$BASE_PT" "$CHECKPOINT_BASE" "$LOG_ROOT" "$STATUS_ROOT"; do
@@ -216,7 +213,8 @@ done
 # mutation.  This records the exact bindings checked above; it is not a
 # substitute for the source, cleanliness, and digest checks.
 "$PYTHON_BIN" - "$STATUS_ROOT/RUNTIME_IDENTITY.json" "$PROJECT_DIR" "$QPILOTS" "$OPENPI" \
-  "$STAGE_S_SOURCE_COMMIT" "$EXPECTED_QPILOTS_COMMIT" "$EXPECTED_OPENPI_COMMIT" "$STAGE_S_C_PAYLOAD_SHA256" "$PAYLOAD_FILE" <<'PY'
+  "$STAGE_S_SOURCE_COMMIT" "$EXPECTED_QPILOTS_COMMIT" "$EXPECTED_OPENPI_COMMIT" \
+  "$STAGE_S_C_PAYLOAD_SHA256" "$EXPECTED_PAYLOAD_PATH" "$0" <<'PY'
 import hashlib
 import json
 import os
@@ -224,8 +222,21 @@ import pathlib
 import sys
 
 destination = pathlib.Path(sys.argv[1])
-project, qpilots, openpi, stage_commit, qpilots_commit, openpi_commit, payload_sha, payload_path = sys.argv[2:]
-payload_file = pathlib.Path(payload_path)
+(
+    project,
+    qpilots,
+    openpi,
+    stage_commit,
+    qpilots_commit,
+    openpi_commit,
+    payload_sha,
+    deployed_payload,
+    executed_payload,
+) = sys.argv[2:]
+deployed_payload_path = pathlib.Path(deployed_payload)
+executed_payload_path = pathlib.Path(executed_payload)
+deployed_payload_sha = hashlib.sha256(deployed_payload_path.read_bytes()).hexdigest()
+executed_payload_sha = hashlib.sha256(executed_payload_path.read_bytes()).hexdigest()
 record = {
     "schema": "r142-stage-s-c-runtime-identity-v1",
     "project_dir": project,
@@ -234,13 +245,18 @@ record = {
     "qpilots_commit": qpilots_commit,
     "openpi_root": openpi,
     "openpi_commit": openpi_commit,
-    "payload_path": str(payload_file),
+    "payload_path": str(deployed_payload_path),
+    "executed_payload_path": str(executed_payload_path),
     "payload_sha256": payload_sha,
-    "payload_sha256_observed": hashlib.sha256(payload_file.read_bytes()).hexdigest(),
-    "run_id": os.environ.get("PAI_RUN_ID") or os.environ.get("PAI_CANARY_RUN_ID"),
+    "payload_sha256_observed": deployed_payload_sha,
+    "executed_payload_sha256_observed": executed_payload_sha,
+    "run_id": os.environ.get("PAI_CANARY_RUN_ID"),
     "job_id": os.environ.get("PAI_TASK_JOB_ID") or os.environ.get("PAI_JOB_ID"),
 }
-if record["payload_sha256"] != record["payload_sha256_observed"]:
+if record["payload_sha256"] not in {
+    record["payload_sha256_observed"],
+    record["executed_payload_sha256_observed"],
+}:
     raise SystemExit("runtime identity payload digest changed during admission")
 destination.parent.mkdir(parents=True, exist_ok=True)
 temporary = destination.with_name(f".{destination.name}.tmp-{os.getpid()}")

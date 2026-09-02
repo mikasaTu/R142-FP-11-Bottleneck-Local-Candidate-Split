@@ -330,6 +330,7 @@ def test_registry_v2_payload_binds_pinned_runtime_and_stages() -> None:
     assert payload["provenance"]["submission_method"] == "cli_create"
     assert payload["provenance"]["pai_clone_performed"] is False
     assert payload["provenance"]["code_source_role"] == "official_openpi_pi05_base_and_pytorch_trainer"
+    assert payload["provenance"]["stage_s_source_commit"] == "7575da585be31eb369a604d90048b338bbbf2c92"
     assert payload["resource_alias"] == "idle-a800-robot-stage-s-graphics-8gpu"
     assert payload["resource_id"] == "quota1ssrabud0bh"
     assert payload["quota_name"] == "exp-robot"
@@ -340,15 +341,12 @@ def test_registry_v2_payload_binds_pinned_runtime_and_stages() -> None:
     assert payload["runtime"]["uid"] == payload["runtime"]["gid"] == 2254
     assert payload["runtime"]["project_dir"] == \
         "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903"
-    assert payload["runtime"]["project_dir_env"] == "STAGE_S_C_PROJECT_DIR"
-    assert payload["runtime"]["command_file"] == \
-        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained_pai.sh"
-    assert payload["runtime"]["companion_config"] == \
-        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained.json"
-    assert payload["runtime"]["payload_sha256_env"] == "STAGE_S_C_PAYLOAD_SHA256"
-    assert payload["runtime"]["stage_s_source_commit_env"] == "STAGE_S_SOURCE_COMMIT"
+    external_payload = "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained_pai.sh"
+    assert payload["runtime"]["command_file"] == external_payload
+    assert (Path(payload["runtime"]["project_dir"]) / payload["runtime"]["command_file_relative"]).resolve() == Path(external_payload)
     assert payload["runtime"]["qpilots_commit"] == "eacf47b981e3b22357f8a74902f8dad8cfcfa375"
     assert payload["runtime"]["openpi_commit"] == OPENPI_COMMIT
+    assert payload["runtime"]["required_env_names"] == ["PAI_CANARY_RUN_ID"]
     assert payload["runtime"]["pod_env"] == {
         "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
     }
@@ -370,9 +368,10 @@ def test_registry_v2_payload_binds_pinned_runtime_and_stages() -> None:
     assert hashlib.sha256(script.read_bytes()).hexdigest() == payload["runtime"]["command_file_sha256"]
     assert payload["runtime"]["home_policy"].startswith("inherit")
     assert "R142-FP-11-Bottleneck-Local-Candidate-Split" not in script.read_text(encoding="utf-8")
-    assert "STAGE_S_SOURCE_COMMIT" in script.read_text(encoding="utf-8")
+    assert "EXPECTED_STAGE_S_SOURCE_COMMIT" in script.read_text(encoding="utf-8")
     assert "EXPECTED_QPILOTS_COMMIT" in script.read_text(encoding="utf-8")
-    assert "STAGE_S_C_PAYLOAD_SHA256" in script.read_text(encoding="utf-8")
+    assert "COMPANION_CONFIG" in script.read_text(encoding="utf-8")
+    assert "sha256sum \"$0\"" in script.read_text(encoding="utf-8")
     assert "RUNTIME_IDENTITY.json" in script.read_text(encoding="utf-8")
     assert [stage["name"] for stage in payload["stage_pipeline"]["stages"]] == [
         "base_download",
