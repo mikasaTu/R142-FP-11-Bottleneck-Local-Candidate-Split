@@ -253,6 +253,11 @@ for writable in "$BASE_JAX" "$BASE_PT" "$HF_HOME" "$HF_LEROBOT_HOME" "$DATASET_R
   rm -f -- "$probe"
 done
 
+# PAI images may inherit a working directory containing a local `parquet`
+# path, which shadows the packaged Hugging Face parquet builder.  Anchor all
+# relative dataset-module resolution in the audited, readable project root.
+cd "$PROJECT_DIR"
+
 export PYTHONPATH="$PROJECT_DIR/src:$OPENPI/src"
 export WANDB_MODE=disabled
 

@@ -200,6 +200,8 @@ def test_launcher_and_training_wrapper_bind_offline_data_gate() -> None:
     assert "LeRobotDatasetMetadata" in preflight
     assert "official pi05_libero config did not load local norm_stats" in preflight
     assert "data_preflight_path" in train
+    assert 'cd "$PROJECT_DIR"' in launcher
+    assert launcher.index('cd "$PROJECT_DIR"') < launcher.index("CURRENT_STAGE=data_preflight")
     assert "install_column_compat_bridge" in WORKER.read_text(encoding="utf-8")
 
 
