@@ -30,6 +30,8 @@ from r142_stage_s.openpi_c import (  # noqa: E402
     TRAINING_START_NAME,
     TRAINING_FAILED_NAME,
     TRAINING_TERMINAL_NAME,
+    sha256_file,
+    _audit_data_preflight,
     _status_marker,
     assert_outside_blackout,
     audit_base_download,
@@ -48,9 +50,22 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--checkpoint-base-dir", type=Path, required=True)
     parser.add_argument("--log-root", type=Path, required=True)
     parser.add_argument("--assets-base-dir", type=Path, default=Path(DEFAULT_PI05_ASSETS_BASE_DIR))
+    parser.add_argument("--data-preflight", type=Path, required=False)
     parser.add_argument("--python", default=DEFAULT_OPENPI_PYTHON)
     parser.add_argument("--resume", action="store_true")
     return parser
+
+
+def _load_data_preflight(path: Path | None) -> dict[str, object]:
+    """Require the completed local dataset/norm-stat gate for real training."""
+
+    if path is None:
+        raise SystemExit("--data-preflight is required; C training cannot bypass local data provenance")
+    payload, errors = _audit_data_preflight(path.expanduser().resolve())
+    if errors:
+        raise SystemExit("C data preflight refused: " + "; ".join(errors))
+    assert payload is not None
+    return payload
 
 
 def _has_numeric_checkpoint(path: Path) -> bool:
@@ -59,6 +74,7 @@ def _has_numeric_checkpoint(path: Path) -> bool:
 
 def _execute(args: argparse.Namespace) -> int:
     now = assert_outside_blackout()
+    data_preflight = _load_data_preflight(args.data_preflight)
     source_audit = audit_openpi_checkout(args.openpi_root, python=args.python)
     if not source_audit["ready"]:
         raise SystemExit("OpenPI source audit failed: " + "; ".join(source_audit["errors"]))
@@ -99,6 +115,14 @@ def _execute(args: argparse.Namespace) -> int:
         "command": command,
         "resume": bool(args.resume),
         "base_manifest_sha256": base_audit.get("manifest", {}).get("manifest_sha256"),
+        "data_preflight_path": str(args.data_preflight.expanduser().resolve()),
+        "data_preflight_sha256": sha256_file(args.data_preflight.expanduser().resolve()),
+        "dataset_repo_id": data_preflight["dataset"]["repo_id"],
+        "dataset_revision": data_preflight["dataset"]["revision"],
+        "dataset_manifest_sha256": data_preflight["dataset"]["manifest_sha256"],
+        "dataset_manifest_file_sha256": data_preflight["dataset"]["manifest_file_sha256"],
+        "norm_stats_source_sha256": data_preflight["norm_stats"]["source_sha256"],
+        "norm_stats_sha256": data_preflight["norm_stats"]["staged_sha256"],
         "checkpoint_base_dir": str(checkpoint_base),
         "no_pai_submit_performed": True,
     }
@@ -135,6 +159,7 @@ def _execute(args: argparse.Namespace) -> int:
                 log_root=args.log_root,
                 base_manifest_sha256=str(base_audit.get("manifest", {}).get("manifest_sha256") or ""),
                 openpi_root=args.openpi_root,
+                data_preflight_path=args.data_preflight,
             )
             print(json.dumps(marker, indent=2, sort_keys=True))
     return 0

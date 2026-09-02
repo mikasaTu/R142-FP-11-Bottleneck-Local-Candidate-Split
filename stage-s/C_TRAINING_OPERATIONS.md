@@ -4,6 +4,42 @@ This document is the non-submitting runbook for the exact under-trained
 pi05-LIBERO lineage. It is intended for the PAI orchestrator after the parent
 agent performs the external credential, mount, UID/GID, and resource readback.
 
+## Local LIBERO and normalization preflight
+
+The C under-training payload pins the LeRobot dataset to
+`physical-intelligence/libero` revision
+`9dfa69510ea9e1613fc54112bc706444b686a231` (published v2.0). Before base
+checkpoint conversion or training, `stage_s_c_data_preflight.py` requires the
+complete local snapshot at
+`/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/lerobot/physical-intelligence/libero`:
+1693 parquet episodes, the four v2.0 metadata files, matching Hugging Face
+revision sidecars, and no `.incomplete` downloads. It hashes every published
+file and reuses the pre-generated `DATASET_SHA256SUMS` at the dataset root. A
+later run verifies that manifest's pinned SHA-256
+`02b5b3abfadb65b2f1c4823cfe7ed7b9351416934674fcf59aea1868826546bf` and checks
+all 1699 entries with `sha256sum -c`; it does not rewrite the data tree.
+Missing metadata is an immediate failure and cannot fall back to
+`snapshot_download`.
+
+The base checkpoint's norm stats are intentionally staged without mutating the
+base artifact. The source is
+`.../pi05_libero/assets/physical-intelligence/libero/norm_stats.json`, while
+the pinned OpenPI `DataConfigFactory` resolves
+`assets_base_dir/pi05_libero/physical-intelligence/libero/norm_stats.json`.
+The payload copies the source to the stable CPFS root
+`/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/c_libero_assets` and
+requires source/staged SHA-256 equality on every resume. The same Python
+process then instantiates the pinned `pi05_libero` config and verifies that its
+real norm-stat resolver loads the staged file.
+
+The launcher exports `HF_LEROBOT_HOME` and CPFS `HF_HOME` plus
+`HF_DATASETS_OFFLINE=1`, `HF_HUB_OFFLINE=1`, and `TRANSFORMERS_OFFLINE=1`.
+These variables are set before importing LeRobot/OpenPI and are recorded in
+`DATA_PREFLIGHT.json`. Dataset revision/manifest hashes and source/staged norm
+hashes are copied into `RUNTIME_IDENTITY.json`, `TRAINING_START.json`, and
+`COMPLETED_C_TRAINING.json`; the latter is never published without the data
+gate.
+
 ## Frozen paths and lineage
 
 ```text
@@ -11,13 +47,17 @@ RUNTIME_PROJECT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20
 STAGE_S_SOURCE_COMMIT=7575da585be31eb369a604d90048b338bbbf2c92
 STAGE_S_C_PAYLOAD=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained_pai.sh
 STAGE_S_C_CONFIG=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained.json
-STAGE_S_C_PAYLOAD_SHA256=c269192a7f610f1dd033b9b6214dcc1c8d8c92d36a70cb3b26412125bfd728d5
+STAGE_S_C_PAYLOAD_SHA256=49eebae79d178c239d9f5343ef6c3624eef149b65c6a74754617a507cfc8fd90
 PAI_CANARY_RUN_ID=<registry-injected run id>
 OPENPI=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi
 OPENPI_PYTHON=/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python
 BASE_JAX=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base
 BASE_PT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base_pytorch
 ASSETS=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/openpi/r16p15/openpi-assets/checkpoints
+HF_LEROBOT_HOME=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/lerobot
+HF_HOME=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/huggingface
+DATASET=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/lerobot/physical-intelligence/libero
+STAGED_ASSETS=/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/c_libero_assets
 CKPT=/mnt/cpfs/zbl-cpfs-new/CKPT/leon/r142_stage_s_c
 LOG=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c
 STATUS=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c_status/<RUN_ID>
@@ -78,6 +118,19 @@ PYTHONPATH="$PWD/src:$OPENPI/src" "$OPENPI_PYTHON" scripts/stage_s_libero_c_asse
   --base-pytorch-root "$BASE_PT" --python "$OPENPI_PYTHON" --precision bfloat16
 ```
 
+Run the local data gate before either conversion or training. This command
+must succeed without contacting Hugging Face:
+
+```text
+export HF_LEROBOT_HOME="$HF_LEROBOT_HOME" HF_HOME="$HF_HOME"
+export HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+PYTHONPATH="$RUNTIME_PROJECT/src:$OPENPI/src" "$OPENPI_PYTHON" \
+  scripts/stage_s_c_data_preflight.py \
+  --dataset-root "$DATASET" --assets-source-root "$ASSETS" \
+  --staged-assets-base-dir "$STAGED_ASSETS" --openpi-root "$OPENPI" \
+  --output "$STATUS/DATA_PREFLIGHT.json"
+```
+
 To hand the parent orchestrator an auditable, non-submitting chain and PAI
 payload, render both from the same paths:
 
@@ -87,7 +140,7 @@ PYTHONPATH="$PWD/src:$OPENPI/src" "$OPENPI_PYTHON" scripts/stage_s_libero_c_payl
   --openpi-root "$OPENPI" --base-jax-root "$BASE_JAX" \
   --base-pytorch-root "$BASE_PT" --checkpoint-base-dir "$CKPT" \
   --log-root "$LOG" --repo-root "$RUNTIME_PROJECT" \
-  --assets-base-dir "$ASSETS" \
+  --assets-base-dir "$STAGED_ASSETS" \
   --contract /mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c/CHAIN.json \
   --payload /mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c/PAI_PAYLOAD.json
 ```
@@ -115,7 +168,7 @@ direct upstream command represented inside the contract is:
   --checkpoint_base_dir "$CKPT" \
   --save_interval 1000 --num_train_steps 10001 --seed 42 \
   --keep_period 1000 --num_workers 0 --pytorch_weight_path "$BASE_PT" \
-  --assets_base_dir "$ASSETS"
+  --assets_base_dir "$STAGED_ASSETS"
 ```
 
 Use the checked-in worker wrapper so resume captures all rank RNG state:
@@ -124,7 +177,8 @@ Use the checked-in worker wrapper so resume captures all rank RNG state:
 PYTHONPATH="$PWD/src:$OPENPI/src" "$OPENPI_PYTHON" scripts/stage_s_libero_c_train.py \
   --openpi-root "$OPENPI" --base-jax-root "$BASE_JAX" \
   --base-pytorch-root "$BASE_PT" --checkpoint-base-dir "$CKPT" \
-  --log-root "$LOG" --assets-base-dir "$ASSETS" --python "$OPENPI_PYTHON"
+  --log-root "$LOG" --assets-base-dir "$STAGED_ASSETS" \
+  --data-preflight "$STATUS/DATA_PREFLIGHT.json" --python "$OPENPI_PYTHON"
 ```
 
 After a spot interruption, retain the same `CKPT`, `LOG`, and run ID and

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import base64
 import ast
+import contextlib
 import hashlib
 import json
 import os
@@ -53,6 +54,32 @@ OPENPI_CONFIG_NAME = "pi05_libero"
 OPENPI_CONVERTER = "examples/convert_jax_model_to_pytorch.py"
 OPENPI_TRAINER = "scripts/train_pytorch.py"
 LIBERO_DATASET_REPO = "physical-intelligence/libero"
+# The C substrate is frozen to the published v2.0 dataset snapshot.  The
+# revision is recorded by Hugging Face's local-download sidecars and is
+# checked before the official LeRobot loader is allowed to run.
+LIBERO_DATASET_REVISION = "9dfa69510ea9e1613fc54112bc706444b686a231"
+DEFAULT_HF_LEROBOT_HOME = "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/lerobot"
+DEFAULT_LIBERO_DATASET_ROOT = f"{DEFAULT_HF_LEROBOT_HOME}/{LIBERO_DATASET_REPO}"
+LIBERO_DATASET_MANIFEST_NAME = "DATASET_SHA256SUMS"
+LIBERO_DATASET_MANIFEST_SHA256 = "02b5b3abfadb65b2f1c4823cfe7ed7b9351416934674fcf59aea1868826546bf"
+LIBERO_DATASET_EXPECTED_INFO = {
+    "codebase_version": "v2.0",
+    "robot_type": "panda",
+    "total_episodes": 1693,
+    "total_frames": 273465,
+    "total_tasks": 40,
+    "total_videos": 0,
+    "total_chunks": 2,
+    "chunks_size": 1000,
+    "fps": 10,
+    "data_path": "data/chunk-{episode_chunk:03d}/episode_{episode_index:06d}.parquet",
+}
+DEFAULT_STAGED_LIBERO_ASSETS_BASE_DIR = "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/c_libero_assets"
+LIBERO_NORM_STATS_SOURCE_RELATIVE = f"{OPENPI_CONFIG_NAME}/assets/{LIBERO_DATASET_REPO}/norm_stats.json"
+# OpenPI's pinned DataConfigFactory resolves assets_base_dir/config_name/repo_id
+# (without the source checkpoint's extra ``assets`` component).
+LIBERO_NORM_STATS_RUNTIME_RELATIVE = f"{OPENPI_CONFIG_NAME}/{LIBERO_DATASET_REPO}/norm_stats.json"
+LIBERO_NORM_STATS_MARKER_NAME = ".r142_stage_s_libero_norm_stats.json"
 DEFAULT_PI05_ASSETS_BASE_DIR = "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/openpi/r16p15/openpi-assets/checkpoints"
 PI05_BASE_BUCKET = "openpi-assets"
 PI05_BASE_PREFIX = "checkpoints/pi05_base/"
@@ -478,23 +505,415 @@ def audit_base_download(root: str | Path) -> dict[str, Any]:
     return {"valid": not errors, "errors": errors, "root": str(base), "marker": marker, "manifest": manifest}
 
 
-def audit_libero_data_assets(assets_base_dir: str | Path) -> dict[str, Any]:
-    """Check the exact norm-stat asset path resolved by ``pi05_libero``."""
+def _libero_expected_snapshot_files(info: Mapping[str, Any]) -> list[str]:
+    """Return the exact files required by the frozen v2.0 LIBERO snapshot."""
 
-    root = Path(assets_base_dir).expanduser().resolve()
-    norm_stats = root / OPENPI_CONFIG_NAME / "assets" / LIBERO_DATASET_REPO / "norm_stats.json"
+    total_episodes = int(info["total_episodes"])
+    data_path = str(info["data_path"])
+    files = [
+        ".gitattributes",
+        "README.md",
+        "meta/info.json",
+        "meta/tasks.jsonl",
+        "meta/episodes.jsonl",
+        "meta/stats.json",
+    ]
+    files.extend(
+        data_path.format(episode_chunk=episode_index // int(info["chunks_size"]), episode_index=episode_index)
+        for episode_index in range(total_episodes)
+    )
+    return files
+
+
+def _jsonl_line_count(path: Path, expected: int) -> str | None:
+    """Parse a JSONL file and return an error instead of trusting line count."""
+
+    count = 0
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            for line_number, line in enumerate(handle, start=1):
+                if not line.strip():
+                    return f"blank line in {path} at line {line_number}"
+                try:
+                    json.loads(line)
+                except json.JSONDecodeError as exc:
+                    return f"invalid JSON in {path} at line {line_number}: {exc}"
+                count += 1
+    except OSError as exc:
+        return f"cannot read {path}: {exc}"
+    if count != expected:
+        return f"{path} has {count} JSONL rows, expected {expected}"
+    return None
+
+
+def _read_sha256sum_manifest(path: Path, expected_files: Sequence[str]) -> tuple[dict[str, str], list[str]]:
+    """Parse the existing cwd-relative ``sha256sum`` manifest strictly."""
+
+    rows: dict[str, str] = {}
     errors: list[str] = []
-    if not norm_stats.is_file():
-        errors.append(f"missing pinned LeRobot LIBERO norm stats: {norm_stats}")
-    digest = sha256_file(norm_stats) if norm_stats.is_file() else None
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        return {}, [f"cannot read dataset checksum manifest {path}: {exc}"]
+    for line_number, line in enumerate(lines, start=1):
+        if not line.strip():
+            errors.append(f"blank line in dataset checksum manifest at line {line_number}")
+            continue
+        parts = line.split(maxsplit=1)
+        if len(parts) != 2 or not re.fullmatch(r"[0-9a-f]{64}", parts[0]):
+            errors.append(f"invalid dataset checksum manifest line {line_number}")
+            continue
+        relative = parts[1]
+        if relative.startswith("*" ):
+            relative = relative[1:]
+        if Path(relative).is_absolute() or ".." in Path(relative).parts or not relative:
+            errors.append(f"unsafe path in dataset checksum manifest line {line_number}: {relative!r}")
+            continue
+        relative = Path(relative).as_posix()
+        if relative in rows:
+            errors.append(f"duplicate path in dataset checksum manifest: {relative}")
+        rows[relative] = parts[0]
+    expected = set(expected_files)
+    observed = set(rows)
+    missing = sorted(expected - observed)
+    extras = sorted(observed - expected)
+    if missing:
+        errors.append(f"dataset checksum manifest missing files: {missing[:8]}")
+    if extras:
+        errors.append(f"dataset checksum manifest has unexpected files: {extras[:8]}")
+    return rows, errors
+
+
+def audit_libero_dataset_snapshot(
+    dataset_root: str | Path = DEFAULT_LIBERO_DATASET_ROOT,
+    *,
+    persist_manifest: bool = False,
+    verify_hashes: bool = False,
+) -> dict[str, Any]:
+    """Audit the complete local ``physical-intelligence/libero`` snapshot.
+
+    The audit is intentionally stricter than ``LeRobotDatasetMetadata``.  A
+    missing ``meta`` file would otherwise make the pinned LeRobot class call
+    ``snapshot_download``.  This function refuses that state, verifies every
+    Hugging Face download sidecar is for the frozen commit, and reuses the
+    pre-generated ``DATASET_SHA256SUMS`` manifest.  It never downloads,
+    rewrites, or repairs the dataset.
+    """
+
+    root = Path(dataset_root).expanduser().resolve()
+    manifest_path = root / LIBERO_DATASET_MANIFEST_NAME
+    errors: list[str] = []
+    info: dict[str, Any] = {}
+    info_path = root / "meta" / "info.json"
+    if not info_path.is_file():
+        errors.append(f"missing LIBERO metadata; network fallback is forbidden: {info_path}")
+    else:
+        try:
+            parsed = json.loads(info_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(f"invalid LIBERO metadata {info_path}: {exc}")
+        else:
+            if not isinstance(parsed, dict):
+                errors.append(f"LIBERO metadata is not an object: {info_path}")
+            else:
+                info = parsed
+                for key, expected in LIBERO_DATASET_EXPECTED_INFO.items():
+                    if info.get(key) != expected:
+                        errors.append(
+                            f"LIBERO metadata {key}={info.get(key)!r} does not match frozen {expected!r}"
+                        )
+
+    expected_files: list[str] = []
+    if info:
+        try:
+            expected_files = _libero_expected_snapshot_files(info)
+        except (KeyError, TypeError, ValueError) as exc:
+            errors.append(f"cannot derive LIBERO data file set from metadata: {exc}")
+    else:
+        # Keep the result useful for diagnostics while preserving fail-closed
+        # behavior when metadata is absent or malformed.
+        expected_files = list(_libero_expected_snapshot_files(LIBERO_DATASET_EXPECTED_INFO))
+
+    for relative in expected_files:
+        path = root / relative
+        if not path.is_file():
+            errors.append(f"missing frozen LIBERO snapshot file: {path}")
+        elif path.is_symlink():
+            errors.append(f"LIBERO snapshot file must not be a symlink: {path}")
+
+    observed_files: set[str] = set()
+    if root.is_dir():
+        try:
+            for path in root.rglob("*"):
+                relative = path.relative_to(root).as_posix()
+                if relative == LIBERO_DATASET_MANIFEST_NAME or relative.startswith(".cache/"):
+                    continue
+                if path.is_file() or path.is_symlink():
+                    observed_files.add(relative)
+                    if path.is_symlink():
+                        errors.append(f"LIBERO snapshot file must not be a symlink: {path}")
+        except OSError as exc:
+            errors.append(f"cannot enumerate LIBERO snapshot: {exc}")
+    else:
+        errors.append(f"missing LIBERO dataset root: {root}")
+    extras = sorted(observed_files - set(expected_files))
+    if extras:
+        errors.append(f"unexpected files in frozen LIBERO snapshot: {extras[:8]}")
+
+    if info:
+        tasks_path = root / "meta" / "tasks.jsonl"
+        episodes_path = root / "meta" / "episodes.jsonl"
+        if tasks_path.is_file():
+            error = _jsonl_line_count(tasks_path, int(LIBERO_DATASET_EXPECTED_INFO["total_tasks"]))
+            if error:
+                errors.append(error)
+        if episodes_path.is_file():
+            error = _jsonl_line_count(episodes_path, int(LIBERO_DATASET_EXPECTED_INFO["total_episodes"]))
+            if error:
+                errors.append(error)
+        stats_path = root / "meta" / "stats.json"
+        if stats_path.is_file():
+            try:
+                if not isinstance(json.loads(stats_path.read_text(encoding="utf-8")), dict):
+                    errors.append(f"LIBERO stats metadata is not an object: {stats_path}")
+            except (OSError, json.JSONDecodeError) as exc:
+                errors.append(f"invalid LIBERO stats metadata {stats_path}: {exc}")
+
+    # ``snapshot_download(local_dir=...)`` writes one .metadata sidecar per
+    # file.  Its first line is the resolved revision.  Requiring all sidecars
+    # prevents a locally assembled tree from masquerading as the pinned repo.
+    sidecar_root = root / ".cache" / "huggingface" / "download"
+    sidecar_files: set[str] = set()
+    if not sidecar_root.is_dir():
+        errors.append(f"missing Hugging Face local-download metadata: {sidecar_root}")
+    else:
+        try:
+            for sidecar in sidecar_root.rglob("*.metadata"):
+                sidecar_files.add(sidecar.relative_to(sidecar_root).as_posix()[: -len(".metadata")])
+            partial = list(sidecar_root.rglob("*.incomplete"))
+            if partial:
+                errors.append(f"incomplete Hugging Face downloads remain: {partial[:4]}")
+        except OSError as exc:
+            errors.append(f"cannot enumerate Hugging Face local-download metadata: {exc}")
+        for relative in expected_files:
+            sidecar = sidecar_root / f"{relative}.metadata"
+            if not sidecar.is_file():
+                errors.append(f"missing Hugging Face revision sidecar: {sidecar}")
+                continue
+            try:
+                lines = sidecar.read_text(encoding="utf-8").splitlines()
+            except OSError as exc:
+                errors.append(f"cannot read Hugging Face revision sidecar {sidecar}: {exc}")
+                continue
+            if not lines or lines[0].strip() != LIBERO_DATASET_REVISION:
+                errors.append(
+                    f"Hugging Face sidecar revision mismatch for {relative}: "
+                    f"{lines[0].strip() if lines else '<empty>'}"
+                )
+            if len(lines) < 2 or not lines[1].strip():
+                errors.append(f"Hugging Face sidecar has no content digest for {relative}: {sidecar}")
+        extra_sidecars = sorted(sidecar_files - set(expected_files))
+        if extra_sidecars:
+            errors.append(f"unexpected Hugging Face sidecars: {extra_sidecars[:8]}")
+
+    manifest: dict[str, Any] | None = None
+    checksum_rows: dict[str, str] = {}
+    if not manifest_path.is_file():
+        errors.append(f"missing pre-generated dataset checksum manifest: {manifest_path}")
+    else:
+        checksum_rows, checksum_errors = _read_sha256sum_manifest(manifest_path, expected_files)
+        errors.extend(checksum_errors)
+        observed_manifest_sha = sha256_file(manifest_path)
+        if observed_manifest_sha != LIBERO_DATASET_MANIFEST_SHA256:
+            errors.append(
+                "dataset checksum manifest SHA-256 mismatch: "
+                f"expected {LIBERO_DATASET_MANIFEST_SHA256}, got {observed_manifest_sha}"
+            )
+        if verify_hashes or persist_manifest:
+            for relative, expected_digest in checksum_rows.items():
+                path = root / relative
+                if not path.is_file():
+                    continue
+                observed_digest = sha256_file(path)
+                if observed_digest != expected_digest:
+                    errors.append(
+                        f"dataset file SHA-256 mismatch for {relative}: "
+                        f"expected {expected_digest}, got {observed_digest}"
+                    )
+        manifest = {
+            "schema": "r142-stage-s-c-libero-dataset-sha256sum-v1",
+            "status": "COMPLETED",
+            "repo_id": LIBERO_DATASET_REPO,
+            "revision": LIBERO_DATASET_REVISION,
+            "root": str(root),
+            "manifest_path": str(manifest_path),
+            "file_count": len(checksum_rows),
+            "manifest_sha256": observed_manifest_sha,
+            "checksum_format": "sha256sum -c DATASET_SHA256SUMS",
+            "pre_generated": True,
+        }
+
     return {
         "valid": not errors,
         "root": str(root),
-        "asset_id": LIBERO_DATASET_REPO,
-        "norm_stats": str(norm_stats),
-        "norm_stats_sha256": digest,
+        "repo_id": LIBERO_DATASET_REPO,
+        "revision": LIBERO_DATASET_REVISION,
+        "manifest_path": str(manifest_path),
+        "manifest_sha256": manifest.get("manifest_sha256") if manifest else None,
+        "manifest_file_sha256": sha256_file(manifest_path) if manifest_path.is_file() else None,
+        "file_count": manifest.get("file_count") if manifest else len(expected_files),
+        "total_bytes": (
+            sum(
+                (root / relative).stat().st_size
+                for relative in checksum_rows
+                if (root / relative).is_file()
+            )
+            if manifest
+            else None
+        ),
         "errors": errors,
     }
+
+
+def stage_libero_norm_stats(
+    assets_base_dir: str | Path,
+    staged_assets_base_dir: str | Path = DEFAULT_STAGED_LIBERO_ASSETS_BASE_DIR,
+) -> dict[str, Any]:
+    """Stage LIBERO norm stats at the path OpenPI actually resolves.
+
+    The downloaded base checkpoint stores the file under
+    ``pi05_libero/assets/physical-intelligence/libero``.  The pinned
+    ``TrainConfig.assets_dirs`` resolver looks under
+    ``assets_base_dir/pi05_libero/physical-intelligence/libero``.  Copying to
+    a separate, stable CPFS staging root makes that path explicit and avoids
+    mutating the downloaded base artifact.  Source and destination hashes,
+    plus the marker hash, are checked on every resume.
+    """
+
+    source_root = Path(assets_base_dir).expanduser().resolve()
+    staged_root = Path(staged_assets_base_dir).expanduser().resolve()
+    source = source_root / LIBERO_NORM_STATS_SOURCE_RELATIVE
+    destination = staged_root / LIBERO_NORM_STATS_RUNTIME_RELATIVE
+    marker_path = staged_root / LIBERO_NORM_STATS_MARKER_NAME
+    errors: list[str] = []
+    if not source.is_file():
+        errors.append(f"missing source LIBERO norm stats: {source}")
+        return {
+            "valid": False,
+            "source_path": str(source),
+            "staged_path": str(destination),
+            "marker_path": str(marker_path),
+            "source_sha256": None,
+            "staged_sha256": None,
+            "errors": errors,
+        }
+    if source.is_symlink():
+        errors.append(f"source LIBERO norm stats must not be a symlink: {source}")
+    try:
+        source_payload = json.loads(source.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        errors.append(f"invalid source LIBERO norm stats {source}: {exc}")
+        source_payload = None
+    if not isinstance(source_payload, dict) or not source_payload:
+        errors.append(f"source LIBERO norm stats is not a non-empty JSON object: {source}")
+    source_digest = sha256_file(source)
+    staged_root.mkdir(parents=True, exist_ok=True)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists() or destination.is_symlink():
+        if not destination.is_file() or destination.is_symlink():
+            errors.append(f"staged LIBERO norm stats must be a regular file: {destination}")
+    elif not errors:
+        temporary = destination.with_name(f".{destination.name}.tmp-{os.getpid()}")
+        try:
+            shutil.copyfile(source, temporary)
+            with temporary.open("rb") as handle:
+                os.fsync(handle.fileno())
+            temporary.replace(destination)
+            directory_fd = os.open(destination.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except OSError as exc:
+            errors.append(f"cannot stage LIBERO norm stats: {exc}")
+            with contextlib.suppress(OSError):
+                temporary.unlink()
+    staged_digest = sha256_file(destination) if destination.is_file() else None
+    if staged_digest != source_digest:
+        errors.append(
+            f"staged LIBERO norm stats hash mismatch: source={source_digest} staged={staged_digest}"
+        )
+    marker_payload: dict[str, Any] = {
+        "schema": "r142-stage-s-c-libero-norm-stats-v1",
+        "status": "COMPLETED",
+        "repo_id": LIBERO_DATASET_REPO,
+        "dataset_revision": LIBERO_DATASET_REVISION,
+        "source_path": str(source),
+        "source_sha256": source_digest,
+        "staged_path": str(destination),
+        "staged_sha256": staged_digest,
+        "runtime_relative_path": LIBERO_NORM_STATS_RUNTIME_RELATIVE,
+        "resolver_contract": "assets_base_dir/pi05_libero/physical-intelligence/libero/norm_stats.json",
+    }
+    if marker_path.is_file():
+        try:
+            existing_marker = json.loads(marker_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(f"invalid persisted LIBERO norm stats marker {marker_path}: {exc}")
+        else:
+            if not isinstance(existing_marker, dict) or existing_marker.get("payload_sha256") != _canonical_sha256(
+                {key: value for key, value in existing_marker.items() if key != "payload_sha256"}
+            ):
+                errors.append(f"persisted LIBERO norm stats marker payload hash mismatch: {marker_path}")
+            elif any(existing_marker.get(key) != value for key, value in marker_payload.items()):
+                errors.append(f"persisted LIBERO norm stats marker differs from current bytes: {marker_path}")
+    elif not errors:
+        _status_marker(marker_path, marker_payload)
+    return {
+        "valid": not errors,
+        "source_path": str(source),
+        "staged_path": str(destination),
+        "marker_path": str(marker_path),
+        "source_sha256": source_digest,
+        "staged_sha256": staged_digest,
+        "runtime_relative_path": LIBERO_NORM_STATS_RUNTIME_RELATIVE,
+        "errors": errors,
+    }
+
+
+def audit_libero_data_assets(
+    assets_base_dir: str | Path,
+    staged_assets_base_dir: str | Path | None = None,
+) -> dict[str, Any]:
+    """Check source and, when supplied, runtime-resolved norm-stat paths."""
+
+    root = Path(assets_base_dir).expanduser().resolve()
+    source = root / LIBERO_NORM_STATS_SOURCE_RELATIVE
+    errors: list[str] = []
+    if not source.is_file():
+        errors.append(f"missing pinned LeRobot LIBERO norm stats: {source}")
+    source_digest = sha256_file(source) if source.is_file() else None
+    result: dict[str, Any] = {
+        "valid": not errors,
+        "root": str(root),
+        "asset_id": LIBERO_DATASET_REPO,
+        "norm_stats": str(source),
+        "norm_stats_sha256": source_digest,
+        "runtime_norm_stats": None,
+        "runtime_norm_stats_sha256": None,
+        "errors": errors,
+    }
+    if staged_assets_base_dir is not None:
+        staged = Path(staged_assets_base_dir).expanduser().resolve() / LIBERO_NORM_STATS_RUNTIME_RELATIVE
+        result["runtime_norm_stats"] = str(staged)
+        if not staged.is_file():
+            errors.append(f"missing staged OpenPI LIBERO norm stats: {staged}")
+        else:
+            result["runtime_norm_stats_sha256"] = sha256_file(staged)
+            if result["runtime_norm_stats_sha256"] != source_digest:
+                errors.append("source and runtime LIBERO norm stats hashes differ")
+        result["valid"] = not errors
+    return result
 
 
 def _ast_function_parameters(path: Path, function_name: str) -> tuple[str, ...]:
@@ -950,6 +1369,8 @@ def build_c_chain_contract(
     repo_root: str | Path,
     python: str | Path = DEFAULT_OPENPI_PYTHON,
     assets_base_dir: str | Path = DEFAULT_PI05_ASSETS_BASE_DIR,
+    dataset_root: str | Path = DEFAULT_LIBERO_DATASET_ROOT,
+    staged_assets_base_dir: str | Path = DEFAULT_STAGED_LIBERO_ASSETS_BASE_DIR,
 ) -> dict[str, Any]:
     """Describe the complete C asset -> conversion -> training hand-off."""
 
@@ -959,7 +1380,8 @@ def build_c_chain_contract(
     checkpoint_root = Path(checkpoint_base_dir).expanduser().resolve()
     logs = Path(log_root).expanduser().resolve()
     repo = Path(repo_root).expanduser().resolve()
-    data_assets = audit_libero_data_assets(assets_base_dir)
+    data_snapshot = audit_libero_dataset_snapshot(dataset_root)
+    data_assets = audit_libero_data_assets(assets_base_dir, staged_assets_base_dir)
     conversion = build_conversion_contract(
         openpi_root=source,
         base_jax_root=jax_root,
@@ -1009,8 +1431,12 @@ def build_c_chain_contract(
             "openpi_commit": OPENPI_COMMIT,
             "config_name": OPENPI_CONFIG_NAME,
             "dataset_repo_id": LIBERO_DATASET_REPO,
+            "dataset_revision": LIBERO_DATASET_REVISION,
             "dataset_source_contract": "HuggingFace LeRobot repo resolved by pinned OpenPI LeRobotLiberoDataConfig; no synthetic/fake data",
+            "dataset_root": str(Path(dataset_root).expanduser().resolve()),
+            "dataset_manifest": data_snapshot,
             "assets_base_dir": str(Path(assets_base_dir).expanduser().resolve()),
+            "staged_assets_base_dir": str(Path(staged_assets_base_dir).expanduser().resolve()),
             "base_jax_gcs_uri": PI05_BASE_GCS_URI,
             "base_object_count": PI05_BASE_OBJECT_COUNT,
             "base_total_bytes": PI05_BASE_TOTAL_BYTES,
@@ -1026,6 +1452,7 @@ def build_c_chain_contract(
         },
         "conversion": conversion,
         "data_assets": data_assets,
+        "data_snapshot": data_snapshot,
         "training": {
             "official_command": official_command,
             "resume_command": official_command + ["--resume"],
@@ -1067,6 +1494,7 @@ def build_c_chain_contract(
         "ready_for_pai_submission": bool(
             conversion["source_audit"].get("ready")
             and conversion["base_download_audit"].get("valid")
+            and data_snapshot.get("valid")
             and data_assets.get("valid")
         ),
     }
@@ -1118,12 +1546,69 @@ def _status_marker(path: Path, payload: Mapping[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _audit_data_preflight(path: str | Path) -> tuple[dict[str, Any] | None, list[str]]:
+    """Recheck the immutable local data gate before publishing training."""
+
+    preflight = Path(path).expanduser().resolve()
+    errors: list[str] = []
+    if not preflight.is_file():
+        return None, [f"missing C data preflight: {preflight}"]
+    try:
+        payload = json.loads(preflight.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return None, [f"invalid C data preflight {preflight}: {exc}"]
+    if not isinstance(payload, dict) or payload.get("status") != "COMPLETED":
+        return None, ["C data preflight is not COMPLETED"]
+    if payload.get("payload_sha256") != _canonical_sha256(
+        {key: value for key, value in payload.items() if key != "payload_sha256"}
+    ):
+        return payload, ["C data preflight payload hash mismatch"]
+    dataset = payload.get("dataset")
+    norm_stats = payload.get("norm_stats")
+    if not isinstance(dataset, dict) or not isinstance(norm_stats, dict):
+        return None, ["C data preflight lacks dataset/norm_stats provenance"]
+    if dataset.get("repo_id") != LIBERO_DATASET_REPO:
+        errors.append("C data preflight dataset repo mismatch")
+    if dataset.get("revision") != LIBERO_DATASET_REVISION:
+        errors.append("C data preflight dataset revision mismatch")
+    manifest_path = Path(str(dataset.get("manifest_path", ""))).expanduser().resolve()
+    if not manifest_path.is_file():
+        errors.append(f"C data preflight manifest is missing: {manifest_path}")
+    else:
+        # ``manifest_path`` is the pre-generated sha256sum text file, not the
+        # JSON status marker.  Its two recorded hashes intentionally refer to
+        # the same immutable bytes; parsing it as JSON would make every valid
+        # training completion fail closed after the data gate had passed.
+        observed_manifest_sha = sha256_file(manifest_path)
+        if observed_manifest_sha != LIBERO_DATASET_MANIFEST_SHA256:
+            errors.append(
+                "C data preflight manifest SHA-256 mismatch: "
+                f"expected {LIBERO_DATASET_MANIFEST_SHA256}, got {observed_manifest_sha}"
+            )
+        if dataset.get("manifest_sha256") != observed_manifest_sha:
+            errors.append("C data preflight manifest content hash mismatch")
+        if dataset.get("manifest_file_sha256") != observed_manifest_sha:
+            errors.append("C data preflight manifest file hash mismatch")
+    staged_path = Path(str(norm_stats.get("staged_path", ""))).expanduser().resolve()
+    if not staged_path.is_file():
+        errors.append(f"C data preflight staged norm stats is missing: {staged_path}")
+    else:
+        if sha256_file(staged_path) != norm_stats.get("staged_sha256"):
+            errors.append("C data preflight staged norm stats hash mismatch")
+    if norm_stats.get("source_sha256") != norm_stats.get("staged_sha256"):
+        errors.append("C data preflight source/staged norm stats hashes differ")
+    if errors:
+        return payload, errors
+    return payload, []
+
+
 def finalize_training(
     *,
     checkpoint_base_dir: str | Path,
     log_root: str | Path,
     base_manifest_sha256: str,
     openpi_root: str | Path,
+    data_preflight_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Publish terminal C evidence only after all four native checkpoints pass."""
 
@@ -1132,6 +1617,10 @@ def finalize_training(
     logs = Path(log_root).expanduser().resolve()
     terminal = logs / TRAINING_TERMINAL_NAME
     errors: list[str] = []
+    data_preflight: dict[str, Any] | None = None
+    if data_preflight_path is not None:
+        data_preflight, data_errors = _audit_data_preflight(data_preflight_path)
+        errors.extend(data_errors)
     audit = _checkpoint_audit(train_dir)
     if not audit.get("valid"):
         errors.extend(str(value) for value in audit.get("errors", []))
@@ -1172,6 +1661,24 @@ def finalize_training(
         raise RuntimeError("C finalization requires separate checkpoint and log bundle roots")
     checkpoint_sums = _write_sha256_manifest(checkpoint_base)
     log_sums = _write_sha256_manifest(logs)
+    data_provenance = {}
+    if data_preflight is not None:
+        dataset = data_preflight["dataset"]
+        norm_stats = data_preflight["norm_stats"]
+        data_provenance = {
+            "data_preflight_path": str(Path(data_preflight_path).expanduser().resolve()),
+            "data_preflight_sha256": sha256_file(Path(data_preflight_path).expanduser().resolve()),
+            "dataset_repo_id": dataset.get("repo_id"),
+            "dataset_revision": dataset.get("revision"),
+            "dataset_root": dataset.get("root"),
+            "dataset_manifest_path": dataset.get("manifest_path"),
+            "dataset_manifest_sha256": dataset.get("manifest_sha256"),
+            "dataset_manifest_file_sha256": dataset.get("manifest_file_sha256"),
+            "norm_stats_source_path": norm_stats.get("source_path"),
+            "norm_stats_source_sha256": norm_stats.get("source_sha256"),
+            "norm_stats_staged_path": norm_stats.get("staged_path"),
+            "norm_stats_sha256": norm_stats.get("staged_sha256"),
+        }
     marker = _status_marker(
         checkpoint_base / TRAINING_COMPLETION_NAME,
         {
@@ -1190,6 +1697,7 @@ def finalize_training(
         "log_sha256sums": str(log_sums),
         "log_sha256sums_sha256": sha256_file(log_sums),
         "sha256_manifest_contract": "two cwd-relative manifests; run sha256sum -c SHA256SUMS separately in each root",
+        **data_provenance,
         },
     )
     return marker
@@ -1200,9 +1708,19 @@ __all__ = [
     "CONVERSION_COMPLETION_NAME",
     "CONVERSION_PROVENANCE_NAME",
     "DEFAULT_OPENPI_PYTHON",
+    "DEFAULT_HF_LEROBOT_HOME",
+    "DEFAULT_LIBERO_DATASET_ROOT",
+    "DEFAULT_STAGED_LIBERO_ASSETS_BASE_DIR",
     "DEFAULT_PI05_ASSETS_BASE_DIR",
     "GCSObject",
     "LIBERO_DATASET_REPO",
+    "LIBERO_DATASET_REVISION",
+    "LIBERO_DATASET_MANIFEST_NAME",
+    "LIBERO_DATASET_MANIFEST_SHA256",
+    "LIBERO_DATASET_EXPECTED_INFO",
+    "LIBERO_NORM_STATS_SOURCE_RELATIVE",
+    "LIBERO_NORM_STATS_RUNTIME_RELATIVE",
+    "LIBERO_NORM_STATS_MARKER_NAME",
     "OPENPI_COMMIT",
     "OPENPI_CONFIG_NAME",
     "OPENPI_CONVERTER",
@@ -1225,7 +1743,9 @@ __all__ = [
     "assert_outside_blackout",
     "audit_base_download",
     "audit_libero_data_assets",
+    "audit_libero_dataset_snapshot",
     "audit_openpi_checkout",
+    "_audit_data_preflight",
     "build_c_chain_contract",
     "build_conversion_contract",
     "build_official_training_command",
@@ -1236,6 +1756,7 @@ __all__ = [
     "finalize_training",
     "manifest_from_gcs_listing",
     "run_conversion",
+    "stage_libero_norm_stats",
     "validate_base_manifest",
     "write_expected_base_manifest",
 ]
