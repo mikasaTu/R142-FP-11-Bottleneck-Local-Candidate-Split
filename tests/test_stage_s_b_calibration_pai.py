@@ -99,8 +99,8 @@ def test_config_binds_launcher_hash_and_registry_contract() -> None:
         "count": 1,
         "gpu": 8,
         "cpu": 88,
-        "memory": "1525Gi",
-        "shared_memory": "1525Gi",
+        "memory": "1400Gi",
+        "shared_memory": "1400Gi",
         "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
     }
     assert runtime["output_mode"] == "resume"
@@ -187,8 +187,8 @@ def test_source_provenance_compute_and_daily_resume_contract() -> None:
         "worker_count": 1,
         "gpu_count": 8,
         "cpu_cores": 88,
-        "memory_gib": 1525,
-        "shared_memory_gib": 1525,
+        "memory_gib": 1400,
+        "shared_memory_gib": 1400,
         "rank_world_size_fixed": 8,
         "resource_pool": "exp-robot",
         "resource_alias": "idle-a800-robot-stage-s-graphics-8gpu",

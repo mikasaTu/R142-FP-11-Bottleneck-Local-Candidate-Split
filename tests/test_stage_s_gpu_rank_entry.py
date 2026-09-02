@@ -19,8 +19,8 @@ def test_rank_selects_exact_allocated_device(monkeypatch) -> None:
     selected = _module()["bind_local_rank"]()
     assert selected == "7"
     assert os.environ["CUDA_VISIBLE_DEVICES"] == "7"
-    assert os.environ["EGL_DEVICE_ID"] == "0"
-    assert os.environ["MUJOCO_EGL_DEVICE_ID"] == "0"
+    assert os.environ["EGL_DEVICE_ID"] == "7"
+    assert os.environ["MUJOCO_EGL_DEVICE_ID"] == "7"
 
 
 def test_rank_replaces_inherited_physical_egl_device(monkeypatch) -> None:
@@ -31,6 +31,30 @@ def test_rank_replaces_inherited_physical_egl_device(monkeypatch) -> None:
     selected = _module()["bind_local_rank"]()
     assert selected == "5"
     assert os.environ["CUDA_VISIBLE_DEVICES"] == "5"
+    assert os.environ["EGL_DEVICE_ID"] == "5"
+    assert os.environ["MUJOCO_EGL_DEVICE_ID"] == "5"
+
+
+def test_robosuite_import_sees_physical_then_runtime_uses_logical_zero(monkeypatch) -> None:
+    monkeypatch.setenv("LOCAL_RANK", "3")
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,1,2,3,4,5,6,7")
+    module = _module()
+    selected = module["bind_local_rank"]()
+    observed = {}
+
+    def fake_importer(name: str):
+        observed["name"] = name
+        observed["cuda"] = os.environ["CUDA_VISIBLE_DEVICES"]
+        observed["mujoco"] = os.environ["MUJOCO_EGL_DEVICE_ID"]
+        return object()
+
+    module["prime_robosuite_then_bind_logical_zero"](selected, importer=fake_importer)
+    assert observed == {
+        "name": "robosuite.utils.binding_utils",
+        "cuda": "3",
+        "mujoco": "3",
+    }
+    assert os.environ["CUDA_VISIBLE_DEVICES"] == "3"
     assert os.environ["EGL_DEVICE_ID"] == "0"
     assert os.environ["MUJOCO_EGL_DEVICE_ID"] == "0"
 

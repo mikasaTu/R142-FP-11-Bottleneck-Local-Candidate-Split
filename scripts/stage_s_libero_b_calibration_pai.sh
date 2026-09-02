@@ -257,17 +257,17 @@ mkdir -p "$XDG_CACHE_HOME"
 PHASE=first_work
 if [[ -e "$OUT/FIRST_WORK.json" || -L "$OUT/FIRST_WORK.json" ]]; then
   [[ -f "$OUT/FIRST_WORK.json" && ! -L "$OUT/FIRST_WORK.json" ]]
-  "$PYTHON" - "$OUT/FIRST_WORK.json" "$RUN_ID" <<'PY'
+  "$PYTHON" - "$OUT/FIRST_WORK.json" "$RUN_ID" "$STAGE_S_SOURCE_COMMIT" <<'PY'
 import json
 import pathlib
 import sys
 
 payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-if payload.get("status") != "FIRST_WORK" or payload.get("run_id") != sys.argv[2] or payload.get("world_size") != 8 or payload.get("gpu_count") != 8:
+if payload.get("status") != "FIRST_WORK" or payload.get("run_id") != sys.argv[2] or payload.get("world_size") != 8 or payload.get("gpu_count") != 8 or payload.get("stage_s_source_commit") != sys.argv[3]:
     raise SystemExit("FIRST_WORK.json identity drifted")
 PY
 else
-  "$PYTHON" - "$OUT/FIRST_WORK.json" "$RUN_ID" <<'PY'
+  "$PYTHON" - "$OUT/FIRST_WORK.json" "$RUN_ID" "$STAGE_S_SOURCE_COMMIT" "$QPILOTS_COMMIT" "$OPENPI_COMMIT" "$LIBERO_COMMIT" "$B_VARIANT_RUN_ID" <<'PY'
 import json
 import os
 import pathlib
@@ -282,11 +282,11 @@ payload = {
     "gid": os.getgid(),
     "gpu_count": 8,
     "world_size": 8,
-    "stage_s_source_commit": "b9c4f2eced140fb2b4711bdbfd86439cec41e291",
-    "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
-    "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
-    "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
-    "input_bundle_run_id": "r142-stage-s-b-variants-20260903-r7",
+    "stage_s_source_commit": sys.argv[3],
+    "qpilots_commit": sys.argv[4],
+    "openpi_commit": sys.argv[5],
+    "libero_commit": sys.argv[6],
+    "input_bundle_run_id": sys.argv[7],
 }
 tmp = path.with_suffix(path.suffix + ".tmp")
 tmp.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
@@ -335,7 +335,7 @@ PHASE=calibration_aggregate
   --world-size "$WORLD_SIZE"
 
 PHASE=completion_publish
-"$PYTHON" - "$OUT" "$RUN_ID" "$B_VARIANT_RUN_ID" <<'PY'
+"$PYTHON" - "$OUT" "$RUN_ID" "$B_VARIANT_RUN_ID" "$STAGE_S_SOURCE_COMMIT" "$QPILOTS_COMMIT" "$OPENPI_COMMIT" "$LIBERO_COMMIT" <<'PY'
 import hashlib
 import json
 import os
@@ -352,6 +352,7 @@ from r142_stage_s.libero import (
 
 root = pathlib.Path(sys.argv[1]).resolve()
 run_id, input_run_id = sys.argv[2], sys.argv[3]
+stage_s_commit, qpilots_commit, openpi_commit, libero_commit = sys.argv[4:8]
 settings = [f"proximity_{value:.2f}m" for value in PROXIMITY_MAGNITUDES]
 result = root / "CALIBRATION_RESULT.json"
 verify_calibration_aggregate(result, settings, calibration_seed=CALIBRATION_SEED, world_size=8)
@@ -390,10 +391,10 @@ payload = {
     "rank_markers": rank_markers,
     "rank_marker_sha256": rank_marker_sha256,
     "source": {
-        "stage_s_commit": "afe353bbc5997355f35cb0c77c5446fd4df5f1e3",
-        "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
-        "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
-        "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
+        "stage_s_commit": stage_s_commit,
+        "qpilots_commit": qpilots_commit,
+        "openpi_commit": openpi_commit,
+        "libero_commit": libero_commit,
         "variant_bundle": input_run_id,
     },
     "provenance": {
@@ -406,8 +407,8 @@ payload = {
         "worker_count": 1,
         "gpu_count": 8,
         "cpu_cores": 88,
-        "memory_gib": 1525,
-        "shared_memory_gib": 1525,
+        "memory_gib": 1400,
+        "shared_memory_gib": 1400,
         "resource_pool": "exp-robot",
         "resource_alias": "idle-a800-robot-stage-s-graphics-8gpu",
         "resource_id": "quota1ssrabud0bh",
