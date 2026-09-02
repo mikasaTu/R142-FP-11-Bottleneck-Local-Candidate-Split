@@ -1,0 +1,198 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from r142_stage_s.analysis import (
+    BASE_CANDIDATE_COUNT,
+    S4_BOOTSTRAP_REPLICATES,
+    compute_s1,
+    compute_s2,
+    compute_s3,
+    compute_s4,
+    compute_s5,
+    decide_stage_s,
+    matched_time_tau,
+    normalized_workspace_pose_rms,
+    paired_bootstrap_recovery,
+)
+from r142_stage_s.calibration import (
+    CALIBRATION_SCHEMA,
+    make_calibration_record,
+    persist_calibration_report,
+    select_calibration_setting,
+)
+from r142_stage_s.integrity import (
+    verify_completion_bundle,
+    verify_completed_json,
+    verify_sha256sums,
+    write_completion,
+)
+
+
+def _rows(success_counts: list[int], *, horizon: int = 10) -> list[dict]:
+    output = []
+    for family, count in enumerate(success_counts):
+        for candidate in range(BASE_CANDIDATE_COUNT):
+            output.append(
+                {
+                    "family_id": family,
+                    "task_id": family % 2,
+                    "candidate_id": f"{family}-{candidate}",
+                    "seed": 100000 + family * 100 + candidate,
+                    "success": candidate < count,
+                    "poses": np.zeros((horizon, 2), dtype=np.float64),
+                }
+            )
+    return output
+
+
+def test_calibration_uses_pooled_success_only_and_selects_closest() -> None:
+    records = [
+        make_calibration_record("mag-1", [True] * 3 + [False] * 7),
+        make_calibration_record("mag-2", [True] * 5 + [False] * 5),
+    ]
+    selected = select_calibration_setting(records, target=0.45)
+    assert selected["setting_id"] == "mag-2"
+    assert selected["selection_statistic"] == "pooled_success_only"
+    assert all("rho" not in key and "divergence" not in key for key in selected)
+    with pytest.raises(ValueError):
+        make_calibration_record("bad", [True], context={"rho": 10.0})
+    with pytest.raises(ValueError):
+        select_calibration_setting([{**records[0], "near_all_fail_fraction": 0.2}])
+
+
+def test_calibration_persisted_schema_has_no_gate_statistics(tmp_path: Path) -> None:
+    report = persist_calibration_report(
+        tmp_path / "calibration.json",
+        [make_calibration_record("a", [True, False]), make_calibration_record("b", [True])],
+    )
+    assert report["schema"] == CALIBRATION_SCHEMA
+    encoded = (tmp_path / "calibration.json").read_text()
+    assert "near_all_fail" not in encoded
+    assert "divergence" not in encoded
+    assert "bootstrap" not in encoded
+
+
+def test_s1_s2_near_all_fail_strict_zero_rho_and_binomial_tail() -> None:
+    rows = _rows([0, 1, 16, 16, 16, 16, 16, 16, 16, 16])
+    s1 = compute_s1(rows)
+    s2 = compute_s2(rows)
+    assert s1["pass"]
+    assert s2["near_all_fail_count"] == 2
+    assert s2["strict_zero_count"] == 1
+    assert s2["rho"] >= 3.0
+    assert s2["observed_to_binomial_expected"] > 20.0
+    assert s2["pass"]
+
+
+def test_normalized_workspace_pose_rms_and_matched_tau() -> None:
+    same = np.zeros((3, 2), dtype=np.float64)
+    shifted = np.ones((3, 2), dtype=np.float64)
+    curve = normalized_workspace_pose_rms([same, shifted], workspace_bounds=[[0, 0], [2, 2]])
+    assert np.allclose(curve, 0.5)
+    rows = [
+        {"task_id": 0, "success": True, "poses": same},
+        {"task_id": 0, "success": True, "poses": shifted},
+        {"task_id": 1, "success": True, "poses": same},
+        {"task_id": 1, "success": True, "poses": same},
+    ]
+    assert matched_time_tau(rows, workspace_scale=[2, 2]) == pytest.approx(0.5)
+
+
+def test_s3_uses_late_divergence_and_reports_origin_fraction() -> None:
+    rows = _rows([0, 0, 16, 16], horizon=10)
+    # Successful reference episodes are tightly clustered. Near-fail family 0
+    # stays together for two steps then separates at a meaningful interior time.
+    for row in rows:
+        if row["family_id"] == 0:
+            row["poses"] = np.zeros((10, 2), dtype=np.float64)
+            if row["candidate_id"].endswith("-31"):
+                row["poses"][3:] = 2.0
+        elif row["family_id"] == 1:
+            row["poses"] = np.zeros((10, 2), dtype=np.float64)
+            if row["candidate_id"].endswith("-31"):
+                row["poses"][0:] = 2.0
+    result = compute_s3(rows, tau=0.1, workspace_scale=[1, 1])
+    assert result["near_all_fail_family_count"] == 2
+    assert result["t_div_records"][0]["t_div"] == 3
+    assert result["origin_t_div_fraction"] == pytest.approx(0.5)
+    assert not result["pass"]
+
+
+def test_s4_requires_interior_prefix_preserving_branch_and_10000_bootstrap() -> None:
+    probes = [
+        {
+            "family_id": i,
+            "oracle_branches": [
+                {"split_step": 2, "episode_length": 8, "prefix_preserving": True, "success": i < 8},
+                {"split_step": 0, "episode_length": 8, "prefix_preserving": True, "success": True},
+            ],
+            "random_branches": [
+                {"split_step": 2, "episode_length": 8, "prefix_preserving": True, "success": i < 2},
+                {"split_step": 0, "episode_length": 8, "prefix_preserving": True, "success": True},
+            ],
+        }
+        for i in range(10)
+    ]
+    result = compute_s4(probes)
+    assert result["oracle_recovered_count"] == 8
+    assert result["random_recovered_count"] == 2
+    assert result["bootstrap"]["replicates"] == S4_BOOTSTRAP_REPLICATES
+    assert result["pass"]
+    with pytest.raises(ValueError):
+        paired_bootstrap_recovery([True], [False], replicates=999)
+
+
+def test_s5_requires_fresh_seed_and_counts_rescues() -> None:
+    base = _rows([0, 1] + [16] * 8)
+    extended = []
+    for family in range(10):
+        for candidate in range(64):
+            extended.append(
+                {
+                    "family_id": family,
+                    "candidate_id": f"ext-{family}-{candidate}",
+                    "seed": 500000 + family * 100 + candidate,
+                    "fresh_seed": True,
+                    "success": candidate < (2 if family == 0 else 16),
+                }
+            )
+    result = compute_s5(base, extended)
+    assert result["near_all_fail_family_count"] == 2
+    assert result["rescued_family_count"] == 2
+    assert result["rescue_fraction"] == pytest.approx(1.0)
+    assert result["fresh_seed_verified"]
+    assert not result["pass"]
+
+
+def _all_pass() -> dict:
+    gate = {"pass": True}
+    return {"S1": gate, "S2": gate, "S3": {**gate, "origin_dominant": False}, "S4": gate, "S5": gate}
+
+
+def _all_fail(stage: str) -> dict:
+    result = _all_pass()
+    result[stage] = {"pass": False}
+    return result
+
+
+def test_decision_has_one_code_and_weak_substrate_semantics() -> None:
+    assert decide_stage_s({"A": _all_pass(), "B": _all_fail("S1"), "C": _all_fail("S1")}, positive_control_pass=True) == "SUBSTRATE_QUALIFIED"
+    assert decide_stage_s({"A": _all_fail("S1"), "B": _all_fail("S1"), "C": _all_pass()}, positive_control_pass=True) == "WEAK_SUBSTRATE_ONLY"
+    assert decide_stage_s({"A": _all_pass(), "B": _all_pass(), "C": _all_pass()}, positive_control_pass=False) == "PIPELINE_INVALID"
+    assert decide_stage_s({"A": _all_fail("S2"), "B": _all_fail("S2"), "C": _all_fail("S2")}, positive_control_pass=True) == "NO_FAMILY_COLLAPSE"
+
+
+def test_completion_and_sha_manifests_are_fail_closed(tmp_path: Path) -> None:
+    (tmp_path / "result.json").write_text(json.dumps({"success": 1}))
+    completion = write_completion(tmp_path, "NO_FAMILY_COLLAPSE")
+    assert completion.name.startswith("COMPLETED_")
+    assert verify_completed_json(tmp_path)
+    assert verify_sha256sums(tmp_path)
+    assert verify_completion_bundle(tmp_path)["valid"]
+    (tmp_path / "result.json").write_text(json.dumps({"success": 0}))
+    assert not verify_completion_bundle(tmp_path)["valid"]
