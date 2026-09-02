@@ -144,6 +144,18 @@ for command_name in bash date find git nvidia-smi realpath sha256sum stat "$PYTH
 done
 guard_daily_no_job_window
 
+# PAI's GPU device plugin does not always export CUDA_VISIBLE_DEVICES even
+# though nvidia-smi exposes the allocated devices.  Enumerate the exact eight
+# allocation-local indices before torchrun; each child then narrows this list
+# to LOCAL_RANK in stage_s_gpu_rank_entry.py.
+mapfile -t GPU_INDEXES < <(nvidia-smi --query-gpu=index --format=csv,noheader,nounits)
+[[ "${#GPU_INDEXES[@]}" -eq "$EXPECTED_GPUS" ]]
+for index in "${GPU_INDEXES[@]}"; do
+  [[ "$index" =~ ^[0-9]+$ ]]
+done
+export CUDA_VISIBLE_DEVICES
+CUDA_VISIBLE_DEVICES="$(IFS=,; echo "${GPU_INDEXES[*]}")"
+
 PHASE=source_readback
 for source_repo in "$STAGE_S_REPO" "$QPILOTS" "$OPENPI" "$LIBERO"; do
   [[ "$(git -C "$source_repo" rev-parse --is-inside-work-tree 2>/dev/null)" == true ]] || {

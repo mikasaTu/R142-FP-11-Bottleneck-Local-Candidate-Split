@@ -25,6 +25,8 @@ def test_b_launcher_is_shell_valid_and_non_submitting() -> None:
     assert "--nproc_per_node=\"$WORLD_SIZE\"" in text
     assert "stage_s_gpu_rank_entry.py scripts/stage_s_libero_calibrate.py" in text
     assert "$OPENPI/src" in text
+    assert "nvidia-smi --query-gpu=index --format=csv,noheader,nounits" in text
+    assert 'CUDA_VISIBLE_DEVICES="$(IFS=,; echo "${GPU_INDEXES[*]}")"' in text
     assert "--world-size \"$WORLD_SIZE\"" in text
     assert "--substrate B --mode prepare" in text
     assert text.index("--substrate B --mode prepare") < text.index("-m torch.distributed.run")

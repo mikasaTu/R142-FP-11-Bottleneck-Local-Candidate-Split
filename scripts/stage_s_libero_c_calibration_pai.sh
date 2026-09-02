@@ -159,6 +159,17 @@ for command_name in bash date find git nvidia-smi realpath sha256sum stat "$PYTH
 done
 guard_daily_no_job_window
 
+# Materialize the allocation-local device list when the PAI device plugin
+# omits CUDA_VISIBLE_DEVICES.  The child entrypoint selects one device per
+# LOCAL_RANK before importing JAX/OpenPI.
+mapfile -t GPU_INDEXES < <(nvidia-smi --query-gpu=index --format=csv,noheader,nounits)
+[[ "${#GPU_INDEXES[@]}" -eq "$EXPECTED_GPUS" ]]
+for index in "${GPU_INDEXES[@]}"; do
+  [[ "$index" =~ ^[0-9]+$ ]]
+done
+export CUDA_VISIBLE_DEVICES
+CUDA_VISIBLE_DEVICES="$(IFS=,; echo "${GPU_INDEXES[*]}")"
+
 PHASE=source_readback
 for source_repo in "$STAGE_S_REPO" "$QPILOTS" "$OPENPI" "$LIBERO"; do
   [[ -d "$source_repo/.git" ]] || { echo "C_CALIBRATION_REFUSED missing git source: $source_repo" >&2; exit 66; }
