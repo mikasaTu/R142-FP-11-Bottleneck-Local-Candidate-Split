@@ -128,6 +128,79 @@ def audit(
         symbol in wrapper_text
         for symbol in ("ConcreteRoboTwinRuntime", "EvoProxyStateAdapter")
     )
+    # The public pinned server has ``handle_request`` but no control branch.
+    # Require the explicit bridge symbols in the selected runtime wrapper so
+    # an asset-only audit cannot claim that remote Torch/CUDA replay exists.
+    server_path = evo_root / "Evo_1" / "scripts" / "Evo1_server.py"
+    proxy_path = (
+        evo_root
+        / "RoboTwin_evaluation"
+        / "policy"
+        / "Evo1"
+        / "deploy_policy.py"
+    )
+    flow_matching_path = evo_root / "Evo_1" / "model" / "action_head" / "flow_matching.py"
+    server_text = (
+        server_path.read_text(encoding="utf-8", errors="replace")
+        if server_path.is_file()
+        else ""
+    )
+    proxy_text = (
+        proxy_path.read_text(encoding="utf-8", errors="replace")
+        if proxy_path.is_file()
+        else ""
+    )
+    flow_matching_text = (
+        flow_matching_path.read_text(encoding="utf-8", errors="replace")
+        if flow_matching_path.is_file()
+        else ""
+    )
+    server_source_inventory = {
+        "path": str(server_path),
+        "present": server_path.is_file(),
+        "handle_request": "handle_request" in server_text,
+        "infer_from_json_dict": "infer_from_json_dict" in server_text,
+        "control_dispatch_marker": "EvoServerReplayDispatcher" in server_text,
+    }
+    proxy_source_inventory = {
+        "path": str(proxy_path),
+        "present": proxy_path.is_file(),
+        "infer": "def infer(" in proxy_text,
+        "close": "def close(" in proxy_text,
+        "reset_model": "def reset_model(" in proxy_text,
+        "exact_replay_hooks": all(
+            marker in proxy_text
+            for marker in ("capture_rng_state", "restore_rng_state", "set_seed")
+        ),
+    }
+    flow_matching_inventory = {
+        "path": str(flow_matching_path),
+        "present": flow_matching_path.is_file(),
+        # This audit fact explains the server-side Torch requirement; it does
+        # not modify or replace the pinned flow-matching algorithm.
+        "samples_torch_random": "torch.rand(" in flow_matching_text
+        or "torch.randn(" in flow_matching_text,
+    }
+    server_control_protocol_verified = all(
+        symbol in wrapper_text
+        for symbol in (
+            "EvoExactReplayClient",
+            "EvoExactReplayServerControl",
+            "EVO_EXACT_REPLAY_PROTOCOL",
+        )
+    )
+    # Verification of bridge code is distinct from deployment into the pinned
+    # server's message loop.  The released source is intentionally untouched;
+    # until a deployment patch contains both markers, the real run stays
+    # blocked even when the helper implementation is present in this repo.
+    server_control_deployed = bool(
+        server_source_inventory["control_dispatch_marker"]
+        or (
+            "EvoServerReplayDispatcher" in wrapper_text
+            and "control_response" in wrapper_text
+            and "infer_from_json_dict" in wrapper_text
+        )
+    )
     tasks = [
         {
             "task": task,
@@ -158,13 +231,38 @@ def audit(
         missing.append(
             "concrete wrapper exporting ConcreteRoboTwinRuntime and EvoProxyStateAdapter"
         )
+    if not server_control_protocol_verified:
+        missing.append(
+            "Evo exact-replay server control protocol bridge in runtime wrapper"
+        )
+    if not server_control_deployed:
+        missing.append(
+            "Evo exact-replay control dispatch deployed in the pinned server loop"
+        )
+    if not server_source_inventory["present"]:
+        missing.append("pinned Evo-1 deploy server source")
+    elif not all(
+        server_source_inventory[key] for key in ("handle_request", "infer_from_json_dict")
+    ):
+        missing.append("pinned Evo-1 deploy server handler/inference source")
+    if not proxy_source_inventory["present"] or not all(
+        proxy_source_inventory[key] for key in ("infer", "close", "reset_model")
+    ):
+        missing.append("pinned Evo-1 deploy proxy source")
+    if not flow_matching_inventory["present"]:
+        missing.append("pinned Evo-1 flow-matching source")
     result: Dict[str, Any] = {
         "status": "READY_FOR_REAL_RUNTIME_PREFLIGHT" if not missing else "BLOCKED_CAPABILITY",
         "capability_error": "; ".join(missing) if missing else None,
         "pins": pins.as_dict(),
         "published_eval_source": PUBLISHED_EVAL_URL,
         "source_inventory": inventory,
+        "server_source_inventory": server_source_inventory,
+        "proxy_source_inventory": proxy_source_inventory,
+        "flow_matching_inventory": flow_matching_inventory,
         "concrete_wrapper_verified": concrete_wrapper_verified,
+        "server_control_protocol_verified": server_control_protocol_verified,
+        "server_control_deployed": server_control_deployed,
         "selected_tasks": tasks,
         "synthetic_rollouts": False,
     }
