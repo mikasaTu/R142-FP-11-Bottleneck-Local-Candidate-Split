@@ -19,7 +19,7 @@ readonly WORLD_SIZE=8
 # Pinned real Stage-R/LIBERO source trees. A dirty tree or commit drift is
 # refused before the first simulator import.
 readonly STAGE_S_REPO="$ROOT/code/r142-stage-s-bcal-runtime-20260903"
-readonly STAGE_S_SOURCE_COMMIT=87d59e59db9b48bef5db3613e326a66390352df1
+readonly STAGE_S_SOURCE_COMMIT=b9c4f2eced140fb2b4711bdbfd86439cec41e291
 readonly QPILOTS="$ROOT/code/QPILOTS-r16p15-stage1-task64-20260812"
 readonly QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
 readonly OPENPI="$QPILOTS/third_party/openpi"
@@ -170,7 +170,7 @@ PHASE=r7_input_audit
 # Delegate tensor/BDDL checks to the real Stage-S runtime, then check the r7
 # completion identity, exact setting order, and path containment. The audit
 # is read-only and persists no trial-level information.
-export PYTHONPATH="$STAGE_S_REPO/src:$QPILOTS:$OPENPI:$LIBERO"
+export PYTHONPATH="$STAGE_S_REPO/src:$QPILOTS:$OPENPI/src:$OPENPI:$LIBERO"
 "$PYTHON" - "$B_VARIANT_RUN_ROOT" "$SOURCE_INIT_ROOT" <<'PY'
 import hashlib
 import json
@@ -270,7 +270,7 @@ payload = {
     "gid": os.getgid(),
     "gpu_count": 8,
     "world_size": 8,
-    "stage_s_source_commit": "87d59e59db9b48bef5db3613e326a66390352df1",
+    "stage_s_source_commit": "b9c4f2eced140fb2b4711bdbfd86439cec41e291",
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
     "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
     "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
@@ -305,7 +305,7 @@ cd "$STAGE_S_REPO"
 # Invoking its module entrypoint prevents PATH's system torchrun from silently
 # selecting /usr/local/bin/python.  WORLD_SIZE remains frozen to eight.
 "$PYTHON" -m torch.distributed.run --standalone --nnodes=1 --nproc_per_node="$WORLD_SIZE" \
-  scripts/stage_s_libero_calibrate.py \
+  scripts/stage_s_gpu_rank_entry.py scripts/stage_s_libero_calibrate.py \
   --substrate B --mode shard --output-root "$OUT" \
   --world-size "$WORLD_SIZE" \
   "${VARIANT_ARGS[@]}" \
