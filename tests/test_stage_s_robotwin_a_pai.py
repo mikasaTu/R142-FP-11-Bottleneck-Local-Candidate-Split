@@ -125,6 +125,11 @@ def test_asset_preflight_flash_attn_install_avoids_cross_filesystem_rename() -> 
         "tmpdir_same_filesystem_as_pip_cache": True,
         "home_unchanged": True,
     }
+    assert runtime["evo_pkg_resources_compat"] == {
+        "provider": "setuptools",
+        "version_constraint": "<81",
+        "scope": "evo1_environment_only",
+    }
     assert config["evidence"]["asset_manifest_contract"] == {
         "completion_marker": "COMPLETED_ASSET_PREFLIGHT.json",
         "integrity_manifest": "SHA256SUMS",
@@ -134,7 +139,20 @@ def test_asset_preflight_flash_attn_install_avoids_cross_filesystem_rename() -> 
             "tmpdir_under_new_root": True,
             "home_unchanged": True,
         },
+        "required_evo_pkg_resources_compat": {
+            "provider": "setuptools",
+            "version_constraint": "<81",
+            "scope": "evo1_environment_only",
+        },
     }
+
+
+def test_asset_preflight_pins_pkg_resources_provider_for_evo_only() -> None:
+    text = ASSET_LAUNCHER.read_text(encoding="utf-8")
+    assert '"$EVO_ENV/bin/pip" install --retries 8 "setuptools<81"' in text
+    assert '"provider": "setuptools"' in text
+    assert '"version_constraint": "<81"' in text
+    assert '"scope": "evo1_environment_only"' in text
 
 
 def test_server_wrapper_keeps_released_inference_and_external_dispatch() -> None:

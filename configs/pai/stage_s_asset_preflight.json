@@ -31,8 +31,8 @@
   },
   "runtime": {
     "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_asset_preflight.sh",
-    "command_file_sha256": "4c0fe0b1d8d8bd03352087ba4d2b63c24db7bc23e892dd33a734d7f4be7403c0",
-    "payload_sha256": "4c0fe0b1d8d8bd03352087ba4d2b63c24db7bc23e892dd33a734d7f4be7403c0",
+    "command_file_sha256": "6c767f3f9affe8ce122d632caaef23667de7cc20517d2c2170ae1d605cecc528",
+    "payload_sha256": "6c767f3f9affe8ce122d632caaef23667de7cc20517d2c2170ae1d605cecc528",
     "uid": 2254,
     "gid": 2254,
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
@@ -47,6 +47,11 @@
       "tmpdir_template": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pip/flash-attn-tmp/<run_id>",
       "tmpdir_same_filesystem_as_pip_cache": true,
       "home_unchanged": true
+    },
+    "evo_pkg_resources_compat": {
+      "provider": "setuptools",
+      "version_constraint": "<81",
+      "scope": "evo1_environment_only"
     },
     "pod_env": {"NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"},
     "write_paths": [
@@ -77,7 +82,7 @@
     "pai_probe_created": false,
     "validation_status": "passed",
     "validation_method": "static",
-    "validated_payload_sha256": "4c0fe0b1d8d8bd03352087ba4d2b63c24db7bc23e892dd33a734d7f4be7403c0",
+    "validated_payload_sha256": "6c767f3f9affe8ce122d632caaef23667de7cc20517d2c2170ae1d605cecc528",
     "expected_first_work_uid": 2254,
     "expected_first_work_gid": 2254,
     "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/{{RUN_ID}}/FIRST_WORK.json",
@@ -90,6 +95,11 @@
         "pip_no_cache_dir": true,
         "tmpdir_under_new_root": true,
         "home_unchanged": true
+      },
+      "required_evo_pkg_resources_compat": {
+        "provider": "setuptools",
+        "version_constraint": "<81",
+        "scope": "evo1_environment_only"
       }
     },
     "evo_commit": "5fd14b015013c4fd0aacf5f8f48f868ca9b870a2",

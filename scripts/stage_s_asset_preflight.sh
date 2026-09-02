@@ -122,6 +122,11 @@ if [[ ! -x "$EVO_ENV/bin/python" ]]; then
   "$TOOLS_ENV/bin/uv" venv --seed --python 3.10 "$EVO_ENV"
 fi
 "$EVO_ENV/bin/pip" install --retries 8 -r "$DEPS/Evo-1/Evo_1/requirements.txt"
+# setuptools 82 removed the legacy pkg_resources module that Evo-1 still
+# imports during its smoke test.  Pin only this environment to the newest
+# pre-removal series; this is an environment compatibility constraint, not a
+# model or scientific-protocol change.
+"$EVO_ENV/bin/pip" install --retries 8 "setuptools<81"
 # Do not let this wheel use the persistent pip cache.  TMPDIR is deliberately
 # below the same CPFS root so build/install renames never cross filesystems.
 TMPDIR="$FLASH_ATTN_TMP" PIP_NO_CACHE_DIR=1 MAX_JOBS=32 \
@@ -169,6 +174,11 @@ payload = {
     "tmpdir": str(flash_tmp),
     "tmpdir_under_new_root": str(flash_tmp).startswith("/mnt/cpfs/zbl-cpfs-new/"),
     "home_unchanged": True,
+  },
+  "evo_pkg_resources_compat": {
+    "provider": "setuptools",
+    "version_constraint": "<81",
+    "scope": "evo1_environment_only",
   },
   "completed_at": time.time(),
 }
