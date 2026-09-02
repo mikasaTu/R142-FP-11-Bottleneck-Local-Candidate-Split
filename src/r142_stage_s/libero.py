@@ -317,7 +317,7 @@ class BVariant:
             "source_bddl_path": self.source_bddl_path,
             "source_bddl_sha256": self.source_bddl_sha256,
             "bddl_sha256": sha256_bytes(self.bddl_text.encode("utf-8")),
-            "initial_states_contract": "regenerated_variant_qpos_required; original init qpos is incompatible",
+            "initial_states_contract": "regenerated_variant_sim_state_required; original init state is incompatible",
         }
 
 
@@ -740,6 +740,49 @@ def _sim_state_from_simulator(environment: Any) -> np.ndarray:
     )
 
 
+def _assert_finite_observation(value: Any, path: str = "observation") -> None:
+    """Reject NaN/Inf in the observation returned by a restored init state."""
+
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            _assert_finite_observation(child, f"{path}.{key}")
+    elif isinstance(value, (list, tuple)):
+        for index, child in enumerate(value):
+            _assert_finite_observation(child, f"{path}[{index}]")
+    elif isinstance(value, np.ndarray):
+        if np.issubdtype(value.dtype, np.number) and not np.all(np.isfinite(value)):
+            raise VariantGenerationError(f"non-finite restored init observation at {path}")
+    elif isinstance(value, (bool, int, float, np.number)):
+        if not math.isfinite(float(value)):
+            raise VariantGenerationError(f"non-finite restored init observation at {path}")
+
+
+def _validate_init_state_roundtrip(environment: Any, state: np.ndarray) -> None:
+    """Load one flattened state through LIBERO's setter and check its obs."""
+
+    setter = getattr(environment, "set_init_state", None)
+    if not callable(setter):
+        raise VariantGenerationError(
+            "simulator does not expose set_init_state(); cannot validate generated .pruned_init round-trip"
+        )
+    try:
+        observation = setter(np.asarray(state, dtype=np.float64).copy())
+    except Exception as exc:  # noqa: BLE001 - preserve the real simulator error
+        raise VariantGenerationError(f"generated sim state failed set_init_state round-trip: {exc}") from exc
+    if observation is None:
+        getter = getattr(environment, "raw_observation", None)
+        observation = getter() if callable(getter) else getattr(environment, "observation", None)
+    if observation is None:
+        raise VariantGenerationError("set_init_state returned no observation for generated sim state")
+    _assert_finite_observation(observation)
+    restored = _sim_state_from_simulator(environment)
+    if restored.shape != state.shape or not np.allclose(restored, state, rtol=0.0, atol=1e-9):
+        error = float(np.max(np.abs(restored - state))) if restored.shape == state.shape else float("inf")
+        raise VariantGenerationError(
+            f"generated sim state changed during set_init_state round-trip: max_abs_error={error}"
+        )
+
+
 def _seed_simulator(environment: Any, seed: int) -> None:
     # LIBERO's BDDL environment delegates to ``numpy.random.seed``, whose
     # legacy API accepts only uint32 seeds.  Keep the manifest's deterministic
@@ -819,7 +862,9 @@ def generate_variant_initial_qpos(
                 reset()
             except TypeError:
                 reset(seed=int(seed))
-            rows.append(_sim_state_from_simulator(environment))
+            state = _sim_state_from_simulator(environment)
+            _validate_init_state_roundtrip(environment, state)
+            rows.append(state)
         finally:
             if environment is not None and hasattr(environment, "close"):
                 environment.close()
@@ -941,7 +986,7 @@ def build_b_variant_matrix(
     seed_base: int = B_INIT_STATE_SEED_BASE,
     assets_root: str | Path | None = None,
 ) -> list[dict[str, Any]]:
-    """Create all ten BDDL tasks at all four offsets and fresh simulator qpos."""
+    """Create all ten BDDL tasks at all four offsets and fresh sim states."""
 
     frozen_settings = tuple(float(value) for value in settings)
     if frozen_settings != tuple(PROXIMITY_MAGNITUDES):
