@@ -160,7 +160,7 @@ nvidia-smi -L >"$OUT/nvidia-smi-L.txt"
 if command -v vulkaninfo >/dev/null 2>&1; then vulkaninfo --summary >"$OUT/vulkan-summary.txt" 2>&1; fi
 
 for file in config.json norm_stats.json mp_rank_00_model_states.pt; do [[ -s "$MODEL/$file" ]]; done
-find "$MODEL" -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum >"$MODEL/SHA256SUMS"
+(cd "$MODEL" && find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS)
 
 python3 - "$OUT/COMPLETED_ASSET_PREFLIGHT.json" "$MODEL" "$actual_gpus" "$FLASH_ATTN_TMP" <<'PY'
 import hashlib, json, os, pathlib, sys, time

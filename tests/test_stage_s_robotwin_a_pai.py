@@ -141,6 +141,9 @@ def test_asset_preflight_flash_attn_install_avoids_cross_filesystem_rename() -> 
     assert "--no-cache-dir flash-attn --no-build-isolation" in text
     assert 'stat -c \'%d\' "$FLASH_ATTN_TMP"' in text
     assert 'stat -c \'%d\' "$PIP_CACHE"' in text
+    assert 'cd "$ROOT"' in text
+    assert '(cd "$MODEL" && find . -maxdepth 1' in text
+    assert 'find "$MODEL" -maxdepth 1' not in text
     assert '"flash_attn_install"' in text
     assert '"tmpdir_under_new_root": str(flash_tmp).startswith' in text
     assert "export HOME" not in text
