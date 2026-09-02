@@ -401,15 +401,37 @@ def divergence_onset(
     )
     if curve.size == 0:
         return {"t_div": None, "episode_length": 0, "fraction": None, "censored": True, "curve": curve}
-    crossing = _first_crossing(curve, tau)
-    # No crossing is right-censored at the end of the observed episode. It is
-    # not silently converted to an early bottleneck.
-    t_div = int(curve.size - 1) if crossing is None else crossing
+    threshold = np.asarray(tau, dtype=np.float64)
+    if threshold.ndim == 0:
+        threshold = np.full(curve.shape, float(threshold), dtype=np.float64)
+    elif threshold.shape != curve.shape:
+        raise ValueError("tau curve must have the same length as D(t)")
+    comparable = np.isfinite(curve) & np.isfinite(threshold)
+    comparable_steps = np.flatnonzero(comparable)
+    if comparable_steps.size == 0:
+        return {
+            "t_div": None,
+            "episode_length": int(curve.size),
+            "fraction": None,
+            "censored": True,
+            "comparable_step_count": 0,
+            "last_comparable_step": None,
+            "curve": curve,
+        }
+    crossing_steps = np.flatnonzero(comparable & (curve > threshold))
+    crossing = None if crossing_steps.size == 0 else int(crossing_steps[0])
+    # A task-matched tau(t) can end before a long failed episode when fewer
+    # than two successful reference trajectories remain at risk.  Right-
+    # censor at the last genuinely comparable control step; using the family
+    # horizon would manufacture a late divergence onset from missing tau.
+    t_div = int(comparable_steps[-1]) if crossing is None else crossing
     return {
         "t_div": t_div,
         "episode_length": int(curve.size),
         "fraction": float(t_div / max(1, curve.size)),
         "censored": crossing is None,
+        "comparable_step_count": int(comparable_steps.size),
+        "last_comparable_step": int(comparable_steps[-1]),
         "curve": curve,
     }
 
@@ -456,8 +478,10 @@ def compute_s3(
     origins = [row for row in records if row["t_div"] == 0]
     origin_fraction = float(len(origins) / len(records)) if records else None
     median_fraction = float(np.median(np.asarray(fractions))) if fractions else None
+    missing_tau_family_count = len(near_groups) - len(records)
     pass_gate = bool(
         records
+        and missing_tau_family_count == 0
         and median_fraction is not None
         and median_fraction >= S3_MIN_MEDIAN_DIVERGENCE_FRACTION
         and origin_fraction is not None
@@ -467,6 +491,8 @@ def compute_s3(
         "tau": None if tau is None else float(tau),
         "tau_quantile": TAU_QUANTILE,
         "near_all_fail_family_count": len(near_groups),
+        "evaluable_family_count": len(records),
+        "missing_tau_family_count": missing_tau_family_count,
         "t_div_records": records,
         "median_t_div_fraction": median_fraction,
         "origin_t_div_count": len(origins),
@@ -936,9 +962,16 @@ def _task_tau_curve(
     array = np.asarray(value, dtype=np.float64)
     if array.ndim == 0:
         return np.repeat(float(array), horizon).astype(np.float64)
-    if array.ndim != 1 or array.size < horizon:
-        raise ValueError("task tau curve must be one-dimensional and cover the episode")
-    return array[:horizon]
+    if array.ndim != 1 or array.size == 0:
+        raise ValueError("task tau curve must be a non-empty one-dimensional array")
+    if array.size >= horizon:
+        return array[:horizon]
+    # Successful episodes may terminate earlier than a failed family.  Missing
+    # matched-time reference support is represented explicitly as NaN so the
+    # onset is right-censored at the final comparable control step.
+    padded = np.full(horizon, np.nan, dtype=np.float64)
+    padded[: array.size] = array
+    return padded
 
 
 
@@ -1012,8 +1045,10 @@ def compute_s3(
     origins = [row for row in records if row["t_div"] == 0]
     origin_fraction = float(len(origins) / len(records)) if records else None
     median_fraction = float(np.median(np.asarray(fractions))) if fractions else None
+    missing_tau_family_count = len(near_groups) - len(records)
     pass_gate = bool(
         records
+        and missing_tau_family_count == 0
         and median_fraction is not None
         and median_fraction >= S3_MIN_MEDIAN_DIVERGENCE_FRACTION
         and origin_fraction is not None
@@ -1025,6 +1060,8 @@ def compute_s3(
         "tau_source": tau_source,
         "tau_quantile": TAU_QUANTILE,
         "near_all_fail_family_count": len(near_groups),
+        "evaluable_family_count": len(records),
+        "missing_tau_family_count": missing_tau_family_count,
         "t_div_records": records,
         "median_t_div_fraction": median_fraction,
         "origin_t_div_count": len(origins),
@@ -1217,9 +1254,11 @@ def decide_stage_s(
         if bool(_gate_value(substrates[name], "S1").get("pass", False))
     ]
     if not active:
-        # C passed S1 but did not pass all gates; there is no headline
-        # substrate to continue, and the target-difficulty code is inapplicable.
-        return "UNRECOVERABLE_FAILURES"
+        # C is never headline evidence, but when it is the only arm at target
+        # difficulty its deeper failure still determines the plan-defined
+        # falsification code.  A full C pass was handled above as
+        # WEAK_SUBSTRATE_ONLY.
+        active = [substrates["C"]]
 
     gate_to_code = {
         "S2": "NO_FAMILY_COLLAPSE",
@@ -1282,6 +1321,14 @@ def _extension_freshness(
         return False, 0
     added_ids = extended_set - base_set
     if len(added_ids) != BASE_CANDIDATE_COUNT:
+        return False, 0
+    base_success = {
+        identifier: _success(row) for identifier, row in zip(base_ids, base_rows)
+    }
+    extended_success = {
+        identifier: _success(row) for identifier, row in zip(extended_ids, extended_rows)
+    }
+    if any(base_success[identifier] != extended_success[identifier] for identifier in base_set):
         return False, 0
     added_flags = [
         _read_field(row, "fresh_seed", "fresh")

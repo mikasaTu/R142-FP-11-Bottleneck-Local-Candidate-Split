@@ -272,6 +272,41 @@ def test_s3_uses_the_near_family_task_tau_curve() -> None:
     assert result["tau_source"] == "successful_same_task_matched_time"
 
 
+def test_s3_censors_at_last_comparable_tau_step_and_rejects_missing_task_tau() -> None:
+    refs = [
+        {"task_id": 0, "success": True, "poses": np.zeros((3, 2))},
+        {"task_id": 0, "success": True, "poses": np.zeros((3, 2))},
+    ]
+    rollouts = []
+    for candidate in range(32):
+        rollouts.append(
+            {
+                "family_id": "task0-family",
+                "task_id": 0,
+                "candidate_id": f"t0-{candidate}",
+                "success": False,
+                "poses": np.zeros((6, 2)),
+            }
+        )
+        rollouts.append(
+            {
+                "family_id": "task1-family",
+                "task_id": 1,
+                "candidate_id": f"t1-{candidate}",
+                "success": False,
+                "poses": np.zeros((6, 2)),
+            }
+        )
+    result = compute_s3(rollouts, successful_episodes=refs, workspace_scale=[1, 1])
+    assert result["near_all_fail_family_count"] == 2
+    assert result["evaluable_family_count"] == 1
+    assert result["missing_tau_family_count"] == 1
+    assert result["t_div_records"][0]["t_div"] == 2
+    assert result["t_div_records"][0]["last_comparable_step"] == 2
+    assert result["t_div_records"][0]["fraction"] == pytest.approx(2 / 6)
+    assert not result["pass"]
+
+
 def test_s5_accepts_only_32_added_disjoint_seeds() -> None:
     base = _rows([0] + [16] * 9)
     extended = [dict(row) for row in base]
@@ -294,6 +329,26 @@ def test_s5_accepts_only_32_added_disjoint_seeds() -> None:
     assert result["pass"]
 
 
+def test_s5_rejects_mutated_base_success_in_n64_view() -> None:
+    base = _rows([0] + [16] * 9)
+    extended = [dict(row) for row in base]
+    extended[0]["success"] = True
+    for family in range(10):
+        extended.extend(
+            {
+                "family_id": family,
+                "candidate_id": f"new-mut-{family}-{candidate}",
+                "seed": 990000 + family * 100 + candidate,
+                "fresh_seed": True,
+                "success": False,
+            }
+            for candidate in range(32)
+        )
+    result = compute_s5(base, extended)
+    assert not result["fresh_seed_verified"]
+    assert not result["pass"]
+
+
 def test_decision_prunes_failed_headline_before_deeper_gate() -> None:
     a = _all_fail("S2")
     b = _all_fail("S3")
@@ -304,3 +359,10 @@ def test_decision_prunes_failed_headline_before_deeper_gate() -> None:
     b2 = _all_fail("S3")
     b2["S3"] = {"pass": False, "origin_dominant": True}
     assert decide_stage_s({"A": a2, "B": b2, "C": c}, positive_control_pass=True) == "COLLAPSE_AT_ORIGIN"
+
+
+def test_decision_uses_deepest_plan_gate_when_only_c_reaches_target_difficulty() -> None:
+    a = _all_fail("S1")
+    b = _all_fail("S1")
+    c = _all_fail("S2")
+    assert decide_stage_s({"A": a, "B": b, "C": c}, positive_control_pass=True) == "NO_FAMILY_COLLAPSE"
