@@ -1,0 +1,32 @@
+{
+  "schema": "r142-stage-s-c-openpi-source-audit-v1",
+  "observed_date": "2026-09-02",
+  "source_url": "https://github.com/Physical-Intelligence/openpi.git",
+  "expected_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+  "observed_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+  "checkout_dirty": false,
+  "checkout": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi",
+  "config_name": "pi05_libero",
+  "official_converter": "examples/convert_jax_model_to_pytorch.py",
+  "official_trainer": "scripts/train_pytorch.py",
+  "dataset_repo_id": "physical-intelligence/libero",
+  "dataset_asset_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/openpi/r16p15/openpi-assets/checkpoints/pi05_libero/assets/physical-intelligence/libero/norm_stats.json",
+  "dataset_asset_sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
+  "base_gcs_uri": "gs://openpi-assets/checkpoints/pi05_base/",
+  "base_object_count": 29,
+  "base_total_bytes": 12441749581,
+  "source_checks": {
+    "pi05_model": true,
+    "prompt_from_task": true,
+    "libero_no_extra_delta": true,
+    "native_model_save": true,
+    "native_optimizer_save": true,
+    "native_metadata_save": true,
+    "atomic_checkpoint_rename": true,
+    "native_resume_entry": true
+  },
+  "base_download_performed": false,
+  "conversion_performed": false,
+  "pai_submission_performed": false,
+  "status": "SOURCE_READY_RUNTIME_ASSETS_PENDING"
+}
