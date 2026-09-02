@@ -1152,6 +1152,31 @@ class StageRPolicyAdapter:
             raise StageSError(f"Stage-R policy returned {actions.shape}; expected (1,{MAIN_ACTION_HORIZON},7)")
         return actions[0]
 
+    def get_rng_state(self) -> Any:
+        """Expose the pinned policy RNG or the process Torch stream.
+
+        The maintained Stage-R policy historically did not expose a public
+        RNG accessor.  In that case its stochastic path is driven by the
+        process Torch generators already captured by ``StageRSnapshot``; the
+        explicit sidecar keeps this fact auditable instead of silently
+        recording ``None`` as if replay were exact.
+        """
+
+        state = _policy_rng_state(self.policy)
+        if state is not None:
+            return state
+        return {"torch_global": _torch_rng_state()}
+
+    def set_rng_state(self, state: Any) -> None:
+        setter = getattr(self.policy, "set_rng_state", None)
+        if setter is not None:
+            setter(copy.deepcopy(state))
+            return
+        if isinstance(state, Mapping) and "torch_global" in state:
+            _restore_torch_rng(state["torch_global"])
+            return
+        raise SnapshotReplayError("pinned Stage-R policy exposes no RNG restore hook")
+
     def checkpoint_identity(self) -> Mapping[str, Any]:
         identity = getattr(self.policy, "checkpoint_identity", None)
         if not callable(identity):
@@ -1355,7 +1380,13 @@ def _sample_chunk(policy: Any, observation: Any, seed: int, counter: int, action
 
 @dataclass
 class StageRSnapshot:
-    """Stage-R-compatible snapshot, with policy RNG state when exposed."""
+    """Stage-R-compatible snapshot, including every process RNG stream.
+
+    The optional Torch state is deliberately captured lazily so CPU contract
+    tests do not need to import CUDA.  A real B/C main run passes
+    ``require_full_rng=True`` and therefore fails closed unless both the Torch
+    CPU stream and every visible CUDA stream are present.
+    """
 
     environment: Any
     observation_history: Any
@@ -1366,6 +1397,7 @@ class StageRSnapshot:
     baseline_noise_counter: int
     step: int
     policy_rng_state: Any = None
+    torch_rng_state: Any = None
 
 
 def _policy_rng_state(policy: Any) -> Any:
@@ -1384,12 +1416,69 @@ def _restore_policy_rng(policy: Any, state: Any) -> None:
         setter(copy.deepcopy(state))
 
 
-def capture_stage_r_snapshot(environment: Any, action_queue: Sequence[np.ndarray], seed: int, counter: int, step: int, *, policy: Any = None) -> StageRSnapshot:
+def _torch_rng_state() -> Any:
+    """Capture Torch CPU and all visible CUDA generator states if available."""
+
+    try:
+        import torch
+    except ImportError:
+        return None
+    state: dict[str, Any] = {"cpu": torch.get_rng_state().clone()}
+    if torch.cuda.is_available():
+        state["cuda"] = [value.clone() for value in torch.cuda.get_rng_state_all()]
+    else:
+        state["cuda"] = []
+    return state
+
+
+def _restore_torch_rng(state: Any) -> None:
+    if state is None:
+        return
+    try:
+        import torch
+    except ImportError as exc:
+        raise SnapshotReplayError("snapshot contains Torch RNG state but Torch is unavailable") from exc
+    if not isinstance(state, Mapping) or "cpu" not in state or "cuda" not in state:
+        raise SnapshotReplayError("Torch RNG snapshot is incomplete")
+    torch.set_rng_state(state["cpu"].clone())
+    if torch.cuda.is_available():
+        cuda_states = state["cuda"]
+        if not isinstance(cuda_states, list) or len(cuda_states) != torch.cuda.device_count():
+            raise SnapshotReplayError("Torch CUDA RNG snapshot does not match visible device count")
+        torch.cuda.set_rng_state_all([value.clone() for value in cuda_states])
+
+
+def _require_full_torch_rng(state: Any) -> None:
+    if not isinstance(state, Mapping) or "cpu" not in state or "cuda" not in state:
+        raise SnapshotReplayError("full replay gate requires Torch CPU and CUDA RNG state")
+    try:
+        import torch
+    except ImportError as exc:
+        raise SnapshotReplayError("full replay gate requires Torch") from exc
+    if torch.cuda.is_available():
+        cuda_states = state.get("cuda")
+        if not isinstance(cuda_states, list) or len(cuda_states) != torch.cuda.device_count():
+            raise SnapshotReplayError("full replay gate requires one CUDA RNG state per visible device")
+
+
+def capture_stage_r_snapshot(
+    environment: Any,
+    action_queue: Sequence[np.ndarray],
+    seed: int,
+    counter: int,
+    step: int,
+    *,
+    policy: Any = None,
+    require_full_rng: bool = False,
+) -> StageRSnapshot:
     if not hasattr(environment, "capture_snapshot"):
         raise SnapshotReplayError("Stage-R snapshot requires environment.capture_snapshot")
     history = getattr(environment, "_observation", None)
     if history is None:
         history = getattr(environment, "observation_history", None)
+    torch_state = _torch_rng_state()
+    if require_full_rng:
+        _require_full_torch_rng(torch_state)
     return StageRSnapshot(
         environment=copy.deepcopy(environment.capture_snapshot()),
         observation_history=copy.deepcopy(history),
@@ -1400,6 +1489,7 @@ def capture_stage_r_snapshot(environment: Any, action_queue: Sequence[np.ndarray
         baseline_noise_counter=int(counter),
         step=int(step),
         policy_rng_state=_policy_rng_state(policy),
+        torch_rng_state=torch_state,
     )
 
 
@@ -1416,6 +1506,7 @@ def restore_stage_r_snapshot(environment: Any, snapshot: StageRSnapshot, *, poli
             environment.observation_history = copy.deepcopy(snapshot.observation_history)
     random.setstate(copy.deepcopy(snapshot.python_rng_state))
     np.random.set_state(copy.deepcopy(snapshot.numpy_rng_state))
+    _restore_torch_rng(snapshot.torch_rng_state)
     _restore_policy_rng(policy, snapshot.policy_rng_state)
     return [np.asarray(value, dtype=np.float32).copy() for value in snapshot.action_queue]
 
@@ -1448,9 +1539,12 @@ def validate_restore_same_action(
     second_environment: Any | None = None,
     policy: Any = None,
     tolerance: float = SNAPSHOT_REPLAY_TOLERANCE,
+    require_full_rng: bool = False,
 ) -> dict[str, Any]:
     """Verify restore -> same action -> identical next state <= 1e-9."""
 
+    if require_full_rng:
+        _require_full_torch_rng(snapshot.torch_rng_state)
     action_array = np.asarray(action, dtype=np.float32)
     restore_stage_r_snapshot(environment, snapshot, policy=policy)
     _execute_one(environment, action_array)
@@ -1520,8 +1614,22 @@ def collect_family(
             envs.append(env)
             observation = seeded_reset(env, init_state, stable_seed(seed_namespace, "environment", task_id, init_state))
             initial_snapshot = None
+            if validate_snapshots and not (
+                hasattr(env, "capture_snapshot") and hasattr(env, "restore_snapshot")
+            ):
+                raise SnapshotReplayError(
+                    "full replay gate requires environment.capture_snapshot and restore_snapshot"
+                )
             if hasattr(env, "capture_snapshot"):
-                initial_snapshot = capture_stage_r_snapshot(env, [], seed, 0, 0, policy=policy)
+                initial_snapshot = capture_stage_r_snapshot(
+                    env,
+                    [],
+                    seed,
+                    0,
+                    0,
+                    policy=policy,
+                    require_full_rng=validate_snapshots,
+                )
             queue: list[np.ndarray] = []
             actions: list[np.ndarray] = []
             poses: list[np.ndarray] = []
@@ -1543,8 +1651,16 @@ def collect_family(
                     break
             if not done:
                 raise StageSError(f"family task={task_id} init={init_state} candidate={candidate_id} exceeded max_steps={max_steps}")
+            if validate_snapshots and (initial_snapshot is None or not actions):
+                raise SnapshotReplayError("full replay gate requires a captured snapshot and non-empty action trajectory")
             if validate_snapshots and initial_snapshot is not None and actions:
-                validate_restore_same_action(env, initial_snapshot, actions[0], policy=policy)
+                validate_restore_same_action(
+                    env,
+                    initial_snapshot,
+                    actions[0],
+                    policy=policy,
+                    require_full_rng=True,
+                )
             outcomes.append(CandidateOutcome(candidate_id, seed, np.asarray(actions, dtype=np.float32), np.asarray(poses, dtype=np.float64), success, forwards, len(actions), initial_snapshot))
     finally:
         for env in envs:
@@ -1579,6 +1695,7 @@ def _snapshot_payload(snapshot: StageRSnapshot | None) -> Any:
         "baseline_noise_counter": snapshot.baseline_noise_counter,
         "step": snapshot.step,
         "policy_rng_state": snapshot.policy_rng_state,
+        "torch_rng_state": snapshot.torch_rng_state,
     }
 
 
@@ -1668,6 +1785,14 @@ def write_family_atomic(directory: str | Path, family: Mapping[str, Any]) -> dic
         "snapshots_file": "snapshots.pkl",
         "written_at_unix": time.time(),
     }
+    metadata_extra = family.get("metadata_extra")
+    if metadata_extra is not None:
+        if not isinstance(metadata_extra, Mapping):
+            raise ValueError("family metadata_extra must be a mapping")
+        for key, value in metadata_extra.items():
+            if not isinstance(key, str) or not key or key in metadata:
+                raise ValueError(f"invalid or colliding family metadata key: {key!r}")
+            metadata[key] = copy.deepcopy(value)
     snapshots = {str(value.candidate_id): _snapshot_payload(value.snapshot) for value in outcomes}
     atomic_npz(npz_path, _pack_family(family))
     atomic_json(root / "genealogy.json", genealogy)
@@ -1700,30 +1825,46 @@ def run_main_screen(
     candidate_count: int = MAIN_CANDIDATE_COUNT,
     max_steps: int = 1000,
     validate_snapshots: bool = False,
+    metadata_extra: Mapping[str, Any] | None = None,
+    family_pairs: Sequence[tuple[int, int]] | None = None,
 ) -> dict[str, Any]:
     if substrate not in {"A", "B", "C"}:
         raise ValueError("substrate must be A, B, or C")
     completed = skipped = 0
-    for task_id in task_ids:
-        for init_state in initial_states:
-            directory = Path(output_root) / substrate / f"task{int(task_id):02d}" / f"init{int(init_state):03d}"
-            if family_is_complete(directory, expected_candidates=candidate_count):
-                skipped += 1
-                continue
-            family = collect_family(
-                environment_factory,
-                policy,
-                task_id=int(task_id),
-                init_state=int(init_state),
-                candidate_count=int(candidate_count),
-                max_steps=int(max_steps),
-                variant=variant,
-                validate_snapshots=validate_snapshots,
-            )
-            family["substrate"] = substrate
-            write_family_atomic(directory, family)
-            completed += 1
-    return {"protocol_id": STAGE_S_PROTOCOL_ID, "substrate": substrate, "completed_families": completed, "skipped_complete_families": skipped, "task_count": len(task_ids), "initial_state_count": len(initial_states), "candidate_count": int(candidate_count)}
+    if family_pairs is None:
+        pairs = tuple((int(task_id), int(init_state)) for task_id in task_ids for init_state in initial_states)
+    else:
+        pairs = tuple((int(task_id), int(init_state)) for task_id, init_state in family_pairs)
+    for task_id, init_state in pairs:
+        directory = Path(output_root) / substrate / f"task{int(task_id):02d}" / f"init{int(init_state):03d}"
+        if family_is_complete(directory, expected_candidates=candidate_count):
+            skipped += 1
+            continue
+        family = collect_family(
+            environment_factory,
+            policy,
+            task_id=int(task_id),
+            init_state=int(init_state),
+            candidate_count=int(candidate_count),
+            max_steps=int(max_steps),
+            variant=variant,
+            validate_snapshots=validate_snapshots,
+        )
+        family["substrate"] = substrate
+        if metadata_extra is not None:
+            family["metadata_extra"] = dict(metadata_extra)
+        write_family_atomic(directory, family)
+        completed += 1
+    return {
+        "protocol_id": STAGE_S_PROTOCOL_ID,
+        "substrate": substrate,
+        "completed_families": completed,
+        "skipped_complete_families": skipped,
+        "task_count": len({task_id for task_id, _ in pairs}),
+        "initial_state_count": len({init_state for _, init_state in pairs}),
+        "family_count": len(pairs),
+        "candidate_count": int(candidate_count),
+    }
 
 
 def calibration_plan(settings: Sequence[Any], *, task_ids: Sequence[int] = CALIBRATION_TASK_IDS, initial_states: Sequence[int] = CALIBRATION_INITIAL_STATES, candidate_count: int = CALIBRATION_CANDIDATE_COUNT) -> dict[str, Any]:
