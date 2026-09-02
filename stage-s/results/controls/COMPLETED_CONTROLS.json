@@ -1,0 +1,23 @@
+{
+  "artifacts": [
+    {
+      "path": "CONTROLS_REPORT.json",
+      "sha256": "3cea4e74fb7c47862da47f401f8638b3e772d7d75aabbaa459fbd02883ea0506"
+    },
+    {
+      "path": "NULL_CONTROL.json",
+      "sha256": "52dd62a3aef039844ad07521a99c12692c41851b3ac3037a62a8d75e8c2b3d4b"
+    },
+    {
+      "path": "POSITIVE_CONTROL.json",
+      "sha256": "ed370d225a61e465f15030c6685488fcd738f4be1bba563b35603b66955ceafa"
+    }
+  ],
+  "decision": "CONTROLS_PASS",
+  "metadata": {
+    "null_source_manifest_sha256": "2375d46ff53af253772c413f29be8a32ae5c1a12fa1bbce1d360b900ebf02b57",
+    "pipeline_commit": "3021de0947b2978c5f509110c9759898a9d53168",
+    "positive_source_manifest_sha256": "56aa58f0201b5bafd1fa24832999852c90c9aa1773137456926ecfe134222162"
+  },
+  "schema": "r142-stage-s-completion-v1"
+}
