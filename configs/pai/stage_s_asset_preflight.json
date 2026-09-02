@@ -37,7 +37,7 @@
     "gid": 2254,
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
     "output_mode": "resume",
-    "create_artifact_dir": false,
+    "create_artifact_dir": true,
     "recursive_repair": false,
     "secret_env_names": [],
     "pod_env": {"NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"},
