@@ -161,6 +161,8 @@ def test_payloads_are_same_bytes_and_fail_closed_before_calibration() -> None:
         "COMPLETED_EVALUATION_RESULT.json",
         "SHA256SUMS",
         "source_commit",
+        "FROZEN_PROTOCOL.json",
+        "--protocol-acceptance",
     ):
         assert fragment in text
     assert "S2" not in text and "S3" not in text and "S4" not in text and "S5" not in text

@@ -14,7 +14,7 @@ readonly OPENPI="$DEP_ROOT/third_party/openpi"
 readonly LIBERO="$OPENPI/third_party/libero"
 readonly PY="$ROOT/envs/openpi_py311/bin/python"
 readonly RUNTIME_REPO="$CODE_ROOT/r142-stage-s-bc-main-runtime-20260903"
-readonly SOURCE_COMMIT=99591fc05437d7f6f68ae6dc9e68f32c5da8e640
+readonly SOURCE_COMMIT=1f5263e6092b16e96e9ffd1d9ec0d3160c054267
 readonly QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
 readonly OPENPI_COMMIT=54cbaee6ae0c010a1ed431871cdaa8f4684ac709
 readonly LIBERO_COMMIT=f78abd68ee283de9f9be3c8f7e2a9ad60246e95c
@@ -22,6 +22,7 @@ readonly POLICY_CHECKPOINT="$ROOT/cache/openpi/r16p15/openpi-assets/checkpoints/
 readonly B_REPORT="$ROOT/logs/r142_fp11_stage_s/b_calibration/CALIBRATION_REPORT.json"
 readonly B_VARIANT_ROOT="$ROOT/logs/r142_fp11_stage_s/b_variants/r142-stage-s-b-variants-20260903-r7/variants"
 readonly C_REPORT="$ROOT/logs/r142_fp11_stage_s/c_calibration/CALIBRATION_REPORT.json"
+readonly PROTOCOL_ACCEPTANCE="$ROOT/logs/r142_fp11_stage_s/stage_s/protocol/FROZEN_PROTOCOL.json"
 readonly MAIN_FINALIZER="$RUNTIME_REPO/scripts/stage_s_libero_main_finalize.py"
 
 case "$(basename "$0")" in
@@ -130,6 +131,7 @@ in_blackout() {
 export STAGE_S_SUBSTRATE="$SUBSTRATE"
 export STAGE_S_SOURCE_COMMIT="$SOURCE_COMMIT"
 export STAGE_S_CALIBRATION_REPORT="$REPORT"
+export STAGE_S_PROTOCOL_ACCEPTANCE="$PROTOCOL_ACCEPTANCE"
 mkdir -p "$EXPECTED_OUT"
 readonly OUT="$EXPECTED_OUT"
 [[ "$ARTIFACT_DIR" == "$EXPECTED_OUT" ]]
@@ -223,7 +225,8 @@ if [[ -f "$OUT/COMPLETED_EVALUATION_RESULT.json" || -f "$OUT/SHA256SUMS" ]]; the
   PHASE=verify_existing_completion
   "$PY" "$MAIN_FINALIZER" \
     --output-root "$OUT" --substrate "$SUBSTRATE" --run-id "$RUN_ID" \
-    --source-commit "$SOURCE_COMMIT" --calibration-report "$REPORT"
+    --source-commit "$SOURCE_COMMIT" --calibration-report "$REPORT" \
+    --protocol-acceptance "$PROTOCOL_ACCEPTANCE"
   trap - ERR
   exit 0
 fi
@@ -243,6 +246,7 @@ print(json.dumps({
   "candidate_budget":32,
   "source_commit":os.environ["STAGE_S_SOURCE_COMMIT"],
   "calibration_report":os.environ.get("STAGE_S_CALIBRATION_REPORT"),
+  "protocol_acceptance":os.environ.get("STAGE_S_PROTOCOL_ACCEPTANCE"),
   "replay_gate":"restore -> same action -> next-state <= 1e-9",
   "time":time.time(),
 }, sort_keys=True))
@@ -258,14 +262,16 @@ if [[ "$SUBSTRATE" == B ]]; then
     --checkpoint "$POLICY_CHECKPOINT" \
     --variant-root "$B_VARIANT_ROOT" \
     --source-init-root "$LIBERO/libero/libero/init_files/libero_10" \
-    --calibration-report "$REPORT" --candidate-count "$CANDIDATE_COUNT" \
+    --calibration-report "$REPORT" --protocol-acceptance "$PROTOCOL_ACCEPTANCE" \
+    --candidate-count "$CANDIDATE_COUNT" \
     --max-steps 520 --validate-snapshots --source-commit "$SOURCE_COMMIT"
 else
   "$PY" -m torch.distributed.run --standalone --nnodes=1 --nproc_per_node=8 \
     "$RUNTIME_REPO/scripts/stage_s_libero_main.py" \
     --substrate C --output "$OUT" \
     --qpilots-root "$DEP_ROOT" --libero-root "$LIBERO" \
-    --calibration-report "$REPORT" --candidate-count "$CANDIDATE_COUNT" \
+    --calibration-report "$REPORT" --protocol-acceptance "$PROTOCOL_ACCEPTANCE" \
+    --candidate-count "$CANDIDATE_COUNT" \
     --max-steps 520 --validate-snapshots --weak-substrate --source-commit "$SOURCE_COMMIT"
 fi
 
@@ -281,6 +287,7 @@ PY
 fi
 "$PY" "$MAIN_FINALIZER" \
   --output-root "$OUT" --substrate "$SUBSTRATE" --run-id "$RUN_ID" \
-  --source-commit "$SOURCE_COMMIT" --calibration-report "$REPORT"
+  --source-commit "$SOURCE_COMMIT" --calibration-report "$REPORT" \
+  --protocol-acceptance "$PROTOCOL_ACCEPTANCE"
 
 trap - ERR
