@@ -146,7 +146,10 @@ guard_daily_no_job_window
 
 PHASE=source_readback
 for source_repo in "$STAGE_S_REPO" "$QPILOTS" "$OPENPI" "$LIBERO"; do
-  [[ -d "$source_repo/.git" ]] || { echo "B_CALIBRATION_REFUSED missing git source: $source_repo" >&2; exit 66; }
+  [[ "$(git -C "$source_repo" rev-parse --is-inside-work-tree 2>/dev/null)" == true ]] || {
+    echo "B_CALIBRATION_REFUSED missing git worktree: $source_repo" >&2
+    exit 66
+  }
   [[ -z "$(git -C "$source_repo" status --porcelain)" ]] || {
     echo "B_CALIBRATION_REFUSED dirty source tree: $source_repo" >&2
     exit 66
