@@ -33,13 +33,15 @@
     "output_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/a_main"
   },
   "runtime": {
+    "runtime_repo": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-a-runtime-20260903",
+    "source_commit": "c2bd51db6de0e22d09827d06460cbac8d47bb6ae",
     "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_robotwin_a_pai.sh",
-    "command_file_sha256": "78b8a4393c6867d2a5105d86b9cc45b5c66a18836f88d023a1c135351382730a",
-    "server_wrapper": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-runtime-20260902/scripts/stage_s_robotwin_evo_server.py",
+    "command_file_sha256": "4e37de86b0e9e5eb7bb37990cb29bcbad93db2e9483f330d5a73ac4155f2e179",
+    "server_wrapper": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-a-runtime-20260903/scripts/stage_s_robotwin_evo_server.py",
     "server_wrapper_sha256": "1adc86c053f68ed0acd8e365e7f0a231a77794b75cbd1b4a0f77d6b9c02279d1",
-    "aggregate_verifier": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-runtime-20260902/scripts/stage_s_robotwin_finalize.py",
+    "aggregate_verifier": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-a-runtime-20260903/scripts/stage_s_robotwin_finalize.py",
     "aggregate_verifier_sha256": "9cbe1affd80cda01656dc3141cb38c8e0df84f0009c56a77f3c5d909f0c642af",
-    "source_commit_policy": "controller_injects_exact_frozen_stage_s_source_commit",
+    "source_commit_policy": "frozen_exact_commit_c2bd51db6de0e22d09827d06460cbac8d47bb6ae",
     "uid": 2254,
     "gid": 2254,
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
@@ -47,10 +49,7 @@
     "create_artifact_dir": true,
     "recursive_repair": false,
     "secret_env_names": [],
-    "pod_env": {
-      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics",
-      "STAGE_S_SOURCE_COMMIT": "c2bd51db6de0e22d09827d06460cbac8d47bb6ae"
-    },
+    "pod_env": {"NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"},
     "write_paths": [
       "{{ARTIFACT_DIR}}",
       "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/a_main/{{RUN_ID}}",
@@ -108,6 +107,14 @@
     "expert_trajectory": false
   },
   "assets": {
+    "asset_preflight_required": {
+      "run_id": "r142-stage-s-a-assets-20260902-r15",
+      "output_dir": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/r142-stage-s-a-assets-20260902-r15",
+      "terminal_pai_state": "Succeeded",
+      "completion_marker": "COMPLETED_ASSET_PREFLIGHT.json",
+      "integrity_manifest": "SHA256SUMS",
+      "gate": "terminal_pai_succeeded_and_persisted_completion_plus_verified_sha256"
+    },
     "evo_repo": "https://github.com/MINT-SJTU/Evo-1.git",
     "evo_revision": "5fd14b015013c4fd0aacf5f8f48f868ca9b870a2",
     "robotwin_repo": "https://github.com/RoboTwin-Platform/RoboTwin.git",
@@ -146,7 +153,7 @@
     "validation_detail": "static_launcher_contract_and_dev14_contract_tests",
     "validation_method": "static",
     "stage_s_source_commit": "c2bd51db6de0e22d09827d06460cbac8d47bb6ae",
-    "validated_payload_sha256": "78b8a4393c6867d2a5105d86b9cc45b5c66a18836f88d023a1c135351382730a",
+    "validated_payload_sha256": "4e37de86b0e9e5eb7bb37990cb29bcbad93db2e9483f330d5a73ac4155f2e179",
     "expected_first_work_uid": 2254,
     "expected_first_work_gid": 2254,
     "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/a_main/{{RUN_ID}}/FIRST_WORK.json",

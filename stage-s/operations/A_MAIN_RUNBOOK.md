@@ -13,7 +13,7 @@ revision mismatch:
 
 | input | path / revision |
 |---|---|
-| Stage-S runtime | `/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-runtime-20260902`, exact controller-injected commit |
+| Stage-S runtime | `/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-a-runtime-20260903` @ `c2bd51db6de0e22d09827d06460cbac8d47bb6ae` |
 | RoboTwin | `cache/r142_stage_s/runtime/RoboTwin` @ `13c3c47ff4312dd62484bcd51be034af55c062d1` |
 | CuRobo | `cache/r142_stage_s/runtime/RoboTwin/envs/curobo` @ `d64c4b005459db10c5dd867d8b30a87d5bda9bdb` |
 | Evo-1 | `code/r142_stage_s_deps/Evo-1` @ `5fd14b015013c4fd0aacf5f8f48f868ca9b870a2` |
@@ -23,6 +23,13 @@ The checkpoint `SHA256SUMS` is checked before any server starts. The public
 Evo server source remains unmodified. Each server imports the released
 `load_model_and_normalizer` and `infer_from_json_dict`, while the external
 Stage-S dispatcher handles only the three versioned exact-replay controls.
+
+The formal screen also has a hard asset gate. Before any server or client is
+started, `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/r142-stage-s-a-assets-20260902-r15/`
+must contain `COMPLETED_ASSET_PREFLIGHT.json` and a verified `SHA256SUMS`.
+The marker must report terminal `COMPLETED`, eight GPUs, and the exact Evo,
+RoboTwin, CuRobo, and checkpoint revisions above. A `FIRST_WORK.json`, an
+active/queued PAI job, or a partial cache does not satisfy this gate.
 
 ## Eight-GPU ownership
 
@@ -83,8 +90,9 @@ preserved under `failures/` when a later incarnation resumes the directory.
 
 ## Controller handoff
 
-Copy the three runtime files to the pinned runtime checkout and the launcher
-to the controller payload directory, then freeze their bytes and hashes:
+Copy the three runtime files to the independent A runtime checkout and the
+launcher to the controller payload directory, then freeze their bytes and
+hashes:
 
 ```text
 scripts/stage_s_robotwin_a_pai.sh
@@ -93,12 +101,13 @@ scripts/stage_s_robotwin_finalize.py
 configs/pai/stage_s_robotwin_a.json
 ```
 
-Set `STAGE_S_SOURCE_COMMIT` to the exact Git commit of the runtime checkout
-containing these files before `pai-job validate`. Do not submit while the
-checkpoint asset preflight lacks terminal PAI success,
-`COMPLETED_ASSET_PREFLIGHT.json`, and a verified asset `SHA256SUMS`. Do not
-submit a PAI probe: static and bounded dev14 contract tests are sufficient for
-this launcher; the next PAI operation is the formal A screen.
+The launcher hard-codes the independent runtime path and rejects every source
+revision except `c2bd51db6de0e22d09827d06460cbac8d47bb6ae`. Do not submit while
+the r15 asset preflight lacks terminal PAI `Succeeded`,
+`COMPLETED_ASSET_PREFLIGHT.json`, and a verified asset `SHA256SUMS`; all three
+conditions are required even if the cache appears populated. Do not submit a
+PAI probe: static and bounded dev14 contract tests are sufficient for this
+launcher; the next PAI operation is the formal A screen.
 
 After a formal attempt, preserve the exact JobId, raw failure/log evidence,
 and output directory. A replacement may reuse the same output directory only

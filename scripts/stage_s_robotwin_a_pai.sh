@@ -9,7 +9,8 @@ RUN_ID="${PAI_STAGE_S_RUN_ID:-${PAI_CANARY_RUN_ID:?controller must inject run id
 EXPECTED_GPUS="${PAI_CANARY_EXPECTED_GPUS:-8}"
 WORLD_SIZE=8
 ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon
-REPO="${STAGE_S_RUNTIME_REPO:-$ROOT/code/r142-stage-s-runtime-20260902}"
+readonly REQUIRED_RUNTIME_REPO="$ROOT/code/r142-stage-s-a-runtime-20260903"
+REPO="$REQUIRED_RUNTIME_REPO"
 DEPS="$ROOT/code/r142_stage_s_deps"
 EVO_ROOT="$DEPS/Evo-1"
 ROBOTWIN_ROOT="$ROOT/cache/r142_stage_s/runtime/RoboTwin"
@@ -19,7 +20,10 @@ CLIENT_PY="$ROOT/cache/r142_stage_s/envs/robotwin_py310/bin/python"
 SERVER_PY="$ROOT/cache/r142_stage_s/envs/evo1_py310/bin/python"
 OUT="$ROOT/logs/r142_fp11_stage_s/a_main/$RUN_ID"
 BASE_PORT="${STAGE_S_EVO_SERVER_BASE_PORT:-19000}"
-STAGE_S_SOURCE_COMMIT="${STAGE_S_SOURCE_COMMIT:?controller must inject the exact frozen Stage-S source commit}"
+readonly FROZEN_SOURCE_COMMIT="c2bd51db6de0e22d09827d06460cbac8d47bb6ae"
+STAGE_S_SOURCE_COMMIT="${STAGE_S_SOURCE_COMMIT:-$FROZEN_SOURCE_COMMIT}"
+readonly ASSET_PREFLIGHT_RUN_ID="r142-stage-s-a-assets-20260902-r15"
+ASSET_PREFLIGHT_DIR="$ROOT/logs/r142_fp11_stage_s/assets/$ASSET_PREFLIGHT_RUN_ID"
 export STAGE_S_SOURCE_COMMIT
 
 SERVER_PIDS=()
@@ -123,6 +127,8 @@ trap on_error ERR
 [[ "$EXPECTED_GPUS" -eq 8 ]]
 [[ "$WORLD_SIZE" -eq 8 ]]
 [[ "$BASE_PORT" =~ ^[0-9]+$ ]] && [[ "$BASE_PORT" -ge 1024 ]] && [[ "$BASE_PORT" -le 65527 ]]
+[[ "$REPO" == "$REQUIRED_RUNTIME_REPO" ]]
+[[ "$STAGE_S_SOURCE_COMMIT" == "$FROZEN_SOURCE_COMMIT" ]]
 [[ "$(id -u):$(id -g)" == 2254:2254 ]]
 [[ "$(stat -c '%u:%g' "$OUT")" == 2254:2254 ]]
 [[ "$(nvidia-smi -L | wc -l)" -eq 8 ]]
@@ -140,6 +146,34 @@ trap on_error ERR
 [[ -f "$REPO/scripts/stage_s_robotwin_main.py" ]]
 [[ -f "$REPO/scripts/stage_s_robotwin_finalize.py" ]]
 [[ -d "$ROBOTWIN_ROOT/assets" ]]
+
+# The r15 asset preflight is a hard prerequisite for the formal screen.  Its
+# output is immutable evidence from the separate asset job; a FIRST_WORK file,
+# a running job, or a partial cache never satisfies this gate.
+[[ -d "$ASSET_PREFLIGHT_DIR" ]]
+[[ -s "$ASSET_PREFLIGHT_DIR/COMPLETED_ASSET_PREFLIGHT.json" ]]
+[[ -s "$ASSET_PREFLIGHT_DIR/SHA256SUMS" ]]
+(
+  cd "$ASSET_PREFLIGHT_DIR"
+  sha256sum --check --quiet SHA256SUMS
+)
+python3 - "$ASSET_PREFLIGHT_DIR/COMPLETED_ASSET_PREFLIGHT.json" <<'PY'
+import json, pathlib, sys
+marker = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+expected = {
+    "status": "COMPLETED",
+    "gpus": 8,
+    "model_revision": "ce8c583724706fbf7a03c17237761c65bf6813a7",
+    "robotwin_commit": "13c3c47ff4312dd62484bcd51be034af55c062d1",
+    "evo_commit": "5fd14b015013c4fd0aacf5f8f48f868ca9b870a2",
+    "curobo_commit": "d64c4b005459db10c5dd867d8b30a87d5bda9bdb",
+}
+for key, value in expected.items():
+    if marker.get(key) != value:
+        raise SystemExit(f"asset preflight r15 mismatch: {key}={marker.get(key)!r}")
+if not marker.get("job_id"):
+    raise SystemExit("asset preflight r15 marker lacks terminal PAI JobId")
+PY
 
 for file in config.json norm_stats.json mp_rank_00_model_states.pt SHA256SUMS; do
   [[ -s "$CHECKPOINT_DIR/$file" ]]

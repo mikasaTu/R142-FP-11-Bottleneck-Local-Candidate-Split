@@ -31,11 +31,17 @@ def test_launcher_is_valid_shell_and_binds_all_eight_pairs() -> None:
     assert "sha256sum --check --quiet SHA256SUMS" in text
     assert "09[3][0-9]|19[3][0-9]" in text
     assert "2254:2254" in text
+    assert 'REQUIRED_RUNTIME_REPO="$ROOT/code/r142-stage-s-a-runtime-20260903"' in text
+    assert "r142-stage-s-runtime-20260902" not in text
+    assert "FROZEN_SOURCE_COMMIT=\"c2bd51db6de0e22d09827d06460cbac8d47bb6ae\"" in text
+    assert "ASSET_PREFLIGHT_RUN_ID=\"r142-stage-s-a-assets-20260902-r15\"" in text
+    assert "COMPLETED_ASSET_PREFLIGHT.json" in text
     assert "synthetic" not in text.lower() or "mock rollout" in text.lower()
 
 
 def test_config_freezes_real_resource_and_evaluation_contract() -> None:
     config = json.loads(CONFIG.read_text(encoding="utf-8"))
+    assert config["resource_alias"] == "idle-a800-robot-stage-s-graphics-8gpu"
     assert config["resource_id"] == "quota1ssrabud0bh"
     assert config["quota"] == "exp-robot"
     assert config["worker"] == {
@@ -55,6 +61,23 @@ def test_config_freezes_real_resource_and_evaluation_contract() -> None:
     assert config["runtime_contract"]["synthetic_rollouts"] is False
     assert config["runtime_contract"]["expert_trajectory"] is False
     assert config["evidence"]["success_gate"] == "persisted_completed_evaluation_result"
+    assert config["runtime"]["runtime_repo"] == (
+        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-a-runtime-20260903"
+    )
+    assert config["runtime"]["source_commit"] == (
+        "c2bd51db6de0e22d09827d06460cbac8d47bb6ae"
+    )
+    assert config["runtime"]["command_file"] == (
+        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/"
+        "stage_s_robotwin_a_pai.sh"
+    )
+    assert config["assets"]["asset_preflight_required"]["run_id"] == (
+        "r142-stage-s-a-assets-20260902-r15"
+    )
+    assert config["assets"]["asset_preflight_required"]["completion_marker"] == (
+        "COMPLETED_ASSET_PREFLIGHT.json"
+    )
+    assert config["assets"]["asset_preflight_required"]["integrity_manifest"] == "SHA256SUMS"
     assert config["fault_tolerance"]["maximum_platform_restarts"] == 50
     assert config["fault_tolerance"]["launcher_attempts"] == 1
     for field, path in (
