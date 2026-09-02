@@ -9,9 +9,27 @@ umask 077
 
 NEW_ROOT=/mnt/cpfs/zbl-cpfs-new
 USER_ROOT=$NEW_ROOT/USERS/leon
-PROJECT_DIR=$USER_ROOT/code/R142-FP-11-Bottleneck-Local-Candidate-Split
+# The registry binds the independent C runtime explicitly.  Do not fall back
+# to the research repository name: that checkout is not a deployable runtime
+# and may not exist on a worker.
+STAGE_S_C_PROJECT_DIR="${STAGE_S_C_PROJECT_DIR:?registry must inject the independent C runtime clone path}"
+[[ "$STAGE_S_C_PROJECT_DIR" == /* ]] || {
+  echo "C runtime clone path must be absolute: $STAGE_S_C_PROJECT_DIR" >&2
+  exit 43
+}
+PROJECT_DIR=$(realpath -e -- "$STAGE_S_C_PROJECT_DIR") || {
+  echo "C runtime clone path does not exist: $STAGE_S_C_PROJECT_DIR" >&2
+  exit 43
+}
+export STAGE_S_C_PROJECT_DIR
 PYTHON_BIN=$USER_ROOT/envs/openpi_py311/bin/python
-OPENPI=$USER_ROOT/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi
+QPILOTS=$USER_ROOT/code/QPILOTS-r16p15-stage1-task64-20260812
+OPENPI=$QPILOTS/third_party/openpi
+EXPECTED_QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
+EXPECTED_OPENPI_COMMIT=54cbaee6ae0c010a1ed431871cdaa8f4684ac709
+STAGE_S_SOURCE_COMMIT="${STAGE_S_SOURCE_COMMIT:?controller must inject the exact frozen Stage-S source commit}"
+STAGE_S_C_PAYLOAD_SHA256="${STAGE_S_C_PAYLOAD_SHA256:?controller must inject the exact payload SHA256}"
+export STAGE_S_SOURCE_COMMIT STAGE_S_C_PAYLOAD_SHA256
 BASE_JAX=$USER_ROOT/cache/r142_stage_s/pi05_base
 BASE_PT=$USER_ROOT/cache/r142_stage_s/pi05_base_pytorch
 ASSETS=$USER_ROOT/cache/openpi/r16p15/openpi-assets/checkpoints
@@ -42,6 +60,10 @@ payload = {
     "run_id": os.environ.get("PAI_RUN_ID") or os.environ.get("PAI_CANARY_RUN_ID"),
     "job_id": os.environ.get("PAI_TASK_JOB_ID") or os.environ.get("PAI_JOB_ID"),
     "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+    "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
+    "stage_s_source_commit": os.environ.get("STAGE_S_SOURCE_COMMIT"),
+    "launcher_payload_sha256": os.environ.get("STAGE_S_C_PAYLOAD_SHA256"),
+    "project_dir": os.environ.get("STAGE_S_C_PROJECT_DIR"),
     "evidence_path": evidence or None,
     "evidence_sha256": (
         hashlib.sha256(pathlib.Path(evidence).read_bytes()).hexdigest()
@@ -102,12 +124,80 @@ fi
   exit 41
 }
 [[ -x "$PYTHON_BIN" ]] || { echo "missing pinned OpenPI Python: $PYTHON_BIN" >&2; exit 42; }
-[[ -d "$PROJECT_DIR" && -d "$OPENPI" ]] || { echo "missing project/OpenPI checkout" >&2; exit 43; }
-[[ "$(git -C "$OPENPI" rev-parse HEAD)" == 54cbaee6ae0c010a1ed431871cdaa8f4684ac709 ]] || {
-  echo "OpenPI checkout is not pinned to 54cbaee6ae0c010a1ed431871cdaa8f4684ac709" >&2
+for checkout in "$PROJECT_DIR" "$QPILOTS" "$OPENPI"; do
+  git -C "$checkout" rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+    echo "missing independent C, QPILOTS, or OpenPI git checkout: $checkout" >&2
+    exit 43
+  }
+done
+PAYLOAD_FILE="$PROJECT_DIR/scripts/stage_s_c_undertrained_pai.sh"
+CONFIG_FILE="$PROJECT_DIR/configs/pai/stage_s_c_undertrained.json"
+[[ -f "$PAYLOAD_FILE" && -f "$CONFIG_FILE" ]] || {
+  echo "missing C registry payload/config under bound runtime: $PROJECT_DIR" >&2
+  exit 43
+}
+[[ "$(realpath -e -- "$PAYLOAD_FILE")" == "$(realpath -e -- "$0")" ]] || {
+  echo "bound C runtime does not contain the invoked payload at its configured relative path" >&2
+  exit 43
+}
+[[ "$STAGE_S_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]] || {
+  echo "STAGE_S_SOURCE_COMMIT must be a full lowercase Git commit" >&2
   exit 44
 }
-[[ -z "$(git -C "$OPENPI" status --porcelain)" ]] || { echo "OpenPI checkout is dirty" >&2; exit 45; }
+[[ "$(git -C "$PROJECT_DIR" rev-parse HEAD)" == "$STAGE_S_SOURCE_COMMIT" ]] || {
+  echo "Stage-S source checkout does not match injected STAGE_S_SOURCE_COMMIT" >&2
+  exit 44
+}
+[[ -z "$(git -C "$PROJECT_DIR" status --porcelain)" ]] || {
+  echo "Stage-S source checkout is dirty" >&2
+  exit 45
+}
+[[ "$(git -C "$QPILOTS" rev-parse HEAD)" == "$EXPECTED_QPILOTS_COMMIT" ]] || {
+  echo "QPILOTS checkout is not pinned to $EXPECTED_QPILOTS_COMMIT" >&2
+  exit 46
+}
+[[ -z "$(git -C "$QPILOTS" status --porcelain)" ]] || { echo "QPILOTS checkout is dirty" >&2; exit 47; }
+[[ "$(git -C "$OPENPI" rev-parse HEAD)" == "$EXPECTED_OPENPI_COMMIT" ]] || {
+  echo "OpenPI checkout is not pinned to $EXPECTED_OPENPI_COMMIT" >&2
+  exit 48
+}
+[[ -z "$(git -C "$OPENPI" status --porcelain)" ]] || { echo "OpenPI checkout is dirty" >&2; exit 49; }
+[[ "$STAGE_S_C_PAYLOAD_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
+  echo "STAGE_S_C_PAYLOAD_SHA256 must be a full lowercase SHA-256" >&2
+  exit 50
+}
+CONFIG_PAYLOAD_SHA256=$("$PYTHON_BIN" - "$CONFIG_FILE" <<'PY'
+import json
+import os
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+runtime = payload.get("runtime", {})
+project_dir = runtime.get("project_dir")
+if project_dir != os.environ.get("STAGE_S_C_PROJECT_DIR"):
+    raise SystemExit("registry project_dir does not match STAGE_S_C_PROJECT_DIR")
+command_file = runtime.get("command_file")
+if command_file != project_dir + "/" + runtime.get("command_file_relative", ""):
+    raise SystemExit("registry command_file does not match project_dir + command_file_relative")
+if runtime.get("command_file_relative") != "scripts/stage_s_c_undertrained_pai.sh":
+    raise SystemExit("registry command_file_relative is not the checked-in C payload")
+command_sha = runtime.get("command_file_sha256")
+payload_sha = runtime.get("payload_sha256")
+if not isinstance(command_sha, str) or not isinstance(payload_sha, str) or command_sha != payload_sha:
+    raise SystemExit("registry payload SHA fields are missing or disagree")
+print(payload_sha)
+PY
+)
+[[ "$CONFIG_PAYLOAD_SHA256" == "$STAGE_S_C_PAYLOAD_SHA256" ]] || {
+  echo "injected payload SHA differs from pinned registry config" >&2
+  exit 51
+}
+OBSERVED_PAYLOAD_SHA256=$(sha256sum "$PAYLOAD_FILE" | awk '{print $1}')
+[[ "$OBSERVED_PAYLOAD_SHA256" == "$STAGE_S_C_PAYLOAD_SHA256" ]] || {
+  echo "invoked C payload SHA differs from injected SHA" >&2
+  exit 52
+}
 for writable in "$BASE_JAX" "$BASE_PT" "$CHECKPOINT_BASE" "$LOG_ROOT" "$STATUS_ROOT"; do
   mkdir -p "$writable"
   probe="$writable/.r142-owner-probe.$$"
@@ -115,6 +205,52 @@ for writable in "$BASE_JAX" "$BASE_PT" "$CHECKPOINT_BASE" "$LOG_ROOT" "$STATUS_R
   [[ "$(stat -c '%u:%g' "$probe")" == "2254:2254" ]] || exit 46
   rm -f -- "$probe"
 done
+
+# Persist the admission identity before any asset, conversion, or training
+# mutation.  This records the exact bindings checked above; it is not a
+# substitute for the source, cleanliness, and digest checks.
+"$PYTHON_BIN" - "$STATUS_ROOT/RUNTIME_IDENTITY.json" "$PROJECT_DIR" "$QPILOTS" "$OPENPI" \
+  "$STAGE_S_SOURCE_COMMIT" "$EXPECTED_QPILOTS_COMMIT" "$EXPECTED_OPENPI_COMMIT" "$STAGE_S_C_PAYLOAD_SHA256" <<'PY'
+import hashlib
+import json
+import os
+import pathlib
+import sys
+
+destination = pathlib.Path(sys.argv[1])
+project, qpilots, openpi, stage_commit, qpilots_commit, openpi_commit, payload_sha = sys.argv[2:]
+payload_file = pathlib.Path(project) / "scripts/stage_s_c_undertrained_pai.sh"
+record = {
+    "schema": "r142-stage-s-c-runtime-identity-v1",
+    "project_dir": project,
+    "stage_s_source_commit": stage_commit,
+    "qpilots_root": qpilots,
+    "qpilots_commit": qpilots_commit,
+    "openpi_root": openpi,
+    "openpi_commit": openpi_commit,
+    "payload_path": str(payload_file),
+    "payload_sha256": payload_sha,
+    "payload_sha256_observed": hashlib.sha256(payload_file.read_bytes()).hexdigest(),
+    "run_id": os.environ.get("PAI_RUN_ID") or os.environ.get("PAI_CANARY_RUN_ID"),
+    "job_id": os.environ.get("PAI_TASK_JOB_ID") or os.environ.get("PAI_JOB_ID"),
+}
+if record["payload_sha256"] != record["payload_sha256_observed"]:
+    raise SystemExit("runtime identity payload digest changed during admission")
+destination.parent.mkdir(parents=True, exist_ok=True)
+temporary = destination.with_name(f".{destination.name}.tmp-{os.getpid()}")
+with temporary.open("w", encoding="utf-8") as handle:
+    json.dump(record, handle, sort_keys=True, indent=2)
+    handle.write("\n")
+    handle.flush()
+    os.fsync(handle.fileno())
+temporary.replace(destination)
+directory_fd = os.open(destination.parent, os.O_RDONLY)
+try:
+    os.fsync(directory_fd)
+finally:
+    os.close(directory_fd)
+PY
+write_status_marker "$STATUS_ROOT/COMPLETED_preflight.json" COMPLETED preflight 0 "$STATUS_ROOT/RUNTIME_IDENTITY.json"
 
 export PYTHONPATH="$PROJECT_DIR/src:$OPENPI/src"
 export WANDB_MODE=disabled

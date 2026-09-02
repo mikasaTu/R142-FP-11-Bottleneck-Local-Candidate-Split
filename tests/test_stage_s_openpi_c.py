@@ -332,6 +332,24 @@ def test_registry_v2_payload_binds_pinned_runtime_and_stages() -> None:
     assert payload["worker"]["memory"] == "1525Gi"
     assert payload["runtime"]["python"] == DEFAULT_OPENPI_PYTHON
     assert payload["runtime"]["uid"] == payload["runtime"]["gid"] == 2254
+    assert payload["runtime"]["project_dir"] == \
+        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903"
+    assert payload["runtime"]["project_dir_env"] == "STAGE_S_C_PROJECT_DIR"
+    assert payload["runtime"]["command_file"] == (
+        payload["runtime"]["project_dir"] + "/" + payload["runtime"]["command_file_relative"]
+    )
+    assert payload["runtime"]["payload_sha256_env"] == "STAGE_S_C_PAYLOAD_SHA256"
+    assert payload["runtime"]["stage_s_source_commit_env"] == "STAGE_S_SOURCE_COMMIT"
+    assert payload["runtime"]["qpilots_commit"] == "eacf47b981e3b22357f8a74902f8dad8cfcfa375"
+    assert payload["runtime"]["openpi_commit"] == OPENPI_COMMIT
+    assert payload["runtime"]["required_env_names"] == [
+        "PAI_RUN_ID",
+        "STAGE_S_SOURCE_COMMIT",
+        "STAGE_S_C_PROJECT_DIR",
+        "STAGE_S_C_PAYLOAD_SHA256",
+    ]
+    assert payload["runtime"]["pod_env"]["STAGE_S_C_PROJECT_DIR"] == payload["runtime"]["project_dir"]
+    assert payload["runtime"]["pod_env"]["STAGE_S_C_PAYLOAD_SHA256"] == payload["runtime"]["payload_sha256"]
     assert payload["fault_tolerance"]["application_auto_resume"] is True
     assert payload["fault_tolerance"]["same_directory_on_resume"] is True
     assert payload["fault_tolerance"]["max_num_of_job_restart"] == 50
@@ -339,6 +357,11 @@ def test_registry_v2_payload_binds_pinned_runtime_and_stages() -> None:
     script = root / "scripts/stage_s_c_undertrained_pai.sh"
     assert hashlib.sha256(script.read_bytes()).hexdigest() == payload["runtime"]["command_file_sha256"]
     assert payload["runtime"]["home_policy"].startswith("inherit")
+    assert "R142-FP-11-Bottleneck-Local-Candidate-Split" not in script.read_text(encoding="utf-8")
+    assert "STAGE_S_SOURCE_COMMIT" in script.read_text(encoding="utf-8")
+    assert "EXPECTED_QPILOTS_COMMIT" in script.read_text(encoding="utf-8")
+    assert "STAGE_S_C_PAYLOAD_SHA256" in script.read_text(encoding="utf-8")
+    assert "RUNTIME_IDENTITY.json" in script.read_text(encoding="utf-8")
     assert [stage["name"] for stage in payload["stage_pipeline"]["stages"]] == [
         "base_download",
         "conversion",

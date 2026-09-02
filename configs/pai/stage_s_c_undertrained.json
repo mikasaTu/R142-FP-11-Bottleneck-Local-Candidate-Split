@@ -24,6 +24,10 @@
   "provenance": {
     "openpi_source_url": "https://github.com/Physical-Intelligence/openpi.git",
     "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+    "qpilots_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812",
+    "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
+    "stage_s_source_commit_env": "STAGE_S_SOURCE_COMMIT",
+    "stage_s_source_commit_policy": "controller_must_inject_exact_clean_runtime_commit",
     "source_role": "official_openpi_pi05_base_and_pytorch_trainer",
     "community_sft_base_forbidden": true,
     "submission_method": "pai-job-registry-v2",
@@ -47,9 +51,16 @@
     "output_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/c"
   },
   "runtime": {
-    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/R142-FP-11-Bottleneck-Local-Candidate-Split/scripts/stage_s_c_undertrained_pai.sh",
-    "command_file_sha256": "d76e861b69355460f8b8b6ad02db44eca546f6ee514fc049c4f6c0106a006464",
-    "payload_sha256": "d76e861b69355460f8b8b6ad02db44eca546f6ee514fc049c4f6c0106a006464",
+    "project_dir": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903",
+    "project_dir_env": "STAGE_S_C_PROJECT_DIR",
+    "command_file_relative": "scripts/stage_s_c_undertrained_pai.sh",
+    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903/scripts/stage_s_c_undertrained_pai.sh",
+    "command_file_sha256": "85efff1581bd4428d5b64700bf677efeb53eed412a137c71519deb7d5d078da6",
+    "payload_sha256": "85efff1581bd4428d5b64700bf677efeb53eed412a137c71519deb7d5d078da6",
+    "payload_sha256_env": "STAGE_S_C_PAYLOAD_SHA256",
+    "stage_s_source_commit_env": "STAGE_S_SOURCE_COMMIT",
+    "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
+    "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
     "python": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python",
     "uid": 2254,
     "gid": 2254,
@@ -59,7 +70,12 @@
     "create_artifact_dir": true,
     "recursive_repair": false,
     "secret_env_names": [],
-    "pod_env": {"NVIDIA_DRIVER_CAPABILITIES": "compute,utility"},
+    "pod_env": {
+      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility",
+      "STAGE_S_C_PROJECT_DIR": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903",
+      "STAGE_S_C_PAYLOAD_SHA256": "85efff1581bd4428d5b64700bf677efeb53eed412a137c71519deb7d5d078da6"
+    },
+    "required_env_names": ["PAI_RUN_ID", "STAGE_S_SOURCE_COMMIT", "STAGE_S_C_PROJECT_DIR", "STAGE_S_C_PAYLOAD_SHA256"],
     "write_paths": [
       "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base",
       "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base_pytorch",
