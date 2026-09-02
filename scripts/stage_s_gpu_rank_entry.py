@@ -37,6 +37,13 @@ def bind_local_rank() -> str:
             )
         selected = visible[local_rank]
     os.environ["CUDA_VISIBLE_DEVICES"] = selected
+    # After narrowing visibility to one physical GPU, both MuJoCo EGL
+    # selectors are allocation-local.  PAI may inject the original physical
+    # rank (for example 5), which is invalid in a process that now exposes
+    # exactly one logical device.  Bind rendering to logical device zero;
+    # CUDA_VISIBLE_DEVICES still preserves the physical allocation identity.
+    os.environ["EGL_DEVICE_ID"] = "0"
+    os.environ["MUJOCO_EGL_DEVICE_ID"] = "0"
     return selected
 
 

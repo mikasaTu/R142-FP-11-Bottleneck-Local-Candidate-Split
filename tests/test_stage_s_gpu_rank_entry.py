@@ -19,6 +19,20 @@ def test_rank_selects_exact_allocated_device(monkeypatch) -> None:
     selected = _module()["bind_local_rank"]()
     assert selected == "7"
     assert os.environ["CUDA_VISIBLE_DEVICES"] == "7"
+    assert os.environ["EGL_DEVICE_ID"] == "0"
+    assert os.environ["MUJOCO_EGL_DEVICE_ID"] == "0"
+
+
+def test_rank_replaces_inherited_physical_egl_device(monkeypatch) -> None:
+    monkeypatch.setenv("LOCAL_RANK", "5")
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,1,2,3,4,5,6,7")
+    monkeypatch.setenv("EGL_DEVICE_ID", "5")
+    monkeypatch.setenv("MUJOCO_EGL_DEVICE_ID", "5")
+    selected = _module()["bind_local_rank"]()
+    assert selected == "5"
+    assert os.environ["CUDA_VISIBLE_DEVICES"] == "5"
+    assert os.environ["EGL_DEVICE_ID"] == "0"
+    assert os.environ["MUJOCO_EGL_DEVICE_ID"] == "0"
 
 
 def test_rank_binding_fails_closed_without_allocation(monkeypatch) -> None:
