@@ -26,11 +26,19 @@ from r142_stage_s.libero import (
     TASK_COUNT,
     family_is_complete,
 )
+from r142_stage_s.main_protocol import FrozenProtocolError, read_frozen_protocol
 
 
 WORLD_SIZE = 8
 FAMILY_COUNT = TASK_COUNT * MAIN_INITIAL_STATE_COUNT
 SUBSTRATES = {"B", "C"}
+PROTOCOL_IDENTITY_KEYS = (
+    "protocol_acceptance_path",
+    "protocol_acceptance_sha256",
+    "protocol_git_commit",
+    "protocol_md_path",
+    "protocol_md_sha256",
+)
 
 
 class MainEvaluationError(RuntimeError):
@@ -139,6 +147,7 @@ def _verify_family(
     rank: int,
     source_commit: str,
     calibration_report: str,
+    protocol: Mapping[str, Any],
 ) -> Mapping[str, Any]:
     directory = root / substrate / f"task{task:02d}" / f"init{state:03d}"
     if not family_is_complete(directory, expected_candidates=MAIN_CANDIDATE_COUNT):
@@ -161,10 +170,18 @@ def _verify_family(
     for key, value in expected.items():
         if metadata.get(key) != value:
             raise MainEvaluationError(f"family metadata drifted at {directory}: {key}")
+    for key in PROTOCOL_IDENTITY_KEYS:
+        if metadata.get(key) != protocol.get(key):
+            raise MainEvaluationError(f"family protocol identity drifted at {directory}: {key}")
     if substrate == "C" and metadata.get("substrate_annotation") != "WEAK_SUBSTRATE":
         raise MainEvaluationError(f"C family missing WEAK_SUBSTRATE annotation: {directory}")
     if substrate == "B" and "substrate_annotation" in metadata:
         raise MainEvaluationError(f"B family has an unexpected substrate annotation: {directory}")
+
+    marker = _read_json(directory / "COMPLETED_FAMILY.json")
+    for key in PROTOCOL_IDENTITY_KEYS:
+        if marker.get(key) != protocol.get(key):
+            raise MainEvaluationError(f"family completion protocol identity drifted at {directory}: {key}")
 
     with np_load(directory / "rollouts.npz") as data:
         success = data["success"]
@@ -216,11 +233,22 @@ class np_load:
             self.value.close()
 
 
-def verify_completed_bundle(root: Path, *, substrate: str) -> Mapping[str, Any]:
+def verify_completed_bundle(
+    root: Path,
+    *,
+    substrate: str,
+    protocol: Mapping[str, Any] | None = None,
+) -> Mapping[str, Any]:
     result = _read_json(root / "COMPLETED_EVALUATION_RESULT.json")
     expected_marker = f"completed_stage_s_{substrate.lower()}_main_evaluation"
     if result.get("status") != "COMPLETED" or result.get("marker_type") != expected_marker:
         raise MainEvaluationError("top-level completion marker schema drifted")
+    if protocol is not None:
+        for key in PROTOCOL_IDENTITY_KEYS:
+            if result.get(key) != protocol.get(key):
+                raise MainEvaluationError(f"top-level protocol identity drifted: {key}")
+        if result.get("protocol_acceptance") != protocol:
+            raise MainEvaluationError("top-level frozen protocol acceptance drifted")
     _verify_manifest(root, root / "SHA256SUMS")
     return result
 
@@ -232,6 +260,7 @@ def finalize(
     run_id: str | None,
     source_commit: str,
     calibration_report: str,
+    protocol_acceptance: str | Path | None = None,
 ) -> Mapping[str, Any]:
     if substrate not in SUBSTRATES:
         raise MainEvaluationError(f"unsupported substrate: {substrate}")
@@ -243,7 +272,27 @@ def finalize(
     if completed.exists() or sums.exists():
         if not completed.is_file() or not sums.is_file():
             raise MainEvaluationError("partial top-level completion bundle is present")
-        return verify_completed_bundle(root, substrate=substrate)
+        if protocol_acceptance is None:
+            raise MainEvaluationError("completed B/C bundle requires --protocol-acceptance")
+        try:
+            protocol = read_frozen_protocol(
+                protocol_acceptance,
+                substrate=substrate,
+                calibration_report=calibration_report,
+            )
+        except FrozenProtocolError as exc:
+            raise MainEvaluationError(f"frozen protocol acceptance gate failed closed: {exc}") from exc
+        return verify_completed_bundle(root, substrate=substrate, protocol=protocol)
+    if protocol_acceptance is None:
+        raise MainEvaluationError("B/C main finalization requires --protocol-acceptance")
+    try:
+        protocol = read_frozen_protocol(
+            protocol_acceptance,
+            substrate=substrate,
+            calibration_report=calibration_report,
+        )
+    except FrozenProtocolError as exc:
+        raise MainEvaluationError(f"frozen protocol acceptance gate failed closed: {exc}") from exc
     for forbidden in (f"FAILED_{substrate}_MAIN.json", "REFUSED_DAILY_NO_JOB_WINDOW.json"):
         if (root / forbidden).exists():
             raise MainEvaluationError(f"failed/refused output cannot be finalized: {root / forbidden}")
@@ -257,6 +306,9 @@ def finalize(
             raise MainEvaluationError(f"rank marker identity drifted: {marker_path}")
         if marker.get("source_commit") != source_commit or marker.get("calibration_report") != calibration_report:
             raise MainEvaluationError(f"rank marker provenance drifted: {marker_path}")
+        for key in PROTOCOL_IDENTITY_KEYS:
+            if marker.get(key) != protocol.get(key):
+                raise MainEvaluationError(f"rank marker protocol identity drifted: {marker_path}: {key}")
         if substrate == "C" and marker.get("substrate_annotation") != "WEAK_SUBSTRATE":
             raise MainEvaluationError(f"C rank marker lacks WEAK_SUBSTRATE: {marker_path}")
         pairs = _expected_pairs(rank)
@@ -277,6 +329,8 @@ def finalize(
         summary_payload = _read_json(summary)
         if summary_payload.get("rank") != rank or summary_payload.get("world_size") != WORLD_SIZE:
             raise MainEvaluationError(f"rank summary identity drifted: {summary}")
+        if summary_payload.get("protocol_acceptance") != protocol:
+            raise MainEvaluationError(f"rank summary frozen protocol acceptance drifted: {summary}")
         for task, state in pairs:
             rank_outputs.append(
                 _verify_family(
@@ -287,6 +341,7 @@ def finalize(
                     rank=rank,
                     source_commit=source_commit,
                     calibration_report=calibration_report,
+                    protocol=protocol,
                 )
             )
     if len(rank_outputs) != FAMILY_COUNT:
@@ -297,6 +352,12 @@ def finalize(
         "status": "COMPLETED",
         "marker_type": f"completed_stage_s_{substrate.lower()}_main_evaluation",
         "protocol_id": STAGE_S_PROTOCOL_ID,
+        "protocol_acceptance": protocol,
+        "protocol_acceptance_path": protocol["protocol_acceptance_path"],
+        "protocol_acceptance_sha256": protocol["protocol_acceptance_sha256"],
+        "protocol_git_commit": protocol["protocol_git_commit"],
+        "protocol_md_path": protocol["protocol_md_path"],
+        "protocol_md_sha256": protocol["protocol_md_sha256"],
         "run_id": run_id,
         "source_commit": source_commit,
         "substrate": substrate,
@@ -341,7 +402,7 @@ def finalize(
         raise MainEvaluationError("cannot publish an empty main-screen bundle")
     lines = [f"{_sha256(path)}  {path.relative_to(root).as_posix()}" for path in files]
     _write_atomic(sums, ("\n".join(lines) + "\n").encode())
-    return verify_completed_bundle(root, substrate=substrate)
+    return verify_completed_bundle(root, substrate=substrate, protocol=protocol)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -351,6 +412,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--calibration-report", type=Path, required=True)
+    parser.add_argument("--protocol-acceptance", type=Path, required=True)
     return parser
 
 
@@ -364,6 +426,7 @@ if __name__ == "__main__":
             run_id=args.run_id,
             source_commit=args.source_commit,
             calibration_report=report,
+            protocol_acceptance=args.protocol_acceptance.resolve(),
         )
     except MainEvaluationError as exc:
         print(json.dumps({"status": "BLOCKED_INCOMPLETE_EVALUATION", "error": str(exc)}))

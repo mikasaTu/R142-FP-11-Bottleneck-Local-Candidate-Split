@@ -1809,6 +1809,18 @@ def write_family_atomic(directory: str | Path, family: Mapping[str, Any]) -> dic
         "files": hashes,
         "checkpoint": "FAMILY_COMPLETE",
     }
+    # Main-screen protocol identity is duplicated in the family completion
+    # marker so a rank/top-level verifier can reject a mixed-protocol tree
+    # before trusting the family checksum manifest.
+    for key in (
+        "protocol_acceptance_path",
+        "protocol_acceptance_sha256",
+        "protocol_git_commit",
+        "protocol_md_path",
+        "protocol_md_sha256",
+    ):
+        if key in metadata:
+            marker[key] = copy.deepcopy(metadata[key])
     atomic_json(root / "COMPLETED_FAMILY.json", marker)
     return marker
 

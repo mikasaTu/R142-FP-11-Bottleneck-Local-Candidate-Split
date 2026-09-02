@@ -53,12 +53,33 @@ The report source result, completion marker, and SHA256SUMS are independently
 verified.  Freeze reports reject S2, S3, S4, S5, trajectory, genealogy, and
 divergence fields to prevent pre-screen lookahead.
 
+## Frozen protocol acceptance gate
+
+Before either B or C rank enters the main rollout, the launcher reads the
+stable CPFS artifact
+`/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/stage_s/protocol/FROZEN_PROTOCOL.json`.
+The adjacent `PROTOCOL.md` is required.  The JSON must have schema
+`r142-stage-s-protocol-acceptance-v1`, top-level `status=FROZEN`, and an
+`acceptance` object with `status=ACCEPTED`, `frozen=true`, the full 40-hex
+`protocol_git_commit`, and the SHA-256 of the adjacent markdown.  The commit
+must also be recorded in that markdown; a missing, malformed, or mismatched
+commit/hash fails closed.
+
+The acceptance object freezes the exact ten task IDs, initial states `0..15`,
+candidate IDs `0..31`, eight-rank budget, SHA-256 seed namespace/formulas,
+S1--S5 thresholds, eventual-termination label, and policy-forward/env-step
+accounting.  It also contains both B and C calibration entries (report path,
+report SHA, and selected setting/checkpoint).  The active launcher verifies the
+selected entry against the actual calibration report and its SHA before any
+rollout.  The acceptance path, acceptance SHA, protocol Git commit, and
+`PROTOCOL.md` SHA are copied into every family metadata/completion marker,
+rank summary/marker, and final `COMPLETED_EVALUATION_RESULT.json`.
+
 ## Runtime and evidence
 
 The independent runtime source is
 `/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-bc-main-runtime-20260903`
-at Stage-S source commit
-`d85bdfb2e5f4d934de2dc4a754d0fb2df30b4246`.  The pinned dependencies are:
+at the exact Stage-S source commit bound in each registry config.  The pinned dependencies are:
 
 * QPILOTS `eacf47b981e3b22357f8a74902f8dad8cfcfa375`;
 * OpenPI `54cbaee6ae0c010a1ed431871cdaa8f4684ac709`;
