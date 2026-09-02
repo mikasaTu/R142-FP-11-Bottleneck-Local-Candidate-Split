@@ -29,7 +29,7 @@ not any community full-SFT actor.
 Write/read the checked-in manifest or verify the live public listing:
 
 ```text
-PYTHONPATH=src "$OPENPI_PYTHON" scripts/stage_s_libero_c_assets.py manifest \
+PYTHONPATH="$PWD/src:$OPENPI/src" "$OPENPI_PYTHON" scripts/stage_s_libero_c_assets.py manifest \
   --output stage-s/C_PI05_BASE_GCS_MANIFEST.json --live
 ```
 
@@ -37,7 +37,7 @@ Download is a foreground, resumable operation; it must not be run in either
 Beijing blackout window:
 
 ```text
-PYTHONPATH=src "$OPENPI_PYTHON" scripts/stage_s_libero_c_assets.py download \
+PYTHONPATH="$PWD/src:$OPENPI/src" "$OPENPI_PYTHON" scripts/stage_s_libero_c_assets.py download \
   --output-root "$BASE_JAX" \
   --manifest stage-s/C_PI05_BASE_GCS_MANIFEST.json
 ```
@@ -45,7 +45,7 @@ PYTHONPATH=src "$OPENPI_PYTHON" scripts/stage_s_libero_c_assets.py download \
 Convert only after the base audit passes, using the pinned OpenPI Python:
 
 ```text
-PYTHONPATH=src "$OPENPI_PYTHON" scripts/stage_s_libero_c_assets.py convert \
+PYTHONPATH="$PWD/src:$OPENPI/src" "$OPENPI_PYTHON" scripts/stage_s_libero_c_assets.py convert \
   --openpi-root "$OPENPI" --base-jax-root "$BASE_JAX" \
   --base-pytorch-root "$BASE_PT" --python "$OPENPI_PYTHON" --precision bfloat16
 ```
@@ -54,7 +54,7 @@ To hand the parent orchestrator an auditable, non-submitting chain and PAI
 payload, render both from the same paths:
 
 ```text
-PYTHONPATH=src "$OPENPI_PYTHON" scripts/stage_s_libero_c_payload.py \
+PYTHONPATH="$PWD/src:$OPENPI/src" "$OPENPI_PYTHON" scripts/stage_s_libero_c_payload.py \
   --run-id r142-stage-s-c-undertrained-20260902 \
   --openpi-root "$OPENPI" --base-jax-root "$BASE_JAX" \
   --base-pytorch-root "$BASE_PT" --checkpoint-base-dir "$CKPT" \
@@ -93,7 +93,7 @@ direct upstream command represented inside the contract is:
 Use the checked-in worker wrapper so resume captures all rank RNG state:
 
 ```text
-PYTHONPATH=src "$OPENPI_PYTHON" scripts/stage_s_libero_c_train.py \
+PYTHONPATH="$PWD/src:$OPENPI/src" "$OPENPI_PYTHON" scripts/stage_s_libero_c_train.py \
   --openpi-root "$OPENPI" --base-jax-root "$BASE_JAX" \
   --base-pytorch-root "$BASE_PT" --checkpoint-base-dir "$CKPT" \
   --log-root "$LOG" --assets-base-dir "$ASSETS" --python "$OPENPI_PYTHON"
