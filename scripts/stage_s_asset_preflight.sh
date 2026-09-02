@@ -89,13 +89,14 @@ fi
 "$TOOLS_ENV/bin/hf" download MINT-SJTU/Evo1_RoboTwin2_clean \
   --revision ce8c583724706fbf7a03c17237761c65bf6813a7 --local-dir "$MODEL"
 
-pushd "$RT/assets" >/dev/null
-"$TOOLS_ENV/bin/python" _download.py
-for archive in background_texture.zip embodiments.zip objects.zip; do
-  [[ -s "$archive" ]]
-  unzip -q -n "$archive"
-done
-popd >/dev/null
+(
+  cd "$RT/assets"
+  "$TOOLS_ENV/bin/python" _download.py
+  for archive in background_texture.zip embodiments.zip objects.zip; do
+    [[ -s "$archive" ]]
+    unzip -q -n "$archive"
+  done
+)
 
 export UV_PYTHON_INSTALL_DIR="$ROOT/cache/r142_stage_s/uv-python"
 if [[ ! -x "$RT_ENV/bin/python" ]]; then
