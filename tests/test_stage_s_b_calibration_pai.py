@@ -5,6 +5,10 @@ import json
 from pathlib import Path
 import subprocess
 
+import pytest
+
+from scripts.stage_s_libero_calibrate import prepare_b_runtime_configs
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "stage_s_libero_b_calibration_pai.sh"
@@ -31,12 +35,44 @@ def test_b_launcher_is_shell_valid_and_non_submitting() -> None:
     assert "--substrate B --mode prepare" in text
     assert text.index("--substrate B --mode prepare") < text.index("-m torch.distributed.run")
     assert text.index('cd "$STAGE_S_REPO"') < text.index("--substrate B --mode prepare")
+    assert text.count('--libero-config-root "$LIBERO_CONFIG_ROOT"') == 2
+    assert "runtime-variant-configs" in (ROOT / "scripts" / "stage_s_libero_calibrate.py").read_text(encoding="utf-8")
     assert "COMPLETED_B_CALIBRATION.json" in text
     assert "B_SHA256SUMS" in text
     assert 'ARTIFACT_DIR="$OUT_ROOT/$RUN_ID"' in text
     assert "controller must inject ARTIFACT_DIR" not in text
     assert "rev-parse --is-inside-work-tree" in text
     assert '[[ -d "$source_repo/.git" ]]' not in text
+
+
+def test_b_runtime_configs_bind_immutable_variant_to_real_assets(tmp_path: Path) -> None:
+    assets = tmp_path / "base" / "assets"
+    datasets = tmp_path / "base" / "datasets"
+    assets.mkdir(parents=True)
+    datasets.mkdir(parents=True)
+    (tmp_path / "base" / "config.yaml").write_text(
+        json.dumps({"assets": str(assets), "datasets": str(datasets)}) + "\n",
+        encoding="utf-8",
+    )
+    variants = []
+    for name in ("proximity_0.06m", "proximity_0.08m"):
+        root = tmp_path / "accepted-r7" / name
+        (root / "bddl_files").mkdir(parents=True)
+        (root / "init_states").mkdir()
+        variants.append(str(root))
+    output = tmp_path / "run"
+    overlays = prepare_b_runtime_configs(output, variants, tmp_path / "base", create=True)
+    assert len(overlays) == 2
+    for source, overlay in zip(variants, overlays):
+        payload = json.loads((Path(overlay) / "config.yaml").read_text(encoding="utf-8"))
+        assert payload["benchmark_root"] == str(Path(source).resolve())
+        assert payload["assets"] == str(assets)
+    assert prepare_b_runtime_configs(output, variants, tmp_path / "base", create=False) == overlays
+
+    first = Path(overlays[0]) / "config.yaml"
+    first.write_text(json.dumps({"drift": True}) + "\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="mismatch"):
+        prepare_b_runtime_configs(output, variants, tmp_path / "base", create=False)
 
 
 def test_config_binds_launcher_hash_and_registry_contract() -> None:

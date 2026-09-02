@@ -41,6 +41,7 @@ from r142_stage_s.libero import (
     CALIBRATION_TASK_IDS,
     PROXIMITY_MAGNITUDES,
     StageRPolicyAdapter,
+    atomic_json,
     aggregate_calibration_shards,
     audit_undertrained_checkpoint_set,
     make_stage_r_task64_factory,
@@ -97,6 +98,68 @@ def _require_runtime_path(value: Path | None, name: str) -> Path:
     if not value.exists():
         raise SystemExit(f"{name} does not exist: {value}")
     return value
+
+
+def prepare_b_runtime_configs(
+    output_root: Path,
+    variant_roots: list[str],
+    base_config_root: Path,
+    *,
+    create: bool,
+) -> list[str]:
+    """Materialize executable per-setting configs without mutating r7.
+
+    The accepted r7 bundle has complete, hashed BDDL and simulator-state
+    evidence, but its per-setting YAML left ``assets`` empty.  LIBERO resolves
+    that value during environment construction and fails with ``Path(None)``.
+    These run-scoped overlays point BDDL/init paths at the immutable r7 bytes
+    and inherit only datasets/assets from the already audited pinned base
+    config.  They contain no observations or outcomes.
+    """
+
+    base_path = Path(base_config_root) / "config.yaml"
+    try:
+        base = json.loads(base_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"invalid pinned LIBERO base config {base_path}: {exc}") from exc
+    for key in ("assets", "datasets"):
+        value = base.get(key)
+        if not isinstance(value, str) or not value:
+            raise SystemExit(f"pinned LIBERO base config lacks {key}")
+    if not Path(base["assets"]).is_dir():
+        raise SystemExit(f"pinned LIBERO assets directory is missing: {base['assets']}")
+
+    overlays: list[str] = []
+    root = Path(output_root) / "runtime-variant-configs"
+    for source_text in variant_roots:
+        source = Path(source_text).resolve()
+        payload = {
+            "benchmark_root": str(source),
+            "bddl_files": str((source / "bddl_files").resolve()),
+            "init_states": str((source / "init_states").resolve()),
+            "datasets": base["datasets"],
+            "assets": base["assets"],
+        }
+        for key in ("benchmark_root", "bddl_files", "init_states", "assets"):
+            if not Path(payload[key]).exists():
+                raise SystemExit(f"B runtime config path is missing for {key}: {payload[key]}")
+        overlay = root / source.name
+        target = overlay / "config.yaml"
+        if create:
+            overlay.mkdir(parents=True, exist_ok=True)
+            if target.exists():
+                observed = json.loads(target.read_text(encoding="utf-8"))
+                if observed != payload:
+                    raise SystemExit(f"immutable B runtime config drifted: {target}")
+            else:
+                atomic_json(target, payload)
+        if not target.is_file():
+            raise SystemExit(f"prepared B runtime config is missing: {target}")
+        observed = json.loads(target.read_text(encoding="utf-8"))
+        if observed != payload:
+            raise SystemExit(f"prepared B runtime config mismatch: {target}")
+        overlays.append(str(overlay.resolve()))
+    return overlays
 
 
 def _print_dry_run(args: argparse.Namespace, settings: list[str]) -> int:
@@ -163,21 +226,20 @@ def _prepare_sources(args: argparse.Namespace, settings: list[str]) -> list[str]
 def _make_real_evaluator(args: argparse.Namespace, settings: list[str], sources: list[str]) -> Callable[..., bool]:
     qpilots_root = _require_runtime_path(args.qpilots_root, "--qpilots-root")
     libero_root = _require_runtime_path(args.libero_root, "--libero-root")
-    if args.substrate == "C":
-        libero_config_root = _require_runtime_path(args.libero_config_root, "--libero-config-root")
-    else:
-        libero_config_root = None
+    libero_config_root = _require_runtime_path(args.libero_config_root, "--libero-config-root")
     if args.substrate == "B" and args.policy_checkpoint is None:
         raise SystemExit("--policy-checkpoint is required for B real Stage-R inference")
     if args.substrate == "B" and not args.policy_checkpoint.exists():
         raise SystemExit(f"--policy-checkpoint does not exist: {args.policy_checkpoint}")
     if args.substrate == "B":
         policy_sources = [str(args.policy_checkpoint)] * len(settings)
-        variant_roots: list[Path | None] = [Path(value) for value in sources]
+        variant_roots: list[Path | None] = [None] * len(settings)
+        config_roots = [Path(value) for value in sources]
         state_count = 16
     else:
         policy_sources = list(sources)
         variant_roots = [None] * len(settings)
+        config_roots = [libero_config_root] * len(settings)
         # The unmodified Stage-R LIBERO suite owns its 50 init states; the
         # calibration protocol consumes only the frozen first eight indices.
         state_count = 50
@@ -187,7 +249,7 @@ def _make_real_evaluator(args: argparse.Namespace, settings: list[str], sources:
             libero_root,
             checkpoint=policy_sources[index],
             variant_root=variant_roots[index],
-            libero_config_root=libero_config_root,
+            libero_config_root=config_roots[index],
             max_steps=int(args.max_steps),
             init_state_count=state_count,
         )
@@ -261,6 +323,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         return _print_dry_run(args, settings)
     sources = _prepare_sources(args, settings)
+    runtime_sources = sources
+    if args.substrate == "B":
+        base_config_root = _require_runtime_path(args.libero_config_root, "--libero-config-root")
+        runtime_sources = prepare_b_runtime_configs(
+            args.output_root,
+            sources,
+            base_config_root,
+            create=args.mode == "prepare",
+        )
     if args.mode == "prepare":
         payload = write_calibration_plan(
             args.output_root,
@@ -272,7 +343,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
-    evaluator = _make_real_evaluator(args, settings, sources)
+    evaluator = _make_real_evaluator(args, settings, runtime_sources)
     try:
         result = run_calibration_shard(
             evaluator,

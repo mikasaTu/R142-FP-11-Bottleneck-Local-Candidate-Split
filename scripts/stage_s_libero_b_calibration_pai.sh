@@ -311,7 +311,8 @@ cd "$STAGE_S_REPO"
   --substrate B --mode prepare --output-root "$OUT" \
   --world-size "$WORLD_SIZE" \
   "${VARIANT_ARGS[@]}" \
-  --source-init-root "$SOURCE_INIT_ROOT"
+  --source-init-root "$SOURCE_INIT_ROOT" \
+  --libero-config-root "$LIBERO_CONFIG_ROOT"
 
 # The pinned OpenPI interpreter owns torch, JAX and the policy dependencies.
 # Invoking its module entrypoint prevents PATH's system torchrun from silently
@@ -322,6 +323,7 @@ cd "$STAGE_S_REPO"
   --world-size "$WORLD_SIZE" \
   "${VARIANT_ARGS[@]}" \
   --source-init-root "$SOURCE_INIT_ROOT" \
+  --libero-config-root "$LIBERO_CONFIG_ROOT" \
   --policy-checkpoint "$ROOT/cache/openpi/r16p15/openpi-assets/checkpoints/pi05_libero" \
   --qpilots-root "$QPILOTS" --libero-root "$LIBERO"
 
