@@ -6,10 +6,12 @@ import json
 import numpy as np
 import pytest
 
+from scripts.stage_s_robotwin_audit import audit
 from r142_stage_s.robotwin import (
     AtomicFamilyWriter,
     CandidateRecord,
     CapabilityError,
+    ConcreteRoboTwinRuntime,
     ExactReplayVerifier,
     PUBLISHED_CLEAN_SUCCESS,
     select_published_tasks,
@@ -20,6 +22,7 @@ def test_task_selection_is_lexical_and_exact():
     selected = select_published_tasks()
     assert selected == (
         "blocks_ranking_size",
+        "pick_diverse_bottles",
         "place_a2b_left",
         "place_a2b_right",
         "place_bread_basket",
@@ -28,7 +31,6 @@ def test_task_selection_is_lexical_and_exact():
         "place_fan",
         "place_object_scale",
         "place_shoe",
-        "put_object_cabinet",
     )
     assert len(selected) == 10
     assert all(0.25 <= PUBLISHED_CLEAN_SUCCESS[x] <= 0.65 for x in selected)
@@ -84,6 +86,144 @@ class FakePolicy:
 
     def act(self, observation):
         return np.array([0.1, 0.2])
+
+
+class FakeActor:
+    def __init__(self, name):
+        self.name = name
+        self.pose = np.array([0.0, 0.0, 0.0])
+        self.velocity = np.array([0.0, 0.0, 0.0])
+        self.angular_velocity = np.array([0.0, 0.0, 0.0])
+
+    def get_name(self):
+        return self.name
+
+    def get_pose(self):
+        return self.pose.copy()
+
+    def set_pose(self, value):
+        self.pose = np.asarray(value, dtype=float).copy()
+
+    def get_velocity(self):
+        return self.velocity.copy()
+
+    def set_velocity(self, value):
+        self.velocity = np.asarray(value, dtype=float).copy()
+
+    def get_angular_velocity(self):
+        return self.angular_velocity.copy()
+
+    def set_angular_velocity(self, value):
+        self.angular_velocity = np.asarray(value, dtype=float).copy()
+
+
+class FakeArticulation:
+    def __init__(self):
+        self.root_pose = np.array([0.0, 0.0, 0.0])
+        self.qpos = np.array([0.1, 0.2])
+        self.qvel = np.array([0.0, 0.0])
+        self.qacc = np.array([0.0, 0.0])
+
+    def get_root_pose(self):
+        return self.root_pose.copy()
+
+    def set_root_pose(self, value):
+        self.root_pose = np.asarray(value, dtype=float).copy()
+
+    def get_qpos(self):
+        return self.qpos.copy()
+
+    def set_qpos(self, value):
+        self.qpos = np.asarray(value, dtype=float).copy()
+
+    def get_qvel(self):
+        return self.qvel.copy()
+
+    def set_qvel(self, value):
+        self.qvel = np.asarray(value, dtype=float).copy()
+
+    def get_qacc(self):
+        return self.qacc.copy()
+
+    def set_qacc(self, value):
+        self.qacc = np.asarray(value, dtype=float).copy()
+
+
+class FakeScene:
+    def __init__(self):
+        self.actor = FakeActor("object")
+        self.articulation = FakeArticulation()
+
+    def get_all_actors(self):
+        return [self.actor]
+
+    def get_all_articulations(self):
+        return [self.articulation]
+
+
+class FakeTaskEnv:
+    def __init__(self):
+        self.scene = FakeScene()
+        self.take_action_cnt = 3
+        self.step_lim = 20
+        self.eval_success = False
+        self.plan_success = True
+        self.stage_success_tag = False
+        self.left_cnt = 2
+        self.right_cnt = 4
+        self.now_obs = {"state": np.array([1.0])}
+
+    def state_for_verification(self):
+        return {
+            "actor": self.scene.actor.get_pose(),
+            "qpos": self.scene.articulation.get_qpos(),
+            "step": self.take_action_cnt,
+        }
+
+    def take_action(self, action):
+        self.scene.actor.pose += np.asarray(action)
+        self.take_action_cnt += 1
+
+
+def test_concrete_runtime_restores_sapien_actor_articulation_and_step_count():
+    env, policy = FakeTaskEnv(), FakePolicy()
+    runtime = ConcreteRoboTwinRuntime(env, policy, require_torch=False)
+    snapshot = runtime.capture_snapshot()
+    env.scene.actor.pose[:] = 9.0
+    env.scene.articulation.qpos[:] = 8.0
+    env.take_action_cnt = 99
+    runtime.restore_snapshot(snapshot)
+    assert np.array_equal(env.scene.actor.pose, [0.0, 0.0, 0.0])
+    assert np.array_equal(env.scene.articulation.qpos, [0.1, 0.2])
+    assert env.take_action_cnt == 3
+
+
+def test_audit_rejects_sources_without_concrete_wrapper(tmp_path):
+    blocked = audit(
+        robotwin_root=tmp_path / "robotwin",
+        evo_root=tmp_path / "evo",
+        checkpoint_dir=tmp_path / "checkpoint",
+    )
+    assert blocked["status"] == "BLOCKED_CAPABILITY"
+    assert not blocked["concrete_wrapper_verified"]
+    assert "concrete wrapper" in blocked["capability_error"]
+
+
+def test_audit_accepts_explicit_concrete_wrapper_marker(tmp_path):
+    wrapper = tmp_path / "wrapper.py"
+    wrapper.write_text(
+        "class ConcreteRoboTwinRuntime: pass\n"
+        "class EvoProxyStateAdapter: pass\n",
+        encoding="utf-8",
+    )
+    result = audit(
+        robotwin_root=tmp_path / "robotwin",
+        evo_root=tmp_path / "evo",
+        checkpoint_dir=tmp_path / "checkpoint",
+        runtime_wrapper=wrapper,
+    )
+    assert result["concrete_wrapper_verified"]
+    assert "concrete wrapper" not in result["capability_error"]
 
 
 def test_exact_replay_is_verified_at_one_e_minus_nine():

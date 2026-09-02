@@ -27,6 +27,7 @@ lexical order are frozen before any Stage-S outcome is observed.
 | Task | Published clean success |
 |---|---:|
 | blocks_ranking_size | 0.58 |
+| pick_diverse_bottles | 0.49 |
 | place_a2b_left | 0.48 |
 | place_a2b_right | 0.38 |
 | place_bread_basket | 0.63 |
@@ -35,24 +36,32 @@ lexical order are frozen before any Stage-S outcome is observed.
 | place_fan | 0.34 |
 | place_object_scale | 0.49 |
 | place_shoe | 0.33 |
-| put_object_cabinet | 0.39 |
 
-The next four eligible names (rotate_qrcode, scan_object, stamp_seal,
-turn_switch) are not selected because the frozen rule takes the first ten.
+The next five eligible names (put_object_cabinet, rotate_qrcode, scan_object,
+stamp_seal, turn_switch) are not selected because the frozen rule takes the
+first ten.
 
 ## Dev14 inspection result
 
-The adapter was inspected against dev14 CPFS paths
-/mnt/cpfs/zbl-cpfs-new/USERS/leon and /workspace/leon on the audit date.
-No checkout at the exact RoboTwin pin, no Evo-1 checkout at its exact pin,
-and no local copy of the three checkpoint files were found. RoboTwin stable
-2.0 requires SAPIEN/CuRobo and the Evo-1 plugin/server; these are not present
-in the inspected assets. The checkpoint was intentionally not downloaded
-(the delegated work is static/unit-only).
+The adapter was inspected against dev14 CPFS on the audit date. The explicit
+source paths
+/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142_stage_s_deps/RoboTwin and
+/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142_stage_s_deps/Evo-1 resolve to
+RoboTwin stable_2.0 at 13c3c47ff4312dd62484bcd51be034af55c062d1 and Evo-1 at
+5fd14b015013c4fd0aacf5f8f48f868ca9b870a2. All ten selected task modules and
+instruction files are present. The explicit checkpoint path
+/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/models/Evo1_RoboTwin2_clean_ce8c583724706fbf7a03c17237761c65bf6813a7
+exists but is empty while the checkpoint download is pending. RoboTwin
+stable 2.0 requires SAPIEN/CuRobo and the Evo-1 plugin/server.
 
-Therefore the live substrate is BLOCKED_CAPABILITY. This is not a scientific
-failure and no synthetic rollout is emitted. The precise next prerequisites
-are: install/read-only checkout of all pinned sources, verify the checkpoint
-file hashes at the pinned HF revision, and supply an Evo-1 policy wrapper
-exposing exact simulator/history/action-queue/environment-RNG/policy-RNG
-snapshot and restore hooks.
+Therefore the current live substrate status is BLOCKED_CAPABILITY only because
+the three checkpoint files are not yet present. This is not a scientific
+failure and no synthetic rollout is emitted. The remaining prerequisite is to
+verify the checkpoint file hashes at the pinned HF revision and run the exact
+replay preflight through the concrete wrapper.
+
+The audit script requires the concrete wrapper path explicitly via
+--runtime-wrapper; source and weight presence alone never yields READY.
+The wrapper must export ConcreteRoboTwinRuntime and EvoProxyStateAdapter.
+The public Evo-1 deploy_policy.py has neither exact snapshot hooks nor server
+RNG restore, so it is correctly rejected.

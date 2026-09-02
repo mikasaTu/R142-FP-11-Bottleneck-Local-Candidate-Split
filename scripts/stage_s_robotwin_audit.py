@@ -44,6 +44,7 @@ def audit(
     robotwin_root: Path,
     evo_root: Path,
     checkpoint_dir: Path,
+    runtime_wrapper: Optional[Path] = None,
     pins: RoboTwinPins = RoboTwinPins(),
 ) -> Dict[str, Any]:
     selected = select_published_tasks()
@@ -57,7 +58,15 @@ def audit(
             name: _sha(checkpoint_dir / name)
             for name in ("config.json", "norm_stats.json", "mp_rank_00_model_states.pt")
         },
+        "runtime_wrapper": str(runtime_wrapper) if runtime_wrapper else None,
     }
+    wrapper_text = ""
+    if runtime_wrapper is not None and runtime_wrapper.is_file():
+        wrapper_text = runtime_wrapper.read_text(encoding="utf-8", errors="replace")
+    concrete_wrapper_verified = all(
+        symbol in wrapper_text
+        for symbol in ("ConcreteRoboTwinRuntime", "EvoProxyStateAdapter")
+    )
     tasks = [
         {
             "task": task,
@@ -78,12 +87,17 @@ def audit(
         missing.append(f"checkpoint files at HF revision {pins.checkpoint_revision}")
     if not all(row["task_module_present"] and row["instruction_present"] for row in tasks):
         missing.append("all ten task modules and instruction files")
+    if not concrete_wrapper_verified:
+        missing.append(
+            "concrete wrapper exporting ConcreteRoboTwinRuntime and EvoProxyStateAdapter"
+        )
     result: Dict[str, Any] = {
         "status": "READY_FOR_REAL_RUNTIME_PREFLIGHT" if not missing else "BLOCKED_CAPABILITY",
         "capability_error": "; ".join(missing) if missing else None,
         "pins": pins.as_dict(),
         "published_eval_source": PUBLISHED_EVAL_URL,
         "source_inventory": inventory,
+        "concrete_wrapper_verified": concrete_wrapper_verified,
         "selected_tasks": tasks,
         "synthetic_rollouts": False,
     }
@@ -95,12 +109,14 @@ def main() -> int:
     parser.add_argument("--robotwin-root", type=Path, required=True)
     parser.add_argument("--evo-root", type=Path, required=True)
     parser.add_argument("--checkpoint-dir", type=Path, required=True)
+    parser.add_argument("--runtime-wrapper", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     result = audit(
         robotwin_root=args.robotwin_root,
         evo_root=args.evo_root,
         checkpoint_dir=args.checkpoint_dir,
+        runtime_wrapper=args.runtime_wrapper,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

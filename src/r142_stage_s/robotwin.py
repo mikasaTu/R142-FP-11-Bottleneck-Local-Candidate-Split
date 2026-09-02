@@ -54,6 +54,7 @@ class RoboTwinPins:
 # only for the pre-registered, lexical task selection rule.
 PUBLISHED_CLEAN_SUCCESS: Mapping[str, float] = {
     "blocks_ranking_size": 0.58,
+    "pick_diverse_bottles": 0.49,
     "place_a2b_left": 0.48,
     "place_a2b_right": 0.38,
     "place_bread_basket": 0.63,
@@ -267,6 +268,365 @@ class ExactReplayVerifier:
         return {
             "passed": True,
             "tolerance": self.tolerance,
+            "action_error": action_error,
+            "next_state_error": next_state_error,
+        }
+
+
+def _capture_rng_state(
+    owner: Any,
+    label: str,
+    *,
+    require_owner: bool = False,
+    require_torch: bool = True,
+) -> Any:
+    """Capture process and owner RNG state; fail if torch is unavailable."""
+    import random
+
+    try:
+        import torch
+    except ImportError as exc:
+        if require_torch:
+            raise CapabilityError(
+                f"{label}: torch is required to capture Torch/CUDA RNG streams"
+            ) from exc
+        torch = None
+    state = {
+        "python": random.getstate(),
+        "numpy": np.random.get_state(),
+    }
+    if torch is not None:
+        state["torch"] = torch.get_rng_state().clone()
+        state["torch_cuda"] = (
+            [x.clone() for x in torch.cuda.get_rng_state_all()]
+            if torch.cuda.is_available()
+            else []
+        )
+    hook = getattr(owner, "capture_rng_state", None)
+    if callable(hook):
+        state["owner"] = _copy(hook())
+    elif require_owner:
+        raise CapabilityError(
+            f"{label}: owner-specific RNG hook missing; "
+            "remote policy RNG cannot be assumed deterministic"
+        )
+    return state
+
+
+def _restore_rng_state(
+    owner: Any,
+    state: Mapping[str, Any],
+    label: str,
+    *,
+    require_torch: bool = True,
+) -> None:
+    import random
+
+    try:
+        import torch
+    except ImportError as exc:
+        if require_torch:
+            raise CapabilityError(
+                f"{label}: torch is required to restore Torch/CUDA RNG streams"
+            ) from exc
+        torch = None
+    random.setstate(state["python"])
+    np.random.set_state(state["numpy"])
+    if torch is not None and "torch" in state:
+        torch.set_rng_state(state["torch"])
+        if torch.cuda.is_available() and state.get("torch_cuda"):
+            torch.cuda.set_rng_state_all(state["torch_cuda"])
+    hook = getattr(owner, "restore_rng_state", None)
+    if not callable(hook) and "owner" in state:
+        raise CapabilityError(f"{label}: owner-specific RNG restore hook missing")
+    if callable(hook) and "owner" in state:
+        hook(_copy(state["owner"]))
+
+
+@dataclass(frozen=True)
+class ConcreteReplaySnapshot:
+    """In-process snapshot of official RoboTwin task plus Evo policy state."""
+
+    simulator: Mapping[str, Any]
+    policy_history: Any
+    action_queue: Any
+    rng_streams: Mapping[str, Any]
+
+
+class EvoProxyStateAdapter:
+    """Stateful wrapper around the released Evo1Proxy plugin.
+
+    The public plugin only exposes infer/close and has a no-op reset_model.
+    Therefore a plain Evo1Proxy is deliberately rejected by
+    ConcreteRoboTwinRuntime. This wrapper records history and action chunks,
+    while requiring an explicit server-side RNG hook for exact replay.
+    """
+
+    def __init__(self, proxy: Any):
+        self.proxy = proxy
+        self.observation_history = []
+        self.action_queue = []
+        self.rng = np.random.default_rng()
+
+    def infer(self, *args: Any, **kwargs: Any) -> Any:
+        response = self.proxy.infer(*args, **kwargs)
+        self.observation_history.append(
+            {"state": _copy(args[3]) if len(args) > 3 else None,
+             "prompt": _copy(args[4]) if len(args) > 4 else None}
+        )
+        self.action_queue = _copy(response)
+        return response
+
+    def consume_action(self, action: Any) -> None:
+        if isinstance(self.action_queue, list) and self.action_queue:
+            self.action_queue.pop(0)
+
+    def capture_observation_history(self) -> Any:
+        return _copy(self.observation_history)
+
+    def restore_observation_history(self, value: Any) -> None:
+        self.observation_history = _copy(value)
+
+    def capture_action_queue(self) -> Any:
+        return _copy(self.action_queue)
+
+    def restore_action_queue(self, value: Any) -> None:
+        self.action_queue = _copy(value)
+
+    def capture_rng_state(self) -> Any:
+        hook = getattr(self.proxy, "capture_rng_state", None)
+        if not callable(hook):
+            raise CapabilityError(
+                "Evo proxy exact replay unavailable: the released WebSocket "
+                "server exposes no Torch/CUDA RNG snapshot hook"
+            )
+        return {"local": _copy(self.rng.bit_generator.state), "server": _copy(hook())}
+
+    def restore_rng_state(self, value: Any) -> None:
+        hook = getattr(self.proxy, "restore_rng_state", None)
+        if not callable(hook):
+            raise CapabilityError(
+                "Evo proxy exact replay unavailable: server RNG restore hook missing"
+            )
+        self.rng.bit_generator.state = _copy(value["local"])
+        hook(_copy(value["server"]))
+
+    def set_rng(self, rng: np.random.Generator) -> None:
+        self.rng = rng
+
+
+class ConcreteRoboTwinRuntime:
+    """Snapshot adapter for a real stable_2.0 SAPIEN task and Evo wrapper.
+
+    The task environment is the official RoboTwin object returned by
+    script/eval_policy.py. No synthetic state is accepted. Actor/articulation
+    object references remain process-local, which is sufficient for branch
+    replay; persisted family records contain only outcomes and trajectories.
+    """
+
+    _COUNTERS = (
+        "take_action_cnt", "step_lim", "eval_success", "plan_success",
+        "stage_success_tag", "left_cnt", "right_cnt", "FRAME_IDX",
+    )
+
+    def __init__(self, task_env: Any, policy: Any, *, require_torch: bool = True):
+        self.task_env = task_env
+        self.policy = policy
+        self.require_torch = bool(require_torch)
+
+    @staticmethod
+    def _pose_state(obj: Any) -> Any:
+        fn = getattr(obj, "get_pose", None)
+        return _copy(fn()) if callable(fn) else None
+
+    def capture_simulator_state(self) -> Dict[str, Any]:
+        scene = getattr(self.task_env, "scene", None)
+        if scene is None:
+            raise CapabilityError("RoboTwin scene missing: expected task_env.scene")
+        actors_fn = getattr(scene, "get_all_actors", None)
+        arts_fn = getattr(scene, "get_all_articulations", None)
+        if not callable(actors_fn) or not callable(arts_fn):
+            raise CapabilityError(
+                "stable_2.0 SAPIEN scene must expose get_all_actors() and "
+                "get_all_articulations()"
+            )
+        actors = []
+        for index, actor in enumerate(actors_fn()):
+            pose = self._pose_state(actor)
+            if pose is None or not callable(getattr(actor, "set_pose", None)):
+                raise CapabilityError(
+                    f"rigid actor {index} lacks get_pose/set_pose; cannot restore"
+                )
+            item = {
+                "object": actor,
+                "index": index,
+                "name": getattr(actor, "get_name", lambda: "")(),
+                "pose": pose,
+            }
+            for getter, setter, key in (
+                ("get_velocity", "set_velocity", "velocity"),
+                ("get_angular_velocity", "set_angular_velocity", "angular_velocity"),
+            ):
+                get_fn, set_fn = getattr(actor, getter, None), getattr(actor, setter, None)
+                if callable(get_fn) and callable(set_fn):
+                    item[key] = _copy(get_fn())
+            actors.append(item)
+        articulations = []
+        for index, articulation in enumerate(arts_fn()):
+            item = {"object": articulation, "index": index}
+            for getter, setter, key in (
+                ("get_root_pose", "set_root_pose", "root_pose"),
+                ("get_qpos", "set_qpos", "qpos"),
+                ("get_qvel", "set_qvel", "qvel"),
+                ("get_qacc", "set_qacc", "qacc"),
+            ):
+                get_fn, set_fn = getattr(articulation, getter, None), getattr(articulation, setter, None)
+                if callable(get_fn) and callable(set_fn):
+                    item[key] = _copy(get_fn())
+                elif callable(get_fn) != callable(set_fn):
+                    raise CapabilityError(
+                        f"articulation {index} has {getter} without matching {setter}"
+                    )
+            articulations.append(item)
+        return {
+            "scene": scene,
+            "actors": actors,
+            "articulations": articulations,
+            "counters": {key: _copy(getattr(self.task_env, key))
+                        for key in self._COUNTERS if hasattr(self.task_env, key)},
+            "now_obs": _copy(getattr(self.task_env, "now_obs", None)),
+        }
+
+    def restore_simulator_state(self, state: Mapping[str, Any]) -> None:
+        for item in state["actors"]:
+            actor = item["object"]
+            actor.set_pose(_copy(item["pose"]))
+            for key, setter in (
+                ("velocity", "set_velocity"),
+                ("angular_velocity", "set_angular_velocity"),
+            ):
+                if key in item:
+                    getattr(actor, setter)(_copy(item[key]))
+        for item in state["articulations"]:
+            articulation = item["object"]
+            for key, setter in (
+                ("root_pose", "set_root_pose"),
+                ("qpos", "set_qpos"),
+                ("qvel", "set_qvel"),
+                ("qacc", "set_qacc"),
+            ):
+                if key in item:
+                    getattr(articulation, setter)(_copy(item[key]))
+        for key, value in state["counters"].items():
+            setattr(self.task_env, key, _copy(value))
+        if "now_obs" in state:
+            self.task_env.now_obs = _copy(state["now_obs"])
+
+    def capture_observation_history(self) -> Any:
+        return _copy(_hook(
+            self.policy,
+            ("capture_observation_history", "snapshot_observation_history"),
+            "policy observation history",
+        )())
+
+    def restore_observation_history(self, value: Any) -> None:
+        _hook(
+            self.policy,
+            ("restore_observation_history", "restore_history"),
+            "policy observation history restore",
+        )(_copy(value))
+
+    def capture_action_queue(self) -> Any:
+        return _copy(_hook(
+            self.policy,
+            ("capture_action_queue", "snapshot_action_queue"),
+            "policy action queue",
+        )())
+
+    def restore_action_queue(self, value: Any) -> None:
+        _hook(
+            self.policy,
+            ("restore_action_queue", "restore_queue"),
+            "policy action queue restore",
+        )(_copy(value))
+
+    def capture_rng_state(self) -> Any:
+        # RoboTwin stable_2.0 uses Python/NumPy global randomness in task
+        # setup; Torch and CUDA are included by this process-level snapshot.
+        # A task-specific hook is included when supplied by the concrete
+        # wrapper, but is not guessed from an observation.
+        return _capture_rng_state(
+            self.task_env,
+            "RoboTwin runtime",
+            require_torch=self.require_torch,
+        )
+
+    def restore_rng_state(self, value: Mapping[str, Any]) -> None:
+        _restore_rng_state(
+            self.task_env,
+            value,
+            "RoboTwin runtime",
+            require_torch=self.require_torch,
+        )
+
+    def capture_snapshot(self) -> ConcreteReplaySnapshot:
+        return ConcreteReplaySnapshot(
+            simulator=self.capture_simulator_state(),
+            policy_history=self.capture_observation_history(),
+            action_queue=self.capture_action_queue(),
+            rng_streams={
+                "runtime": self.capture_rng_state(),
+                "policy": _copy(_hook(
+                    self.policy,
+                    ("capture_rng_state", "snapshot_rng"),
+                    "policy RNG streams",
+                )()),
+            },
+        )
+
+    def restore_snapshot(self, snapshot: ConcreteReplaySnapshot) -> None:
+        self.restore_simulator_state(snapshot.simulator)
+        self.restore_observation_history(snapshot.policy_history)
+        self.restore_action_queue(snapshot.action_queue)
+        self.restore_rng_state(snapshot.rng_streams["runtime"])
+        _hook(
+            self.policy,
+            ("restore_rng_state", "restore_rng"),
+            "policy RNG streams restore",
+        )(_copy(snapshot.rng_streams["policy"]))
+
+    def verify_restore(self, action: Optional[Any] = None) -> Dict[str, Any]:
+        observe = getattr(self.task_env, "state_for_verification", None)
+        if not callable(observe):
+            observe = getattr(self.task_env, "get_obs", None)
+        if not callable(observe):
+            raise CapabilityError(
+                "RoboTwin restore verification requires state_for_verification() or get_obs()"
+            )
+        act_fn = getattr(self.policy, "act", None)
+        if action is None and not callable(act_fn):
+            raise CapabilityError("Evo wrapper restore verification requires policy.act()")
+        snapshot = self.capture_snapshot()
+        self.restore_snapshot(snapshot)
+        obs_a = observe()
+        action_a = _copy(action) if action is not None else act_fn(obs_a)
+        self.task_env.take_action(action_a)
+        state_a = observe()
+        self.restore_snapshot(snapshot)
+        obs_b = observe()
+        action_b = _copy(action) if action is not None else act_fn(obs_b)
+        self.task_env.take_action(action_b)
+        state_b = observe()
+        action_error = _max_error(action_a, action_b, "action")
+        next_state_error = _max_error(state_a, state_b, "next_state")
+        if max(action_error, next_state_error) > 1e-9:
+            raise CapabilityError(
+                "RoboTwin exact replay failed: "
+                f"action_error={action_error:.3g}, next_state_error={next_state_error:.3g}"
+            )
+        return {
+            "passed": True,
+            "tolerance": 1e-9,
             "action_error": action_error,
             "next_state_error": next_state_error,
         }
