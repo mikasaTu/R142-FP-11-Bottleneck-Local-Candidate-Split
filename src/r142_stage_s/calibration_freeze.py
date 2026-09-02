@@ -430,7 +430,9 @@ def _lineage_completion(path: Path, payload: Mapping[str, Any]) -> tuple[Path, d
     observed = _sha256(completion_path)
     if expected_sha is not None and expected_sha != observed:
         raise CalibrationFreezeError("C training completion marker SHA mismatch")
-    entries = payload.get("checkpoints")
+    if payload.get("accepted") is False or payload.get("status") not in (None, "ACCEPTED", "COMPLETED"):
+        raise CalibrationFreezeError("C training lineage wrapper is not accepted")
+    entries = payload.get("checkpoints") or payload.get("checkpoint_artifacts")
     if not isinstance(entries, list):
         raise CalibrationFreezeError("C lineage wrapper must enumerate checkpoints")
     return completion_path, completion, [entry for entry in entries if isinstance(entry, Mapping)]
@@ -696,6 +698,8 @@ def freeze_protocol(
     adjacent_md = destination.parent / "PROTOCOL.md"
     if not adjacent_md.is_file() or adjacent_md.is_symlink():
         raise CalibrationFreezeError("protocol acceptance requires adjacent non-symlink PROTOCOL.md")
+    if adjacent_md.read_text(encoding="utf-8") != protocol_text:
+        raise CalibrationFreezeError("adjacent PROTOCOL.md differs from committed stage-s/PROTOCOL.md")
     md_sha = _sha256(adjacent_md)
     acceptance = {
         "status": "ACCEPTED",
