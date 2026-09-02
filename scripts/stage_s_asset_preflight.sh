@@ -116,16 +116,19 @@ if [[ ! -x "$RT_ENV/bin/python" ]]; then
   "$TOOLS_ENV/bin/uv" venv --seed --python 3.10 "$RT_ENV"
 fi
 "$RT_ENV/bin/pip" install --retries 8 -r "$RT/script/requirements.txt" websockets
+# SAPIEN imports the legacy pkg_resources module from setuptools during the
+# RoboTwin smoke test.  New setuptools releases omit that module, so pin the
+# provider in the exact runtime environment before importing SAPIEN.
+"$RT_ENV/bin/pip" install --retries 8 "setuptools<81"
 "$RT_ENV/bin/pip" install --retries 8 -e "$RT/envs/curobo" --no-build-isolation
 
 if [[ ! -x "$EVO_ENV/bin/python" ]]; then
   "$TOOLS_ENV/bin/uv" venv --seed --python 3.10 "$EVO_ENV"
 fi
 "$EVO_ENV/bin/pip" install --retries 8 -r "$DEPS/Evo-1/Evo_1/requirements.txt"
-# setuptools 82 removed the legacy pkg_resources module that Evo-1 still
-# imports during its smoke test.  Pin only this environment to the newest
-# pre-removal series; this is an environment compatibility constraint, not a
-# model or scientific-protocol change.
+# Keep the same compatibility provider in Evo-1 as well.  These two explicit
+# environment pins are infrastructure constraints, not model or protocol
+# changes.
 "$EVO_ENV/bin/pip" install --retries 8 "setuptools<81"
 # Do not let this wheel use the persistent pip cache.  TMPDIR is deliberately
 # below the same CPFS root so build/install renames never cross filesystems.
@@ -175,10 +178,10 @@ payload = {
     "tmpdir_under_new_root": str(flash_tmp).startswith("/mnt/cpfs/zbl-cpfs-new/"),
     "home_unchanged": True,
   },
-  "evo_pkg_resources_compat": {
+  "pkg_resources_compat": {
     "provider": "setuptools",
     "version_constraint": "<81",
-    "scope": "evo1_environment_only",
+    "environments": ["robotwin_py310", "evo1_py310"],
   },
   "completed_at": time.time(),
 }
