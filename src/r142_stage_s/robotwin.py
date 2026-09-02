@@ -100,7 +100,28 @@ def select_published_tasks(
 
 
 def _copy(value: Any) -> Any:
-    return copy.deepcopy(value)
+    # SAPIEN actor/articulation handles are process-local opaque objects and
+    # cannot be deep-copied without replacing the live simulator object.  The
+    # concrete snapshot stores those handles under these explicit keys; copy
+    # every numeric/state payload while preserving the handles themselves.
+    if isinstance(value, Mapping):
+        return {
+            key: (item if key in {"object", "scene"} else _copy(item))
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_copy(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_copy(item) for item in value)
+    if isinstance(value, np.ndarray):
+        return value.copy()
+    try:
+        return copy.deepcopy(value)
+    except Exception:
+        # Opaque policy/server handles are only safe to retain by identity;
+        # all values that participate in exact-state comparison are arrays or
+        # plain Python containers handled above.
+        return value
 
 
 def _hook(obj: Any, names: Sequence[str], label: str) -> Callable[..., Any]:
@@ -655,6 +676,11 @@ class CandidateRecord:
     generation_step: int
     action_prefix: list = field(default_factory=list)
     pose_trajectory: list = field(default_factory=list)
+    # ``pose_trajectory`` is retained for compatibility with the initial
+    # audit.  These explicit fields make the Stage-S persisted contract
+    # unambiguous for downstream analysis.
+    eef_trajectory: list = field(default_factory=list)
+    object_trajectories: Dict[str, list] = field(default_factory=dict)
     final_success: bool = False
     task_name: str = ""
     family_id: str = ""
@@ -662,6 +688,8 @@ class CandidateRecord:
     seed: int = 0
     policy_forwards: int = 0
     env_steps: int = 0
+    seed_sequence: list = field(default_factory=list)
+    seed_genealogy: Dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> Dict[str, Any]:
         return _jsonable(self.__dict__)
@@ -689,6 +717,39 @@ class AtomicFamilyWriter:
                 os.unlink(tmp)
         return hashlib.sha256(data).hexdigest()
 
+    def _read_completed(self, family_id: str) -> Optional[Dict[str, Any]]:
+        """Return a verified immutable marker, or ``None`` if unfinished."""
+        directory = self.root / family_id
+        marker_path = directory / "COMPLETED_FAMILY.json"
+        if not marker_path.is_file():
+            return None
+        try:
+            existing = json.loads(marker_path.read_text(encoding="utf-8"))
+            files = existing.get("files", {})
+            if not files:
+                raise ValueError("completion marker has no file hashes")
+            for name, expected_sha in files.items():
+                file_path = directory / str(name)
+                if not file_path.is_file():
+                    raise ValueError(f"missing completion file: {name}")
+                actual_sha = hashlib.sha256(file_path.read_bytes()).hexdigest()
+                if actual_sha != str(expected_sha):
+                    raise ValueError(f"completion file hash mismatch: {name}")
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            raise CapabilityError(
+                f"immutable family completion marker is invalid: {marker_path}"
+            ) from exc
+        return {
+            **existing,
+            "completion_sha256": hashlib.sha256(marker_path.read_bytes()).hexdigest(),
+            "path": str(directory),
+            "skipped_existing": True,
+        }
+
+    def completed(self, family_id: str) -> Optional[Dict[str, Any]]:
+        """Verify and return a completed family for idempotent resume."""
+        return self._read_completed(family_id)
+
     def write(
         self,
         family_id: str,
@@ -698,6 +759,9 @@ class AtomicFamilyWriter:
     ) -> Dict[str, Any]:
         records = list(records)
         directory = self.root / family_id
+        existing = self._read_completed(family_id)
+        if existing is not None:
+            return existing
         payload = {
             "family_id": family_id,
             "metadata": _jsonable(dict(metadata or {})),
@@ -714,10 +778,18 @@ class AtomicFamilyWriter:
             + "\n"
         ).encode()
         genealogy_sha = self._atomic(directory / "genealogy.jsonl", genealogy_data)
+        sums_data = (
+            f"{result_sha}  family.json\n{genealogy_sha}  genealogy.jsonl\n"
+        ).encode()
+        sums_sha = self._atomic(directory / "SHA256SUMS", sums_data)
         marker = {
             "family_id": family_id,
             "candidate_count": len(records),
-            "files": {"family.json": result_sha, "genealogy.jsonl": genealogy_sha},
+            "files": {
+                "family.json": result_sha,
+                "genealogy.jsonl": genealogy_sha,
+                "SHA256SUMS": sums_sha,
+            },
         }
         marker_data = (
             json.dumps(marker, sort_keys=True, ensure_ascii=False, indent=2) + "\n"
@@ -728,12 +800,46 @@ class AtomicFamilyWriter:
 
 def _pose(observation: Any) -> Any:
     if isinstance(observation, Mapping):
-        for key in ("pose", "endpose", "ee_pose", "joint_action"):
+        for key in ("endpose", "ee_pose", "pose", "joint_action"):
             if key in observation:
                 return observation[key]
         if "observation" in observation:
             return _pose(observation["observation"])
     return None
+
+
+def _object_poses(env: Any) -> Dict[str, Any]:
+    """Read real rigid-actor poses from the official scene, if exposed.
+
+    Object trajectories are never inferred from actions or pixels.  A missing
+    scene hook is represented as an empty mapping for lightweight unit tests;
+    the real runtime wrapper still fails closed on missing simulator snapshot
+    capability before any rollout is accepted.
+    """
+    source = getattr(env, "task_env", env)
+    hook = getattr(source, "get_object_poses", None)
+    if callable(hook):
+        value = hook()
+        if not isinstance(value, Mapping):
+            raise CapabilityError("get_object_poses() must return a mapping")
+        return {str(k): _jsonable(v) for k, v in value.items()}
+    scene = getattr(source, "scene", None)
+    actors_fn = getattr(scene, "get_all_actors", None)
+    if not callable(actors_fn):
+        return {}
+    result: Dict[str, Any] = {}
+    for index, actor in enumerate(actors_fn()):
+        get_pose = getattr(actor, "get_pose", None)
+        if not callable(get_pose):
+            raise CapabilityError(
+                f"rigid actor {index} lacks get_pose; cannot record object trajectory"
+            )
+        get_name = getattr(actor, "get_name", None)
+        name = str(get_name()) if callable(get_name) else f"actor-{index:04d}"
+        if name in result:
+            name = f"{name}#{index:04d}"
+        result[name] = _jsonable(get_pose())
+    return result
 
 
 class FamilyRolloutRunner:
@@ -760,6 +866,9 @@ class FamilyRolloutRunner:
     ) -> Dict[str, Any]:
         if candidate_count <= 0:
             raise ValueError("candidate_count must be positive")
+        existing = self.writer.completed(family_id)
+        if existing is not None:
+            return existing
         env = self.env_factory()
         reset = _hook(env, ("reset", "reset_episode", "setup_demo"), "episode reset")
         try:
@@ -770,11 +879,18 @@ class FamilyRolloutRunner:
             except TypeError:
                 reset(int(initial_seed))
         first = self.policy_factory(int(initial_seed))
-        base = ExactReplayVerifier(env, first).capture()
+        replay = ExactReplayVerifier(env, first)
+        base = replay.capture()
+        # Mandatory fail-closed preflight.  It runs before candidate 0 and
+        # before any completion marker can be written.  The original initial
+        # state is restored after the two replay probes.
+        replay_gate = replay.verify_restore()
+        replay.restore(base)
         records = []
         for index in range(candidate_count):
+            seed_sequence = np.random.SeedSequence([int(initial_seed), index])
             seed = int(
-                np.random.SeedSequence([int(initial_seed), index]).generate_state(1)[0]
+                seed_sequence.generate_state(1)[0]
             )
             policy = first if index == 0 else self.policy_factory(seed)
             ExactReplayVerifier(env, policy).restore(base)
@@ -787,6 +903,12 @@ class FamilyRolloutRunner:
                 family_id=family_id,
                 initial_state_id=initial_state_id,
                 seed=seed,
+                seed_sequence=[int(initial_seed), int(index)],
+                seed_genealogy={
+                    "root_seed": int(initial_seed),
+                    "candidate_index": int(index),
+                    "spawn_key": list(seed_sequence.spawn_key),
+                },
             )
             self._rollout(env, policy, record)
             records.append(record)
@@ -800,6 +922,7 @@ class FamilyRolloutRunner:
                 "candidate_count": candidate_count,
                 "candidate_rng": "SeedSequence([initial_seed, candidate_index])",
                 "termination": "official eval_success or step_lim",
+                "replay_capability_gate": replay_gate,
             },
         )
 
@@ -839,7 +962,11 @@ class FamilyRolloutRunner:
             observation = env.get_obs()
             action = self._act(policy, observation, rng)
             record.action_prefix.append(_jsonable(action))
-            record.pose_trajectory.append(_jsonable(_pose(observation)))
+            eef_pose = _jsonable(_pose(observation))
+            record.pose_trajectory.append(eef_pose)
+            record.eef_trajectory.append(eef_pose)
+            for name, pose in _object_poses(env).items():
+                record.object_trajectories.setdefault(name, []).append(pose)
             env.take_action(action)
             record.env_steps += 1
             if initial_forward is None:

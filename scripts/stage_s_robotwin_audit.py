@@ -39,6 +39,55 @@ def _sha(path: Path) -> Optional[str]:
     return digest.hexdigest()
 
 
+def _checkpoint_revision_evidence(
+    checkpoint_dir: Path, expected_revision: str
+) -> Dict[str, Any]:
+    """Resolve explicit HF revision evidence without assuming a cache layout."""
+    if expected_revision in checkpoint_dir.name:
+        return {"source": "directory_name", "revision": expected_revision, "matches": True}
+    for filename in (
+        "revision.txt",
+        "checkpoint_revision.txt",
+        "REVISION",
+        "revision.json",
+        "checkpoint_revision.json",
+    ):
+        path = checkpoint_dir / filename
+        if not path.is_file():
+            continue
+        try:
+            raw = path.read_text(encoding="utf-8").strip()
+            if path.suffix == ".json":
+                value = json.loads(raw)
+                revision = value.get("revision") if isinstance(value, dict) else value
+            else:
+                revision = raw.splitlines()[0] if raw else None
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            revision = None
+        return {
+            "source": str(path),
+            "revision": revision,
+            "matches": revision == expected_revision,
+        }
+    return {"source": None, "revision": None, "matches": False}
+
+
+def _checkpoint_hash_expectations(checkpoint_dir: Path) -> Dict[str, str]:
+    """Read optional expected file hashes from explicit revision metadata."""
+    for filename in ("revision.json", "checkpoint_revision.json"):
+        path = checkpoint_dir / filename
+        if not path.is_file():
+            continue
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            continue
+        files = value.get("files") if isinstance(value, dict) else None
+        if isinstance(files, dict):
+            return {str(name): str(sha) for name, sha in files.items()}
+    return {}
+
+
 def audit(
     *,
     robotwin_root: Path,
@@ -48,16 +97,28 @@ def audit(
     pins: RoboTwinPins = RoboTwinPins(),
 ) -> Dict[str, Any]:
     selected = select_published_tasks()
+    revision_evidence = _checkpoint_revision_evidence(
+        checkpoint_dir, pins.checkpoint_revision
+    )
+    expected_hashes = _checkpoint_hash_expectations(checkpoint_dir)
+    checkpoint_files = {
+        name: _sha(checkpoint_dir / name)
+        for name in ("config.json", "norm_stats.json", "mp_rank_00_model_states.pt")
+    }
+    hash_mismatches = {
+        name: {"expected": expected, "actual": checkpoint_files.get(name)}
+        for name, expected in expected_hashes.items()
+        if checkpoint_files.get(name) != expected
+    }
     inventory = {
         "robotwin_root": str(robotwin_root),
         "robotwin_head": _head(robotwin_root),
         "evo_root": str(evo_root),
         "evo_head": _head(evo_root),
         "checkpoint_dir": str(checkpoint_dir),
-        "checkpoint_files": {
-            name: _sha(checkpoint_dir / name)
-            for name in ("config.json", "norm_stats.json", "mp_rank_00_model_states.pt")
-        },
+        "checkpoint_files": checkpoint_files,
+        "checkpoint_revision_evidence": revision_evidence,
+        "checkpoint_hash_mismatches": hash_mismatches,
         "runtime_wrapper": str(runtime_wrapper) if runtime_wrapper else None,
     }
     wrapper_text = ""
@@ -85,6 +146,12 @@ def audit(
         missing.append(f"Evo-1 checkout {pins.evo_revision}")
     if any(value is None for value in inventory["checkpoint_files"].values()):
         missing.append(f"checkpoint files at HF revision {pins.checkpoint_revision}")
+    if not revision_evidence["matches"]:
+        missing.append(
+            f"explicit checkpoint revision evidence for HF commit {pins.checkpoint_revision}"
+        )
+    if hash_mismatches:
+        missing.append("checkpoint file hashes matching revision metadata")
     if not all(row["task_module_present"] and row["instruction_present"] for row in tasks):
         missing.append("all ten task modules and instruction files")
     if not concrete_wrapper_verified:

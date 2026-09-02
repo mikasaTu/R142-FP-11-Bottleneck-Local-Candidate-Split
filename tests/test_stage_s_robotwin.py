@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -13,6 +15,7 @@ from r142_stage_s.robotwin import (
     CapabilityError,
     ConcreteRoboTwinRuntime,
     ExactReplayVerifier,
+    FamilyRolloutRunner,
     PUBLISHED_CLEAN_SUCCESS,
     select_published_tasks,
 )
@@ -265,3 +268,144 @@ def test_atomic_outcome_genealogy_and_sha(tmp_path):
         (directory / "family.json").read_bytes()
     ).hexdigest()
     assert manifest["candidate_count"] == 1
+
+
+class RolloutEnv(FakeEnv):
+    def __init__(self):
+        super().__init__()
+        self.scene = FakeScene()
+        self.scene.actor.pose = np.zeros(2)
+        self.take_action_cnt = 0
+        self.step_lim = 3
+        self.eval_success = False
+
+    def reset(self, seed, task_name=None):
+        self.state = np.array([0.0, 0.0])
+        self.scene.actor.pose = np.zeros(2)
+        self.take_action_cnt = 0
+        self.eval_success = False
+
+    def capture_simulator_state(self):
+        return {
+            "state": self.state.copy(),
+            "actor": self.scene.actor.pose.copy(),
+            "step": self.take_action_cnt,
+            "success": self.eval_success,
+        }
+
+    def restore_simulator_state(self, value):
+        self.state = np.asarray(value["state"], dtype=float).copy()
+        self.scene.actor.pose = np.asarray(value["actor"], dtype=float).copy()
+        self.take_action_cnt = int(value["step"])
+        self.eval_success = bool(value["success"])
+
+    def get_obs(self):
+        return {"endpose": self.state.copy(), "state": self.state.copy()}
+
+    def take_action(self, action):
+        delta = np.asarray(action, dtype=float)
+        self.state += delta
+        self.scene.actor.pose += delta
+        self.take_action_cnt += 1
+        self.eval_success = self.take_action_cnt >= 2
+
+
+class RolloutPolicy(FakePolicy):
+    def __init__(self, seed=0):
+        super().__init__()
+        self.rng = np.random.default_rng(seed)
+
+    def set_rng(self, rng):
+        self.rng = rng
+
+    def capture_rng_state(self):
+        return self.rng.bit_generator.state.copy()
+
+    def restore_rng_state(self, value):
+        self.rng.bit_generator.state = value.copy()
+
+    def act(self, observation, **kwargs):
+        return np.array([0.1, 0.2])
+
+
+def test_runner_requires_gate_and_persists_seed_eef_object_genealogy(tmp_path):
+    writer = AtomicFamilyWriter(tmp_path)
+    runner = FamilyRolloutRunner(
+        env_factory=RolloutEnv,
+        policy_factory=lambda seed: RolloutPolicy(seed),
+        writer=writer,
+    )
+    manifest = runner.run_family(
+        task_name="blocks_ranking_size",
+        family_id="family-1",
+        initial_state_id="blocks_ranking_size/state-0000",
+        initial_seed=14211,
+        candidate_count=2,
+    )
+    payload = json.loads((tmp_path / "family-1" / "family.json").read_text())
+    assert manifest["candidate_count"] == 2
+    assert payload["metadata"]["replay_capability_gate"]["passed"]
+    for candidate in payload["candidates"]:
+        assert candidate["seed_sequence"]
+        assert candidate["seed_genealogy"]["root_seed"] == 14211
+        assert candidate["eef_trajectory"]
+        assert candidate["object_trajectories"]["object"]
+        assert candidate["final_success"] is True
+
+
+def test_completed_family_is_idempotent_and_corruption_fails_closed(tmp_path):
+    writer = AtomicFamilyWriter(tmp_path)
+    record = CandidateRecord(
+        candidate_id="family-0/candidate-0000",
+        parent_id=None,
+        generation_step=0,
+        final_success=False,
+    )
+    first = writer.write("family-0", [record])
+    second = writer.write("family-0", [record])
+    assert second["skipped_existing"] is True
+    assert second["completion_sha256"] == first["completion_sha256"]
+    (tmp_path / "family-0" / "genealogy.jsonl").write_text("corrupted\n")
+    with pytest.raises(CapabilityError, match="immutable family completion marker"):
+        writer.write("family-0", [record])
+
+
+def test_payload_builder_freezes_robot_idle_shard_and_guard(tmp_path):
+    from scripts.stage_s_robotwin_main import BEIJING, assert_outside_blackout
+    from scripts.stage_s_robotwin_payload import build_payload
+
+    safe_now = datetime(2026, 9, 2, 12, 0, tzinfo=BEIJING)
+    payload = build_payload(
+        run_id="stage-s-rank-0000",
+        output_root=tmp_path / "A",
+        robotwin_root=Path("/dev14/robotwin"),
+        evo_root=Path("/dev14/evo"),
+        checkpoint_dir=Path("/dev14/checkpoint_ce8c583724706fbf7a03c17237761c65bf6813a7"),
+        server_url="ws://127.0.0.1:9000",
+        rank=0,
+        world_size=4,
+        now=safe_now,
+    )
+    assert payload["resources"] == {
+        "pool": "robot",
+        "resource_mode": "idle",
+        "preemptible": True,
+        "gpu_type": "A800",
+        "gpu_count": 8,
+        "cpu_cores": 88,
+        "memory_gib": 1525,
+    }
+    assert payload["shard"]["assignment"].startswith("flat_task_family_index")
+    assert payload["submission"]["submit"] is False
+    with pytest.raises(CapabilityError, match="blackout"):
+        assert_outside_blackout(datetime(2026, 9, 2, 9, 35, tzinfo=BEIJING))
+    with pytest.raises(CapabilityError, match="blackout"):
+        build_payload(
+            run_id="stage-s-rank-0000",
+            output_root=tmp_path / "B",
+            robotwin_root=Path("/dev14/robotwin"),
+            evo_root=Path("/dev14/evo"),
+            checkpoint_dir=Path("/dev14/checkpoint_ce8c583724706fbf7a03c17237761c65bf6813a7"),
+            server_url="ws://127.0.0.1:9000",
+            now=datetime(2026, 9, 2, 19, 35, tzinfo=BEIJING),
+        )
