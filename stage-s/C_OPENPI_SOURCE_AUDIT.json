@@ -4,6 +4,30 @@
   "source_url": "https://github.com/Physical-Intelligence/openpi.git",
   "expected_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
   "observed_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+  "registry_provenance": {
+    "contract_source_job_id": "dlckjz66iwcv38gw",
+    "resource_source_job_id": "dlckjz66iwcv38gw",
+    "source_role": "readback_reference",
+    "submission_method": "cli_create",
+    "pai_clone_performed": false
+  },
+  "registry_admission": {
+    "registry_root": "/mnt/cpfs/zbl-cpfs-new/share/leon/codex-archives/Explore-claude-local-worktrees/r142-stage-s-pai-registry-clean-20260902",
+    "run_id": "r142-stage-s-c-undertrained-20260903-r1",
+    "resource_alias": "idle-a800-robot-stage-s-graphics-8gpu",
+    "resource_id": "quota1ssrabud0bh",
+    "required_pod_env": {
+      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
+    },
+    "requested_runtime_pod_env": {
+      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics",
+      "STAGE_S_SOURCE_COMMIT": "7575da585be31eb369a604d90048b338bbbf2c92"
+    },
+    "requested_manifest_validation": "refused_runtime_pod_env_superset",
+    "requested_manifest_validation_message": "REFUSED: runtime.pod_env differs from the resource registry contract",
+    "control_probe_validation": "valid=true",
+    "no_pai_submit_performed": true
+  },
   "checkout_dirty": false,
   "python": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python",
   "python_executable": true,
@@ -15,6 +39,7 @@
   "stage_s_runtime_project_dir_env": "STAGE_S_C_PROJECT_DIR",
   "stage_s_source_commit_env": "STAGE_S_SOURCE_COMMIT",
   "payload_sha256_env": "STAGE_S_C_PAYLOAD_SHA256",
+  "stage_s_source_commit": "7575da585be31eb369a604d90048b338bbbf2c92",
   "config_name": "pi05_libero",
   "official_converter": "examples/convert_jax_model_to_pytorch.py",
   "official_trainer": "scripts/train_pytorch.py",

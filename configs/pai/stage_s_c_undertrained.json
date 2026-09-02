@@ -22,15 +22,20 @@
     "shared_memory": "1525Gi"
   },
   "provenance": {
+    "contract_source_job_id": "dlckjz66iwcv38gw",
+    "resource_source_job_id": "dlckjz66iwcv38gw",
+    "source_role": "readback_reference",
+    "submission_method": "cli_create",
+    "pai_clone_performed": false,
     "openpi_source_url": "https://github.com/Physical-Intelligence/openpi.git",
     "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
     "qpilots_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812",
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
     "stage_s_source_commit_env": "STAGE_S_SOURCE_COMMIT",
     "stage_s_source_commit_policy": "controller_must_inject_exact_clean_runtime_commit",
-    "source_role": "official_openpi_pi05_base_and_pytorch_trainer",
+    "code_source_role": "official_openpi_pi05_base_and_pytorch_trainer",
     "community_sft_base_forbidden": true,
-    "submission_method": "pai-job-registry-v2",
+    "registry_manifest_type": "pai-job-registry-v2",
     "direct_unregistered_createjob_forbidden": true
   },
   "network": {},
@@ -71,12 +76,14 @@
     "recursive_repair": false,
     "secret_env_names": [],
     "pod_env": {
-      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility",
+      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics",
       "STAGE_S_C_PROJECT_DIR": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903",
-      "STAGE_S_C_PAYLOAD_SHA256": "85efff1581bd4428d5b64700bf677efeb53eed412a137c71519deb7d5d078da6"
+      "STAGE_S_C_PAYLOAD_SHA256": "85efff1581bd4428d5b64700bf677efeb53eed412a137c71519deb7d5d078da6",
+      "STAGE_S_SOURCE_COMMIT": "7575da585be31eb369a604d90048b338bbbf2c92"
     },
-    "required_env_names": ["PAI_RUN_ID", "STAGE_S_SOURCE_COMMIT", "STAGE_S_C_PROJECT_DIR", "STAGE_S_C_PAYLOAD_SHA256"],
+    "required_env_names": ["PAI_CANARY_RUN_ID", "STAGE_S_SOURCE_COMMIT", "STAGE_S_C_PROJECT_DIR", "STAGE_S_C_PAYLOAD_SHA256"],
     "write_paths": [
+      "{{ARTIFACT_DIR}}",
       "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base",
       "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/r142_stage_s/pi05_base_pytorch",
       "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/openpi/r16p15/openpi-assets/checkpoints",
@@ -97,7 +104,8 @@
     "pai_automatic_fault_tolerance": true,
     "max_num_of_job_restart": 50,
     "maximum_platform_restarts": 50,
-    "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure"
+    "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure",
+    "complete_state_save_interval_steps": 500
   },
   "stage_pipeline": {
     "same_foreground_job": true,
@@ -110,12 +118,30 @@
     "stage_marker_sha_policy": "each status marker includes payload_sha256 and evidence_sha256 when evidence exists"
   },
   "evidence": {
-    "kind": "r142_stage_s_c_undertrained_training",
+    "kind": "r142_stage_s_c_undertrained_formal_training",
     "workload_type": "training",
-    "success_gate": "COMPLETED_C_TRAINING.json plus checkpoint and log SHA256SUMS verified with sha256sum -c",
+    "success_gate": "persisted_step_and_loss",
     "task_id": "r142-stage-s-substrate-c-undertrained",
     "model_id": "pi05_base-openpi-54cbaee6-converted",
     "contract_ready": true,
+    "idle_8gpu_contract": "generic_formal_idle_8gpu_v1",
+    "explicit_user_resource_authorization": {
+      "resource_id": "quota1ssrabud0bh",
+      "oversold_type": "AcceptQuotaOverSold",
+      "scope": "{{RUN_ID}}"
+    },
+    "require_actual_idle": true,
+    "pai_probe_created": false,
+    "validation_status": "passed",
+    "validation_method": "static+dev14_smoke",
+    "validated_payload_sha256": "85efff1581bd4428d5b64700bf677efeb53eed412a137c71519deb7d5d078da6",
+    "expected_first_work_uid": 2254,
+    "expected_first_work_gid": 2254,
+    "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c_status/{{RUN_ID}}/RUNTIME_IDENTITY.json",
+    "checkpoint_contract": "model_optimizer_scheduler_rng_global_step",
+    "checkpoint_retention": "all_positive_10000_multiples_union_latest_2_complete",
+    "idle_training_checkpoint_policy": "complete_500_all_10000_plus_latest_2_v1",
+    "rolling_keep_complete": 2,
     "scientific_rollouts": false,
     "runtime_gpu_smoke_only": false,
     "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
@@ -148,11 +174,11 @@
     "job_reserved_policy": "",
     "tags": {
       "managed_by": "pai-job-registry",
-      "purpose": "substrate-training",
+      "purpose": "formal-training",
       "project": "r142-fp-11-stage-s",
       "substrate": "C",
       "task": "r142-stage-s-substrate-c-undertrained",
-      "model": "pi05-base-openpi-54cbaee6",
+      "model": "pi05_base-openpi-54cbaee6-converted",
       "resource_pool": "exp-robot",
       "hardware": "8xa800-idle",
       "autoresume": "application-idempotent"
