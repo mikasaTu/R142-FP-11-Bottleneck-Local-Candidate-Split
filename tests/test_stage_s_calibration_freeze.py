@@ -405,22 +405,19 @@ def test_protocol_freeze_and_acceptance_tamper_detection(tmp_path: Path) -> None
     paths, _ = _freeze_inputs(tmp_path)
     repo = tmp_path / "protocol-repo"
     source_md = repo / "stage-s" / "PROTOCOL.md"
-    # The commit has to contain the exact markdown bytes; create the fixture
-    # once with a placeholder, then commit the final text and read its SHA.
+    # The declared commit must contain the exact protocol bytes.  The file
+    # cannot honestly contain its own future commit hash, so the binding is
+    # verified with git-show rather than a self-referential text field.
     source_md.parent.mkdir(parents=True)
-    source_md.write_text("placeholder\n", encoding="utf-8")
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     subprocess.run(["git", "-C", str(repo), "config", "user.name", "test"], check=True)
     subprocess.run(["git", "-C", str(repo), "config", "user.email", "test@example.invalid"], check=True)
-    commit_file = repo / "commit.txt"
-    commit_file.write_text("protocol fixture\n", encoding="utf-8")
-    subprocess.run(["git", "-C", str(repo), "add", "stage-s/PROTOCOL.md", "commit.txt"], check=True)
-    subprocess.run(["git", "-C", str(repo), "commit", "-qm", "protocol fixture"], check=True)
-    commit = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
-    protocol_commit = commit
-    source_md.write_text(_protocol_markdown(protocol_commit), encoding="utf-8")
+    source_md.write_text(_protocol_markdown("1" * 40), encoding="utf-8")
     subprocess.run(["git", "-C", str(repo), "add", "stage-s/PROTOCOL.md"], check=True)
     subprocess.run(["git", "-C", str(repo), "commit", "-qm", "protocol content"], check=True)
+    protocol_commit = subprocess.check_output(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], text=True
+    ).strip()
     acceptance_path = tmp_path / "logs" / "stage_s" / "protocol" / "FROZEN_PROTOCOL.json"
     payload = freeze_protocol(
         protocol_md=source_md,
@@ -431,6 +428,13 @@ def test_protocol_freeze_and_acceptance_tamper_detection(tmp_path: Path) -> None
         repo_root=repo,
     )
     assert payload["schema"] == "r142-stage-s-protocol-acceptance-v1"
+    assert payload["protocol_git_commit"] == protocol_commit
+    assert payload["frozen_summary"] == FROZEN_SUMMARY
+    assert payload["s4"] == FROZEN_SUMMARY["s4"]
+    assert payload["s5"] == FROZEN_SUMMARY["s5"]
+    assert set(payload["files"]) == {
+        "PROTOCOL.md", "B_CALIBRATION_REPORT", "C_CALIBRATION_REPORT"
+    }
     read_frozen_protocol(
         acceptance_path,
         substrate="B",
@@ -469,5 +473,29 @@ def test_protocol_missing_requirement_or_commit_is_rejected(tmp_path: Path) -> N
             b_report=tmp_path / "out" / "b" / "CALIBRATION_REPORT.json",
             c_report=tmp_path / "out" / "c" / "CALIBRATION_REPORT.json",
             output_path=tmp_path / "bad-out" / "FROZEN_PROTOCOL.json",
+            repo_root=repo,
+        )
+
+
+def test_protocol_freeze_rejects_worktree_bytes_not_in_declared_commit(tmp_path: Path) -> None:
+    _freeze_inputs(tmp_path)
+    repo = tmp_path / "drift-repo"
+    protocol = repo / "stage-s" / "PROTOCOL.md"
+    protocol.parent.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.name", "test"], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.email", "test@example.invalid"], check=True)
+    protocol.write_text(_protocol_markdown("1" * 40), encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "stage-s/PROTOCOL.md"], check=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-qm", "frozen bytes"], check=True)
+    commit = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
+    protocol.write_text(_protocol_markdown("2" * 40), encoding="utf-8")
+    with pytest.raises(CalibrationFreezeError, match="differs from the declared Git commit"):
+        freeze_protocol(
+            protocol_md=protocol,
+            protocol_git_commit=commit,
+            b_report=tmp_path / "out" / "b" / "CALIBRATION_REPORT.json",
+            c_report=tmp_path / "out" / "c" / "CALIBRATION_REPORT.json",
+            output_path=tmp_path / "drift-out" / "FROZEN_PROTOCOL.json",
             repo_root=repo,
         )

@@ -48,9 +48,51 @@ THRESHOLDS: dict[str, dict[str, object]] = {
 
 SEED_PLAN: dict[str, object] = {
     "namespace": STAGE_S_PROTOCOL_ID,
+    "seed_base": 14211,
+    "candidate_seed_rule": "SeedSequence([initial_seed, candidate_index])",
     "candidate": "sha256(r142-stage-s-v1|candidate|task_id|init_state|candidate_id)->first_8_bytes_big_endian",
     "environment": "sha256(r142-stage-s-v1|environment|task_id|init_state)->first_8_bytes_big_endian",
     "calibration": "sha256(r142-stage-s-v1|calibration|setting_index|task_id|init_state|candidate_id)->first_8_bytes_big_endian",
+}
+A_TASKS = (
+    "blocks_ranking_size", "pick_diverse_bottles", "place_a2b_left",
+    "place_a2b_right", "place_bread_basket", "place_bread_skillet",
+    "place_can_basket", "place_fan", "place_object_scale", "place_shoe",
+)
+MAIN_BUDGET = {
+    "task_count": 10, "families_per_task": 16,
+    "candidates_per_family": 32, "terminal_episode_count": 5120,
+    "world_size": 8,
+}
+DIVERGENCE_PROTOCOL: dict[str, object] = {
+    "metric": "mean_pairwise_component_normalized_workspace_pose_rms_at_matched_control_step",
+    "at_risk_rule": "candidate trajectory contains control step t; no interpolation or resampling",
+    "A_pose": "left_xyz_wxyz_then_right_xyz_wxyz; each quaternion unit-normalized and sign-canonicalized",
+    "A_scale": [1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0],
+    "BC_pose": "Task64 observation/state first six values: eef_xyz plus eef_axis_angle; gripper excluded",
+    "BC_scale": [1.0, 1.0, 1.0, 3.141592653589793, 3.141592653589793, 3.141592653589793],
+    "tau": "per-task per-control-step 95th percentile of successful same-task matched-step pair distances",
+    "tau_quantile": 0.95,
+}
+S4_PROTOCOL: dict[str, object] = {
+    "anchor_rule": "lowest numeric candidate index among unsuccessful base-N32 candidates",
+    "interior_grid_numerators": list(range(1, 10)),
+    "interior_grid_denominator": 10,
+    "interior_grid_rounding": "clamp(floor((j*H+5)/10),1,H-2), ordered unique; H<4 fails closed",
+    "search_branches_per_step": 4,
+    "evaluation_branch_count": 8,
+    "oracle_t_rule": "maximize search successes/4 over interior grid; tie earliest control step",
+    "random_t_rule": "for heldout branch k choose sha256 random-t digest modulo grid size",
+    "search_seed_formula": "sha256(r142-stage-s-v1|S4-search|substrate|family_id|t|branch_index)->first_8_bytes_big_endian",
+    "random_t_seed_formula": "sha256(r142-stage-s-v1|S4-random-t|substrate|family_id|k)->first_8_bytes_big_endian modulo grid_size",
+    "branch_seed_formula": "sha256(r142-stage-s-v1|S4-eval|substrate|family_id|k)->first_8_bytes_big_endian; paired across oracle/random",
+    "paired_bootstrap_replicates": 10000,
+    "paired_bootstrap_seed": 14211,
+}
+S5_PROTOCOL: dict[str, object] = {
+    "base_candidate_count": 32,
+    "fresh_candidate_indices": list(range(32, 64)),
+    "extension_seed_formula": "sha256(r142-stage-s-v1|S5-extension|substrate|task_id|init_state|candidate_index)->first_8_bytes_big_endian",
 }
 
 FROZEN_SUMMARY: dict[str, object] = {
@@ -60,8 +102,13 @@ FROZEN_SUMMARY: dict[str, object] = {
     "initial_state_count": len(INITIAL_STATE_IDS),
     "candidate_budget": len(CANDIDATE_IDS),
     "world_size": WORLD_SIZE,
+    "tasks": list(A_TASKS),
+    "budget": MAIN_BUDGET,
     "seed_plan": SEED_PLAN,
     "thresholds": THRESHOLDS,
+    "divergence": DIVERGENCE_PROTOCOL,
+    "s4": S4_PROTOCOL,
+    "s5": S5_PROTOCOL,
     "compute_primary_unit": "policy_forward_pass",
     "compute_secondary_unit": "environment_step",
     "eventual_success_at_termination": True,
@@ -238,12 +285,6 @@ def read_frozen_protocol(
     )
     if _sha256(protocol_md_path) != protocol_md_sha256:
         raise FrozenProtocolError("frozen PROTOCOL.md SHA-256 mismatch")
-    try:
-        protocol_md_text = protocol_md_path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise FrozenProtocolError(f"frozen PROTOCOL.md cannot be read: {protocol_md_path}") from exc
-    if protocol_git_commit not in protocol_md_text:
-        raise FrozenProtocolError("frozen protocol Git commit is not recorded in PROTOCOL.md")
     summary = _protocol_summary(acceptance)
     entries = _calibration_entries(acceptance)
     current_calibration = _verify_calibration_binding(

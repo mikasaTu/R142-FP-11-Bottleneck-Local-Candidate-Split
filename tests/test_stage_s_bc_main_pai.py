@@ -112,9 +112,9 @@ def test_frozen_protocol_tampered_markdown_or_commit_fails_closed(tmp_path: Path
 
     acceptance, b_report, _ = _protocol_fixture(tmp_path / "commit-tamper")
     payload = json.loads(acceptance.read_text(encoding="utf-8"))
-    payload["acceptance"]["protocol_git_commit"] = "2" * 40
+    payload["acceptance"]["protocol_git_commit"] = "not-a-git-sha"
     acceptance.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    with pytest.raises(FrozenProtocolError, match="Git commit is not recorded"):
+    with pytest.raises(FrozenProtocolError, match="full SHA-160"):
         read_frozen_protocol(acceptance, substrate="B", calibration_report=b_report)
 
 

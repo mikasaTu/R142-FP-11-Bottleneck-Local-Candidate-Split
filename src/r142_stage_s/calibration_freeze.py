@@ -75,9 +75,60 @@ THRESHOLDS: dict[str, dict[str, object]] = {
 }
 SEED_PLAN: dict[str, object] = {
     "namespace": STAGE_S_PROTOCOL_ID,
+    "seed_base": 14211,
+    "candidate_seed_rule": "SeedSequence([initial_seed, candidate_index])",
     "candidate": "sha256(r142-stage-s-v1|candidate|task_id|init_state|candidate_id)->first_8_bytes_big_endian",
     "environment": "sha256(r142-stage-s-v1|environment|task_id|init_state)->first_8_bytes_big_endian",
     "calibration": "sha256(r142-stage-s-v1|calibration|setting_index|task_id|init_state|candidate_id)->first_8_bytes_big_endian",
+}
+A_TASKS = (
+    "blocks_ranking_size",
+    "pick_diverse_bottles",
+    "place_a2b_left",
+    "place_a2b_right",
+    "place_bread_basket",
+    "place_bread_skillet",
+    "place_can_basket",
+    "place_fan",
+    "place_object_scale",
+    "place_shoe",
+)
+MAIN_BUDGET = {
+    "task_count": 10,
+    "families_per_task": 16,
+    "candidates_per_family": 32,
+    "terminal_episode_count": 5120,
+    "world_size": 8,
+}
+DIVERGENCE_PROTOCOL: dict[str, object] = {
+    "metric": "mean_pairwise_component_normalized_workspace_pose_rms_at_matched_control_step",
+    "at_risk_rule": "candidate trajectory contains control step t; no interpolation or resampling",
+    "A_pose": "left_xyz_wxyz_then_right_xyz_wxyz; each quaternion unit-normalized and sign-canonicalized",
+    "A_scale": [1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0],
+    "BC_pose": "Task64 observation/state first six values: eef_xyz plus eef_axis_angle; gripper excluded",
+    "BC_scale": [1.0, 1.0, 1.0, 3.141592653589793, 3.141592653589793, 3.141592653589793],
+    "tau": "per-task per-control-step 95th percentile of successful same-task matched-step pair distances",
+    "tau_quantile": 0.95,
+}
+S4_PROTOCOL: dict[str, object] = {
+    "anchor_rule": "lowest numeric candidate index among unsuccessful base-N32 candidates",
+    "interior_grid_numerators": list(range(1, 10)),
+    "interior_grid_denominator": 10,
+    "interior_grid_rounding": "clamp(floor((j*H+5)/10),1,H-2), ordered unique; H<4 fails closed",
+    "search_branches_per_step": 4,
+    "evaluation_branch_count": 8,
+    "oracle_t_rule": "maximize search successes/4 over interior grid; tie earliest control step",
+    "random_t_rule": "for heldout branch k choose sha256 random-t digest modulo grid size",
+    "search_seed_formula": "sha256(r142-stage-s-v1|S4-search|substrate|family_id|t|branch_index)->first_8_bytes_big_endian",
+    "random_t_seed_formula": "sha256(r142-stage-s-v1|S4-random-t|substrate|family_id|k)->first_8_bytes_big_endian modulo grid_size",
+    "branch_seed_formula": "sha256(r142-stage-s-v1|S4-eval|substrate|family_id|k)->first_8_bytes_big_endian; paired across oracle/random",
+    "paired_bootstrap_replicates": 10000,
+    "paired_bootstrap_seed": 14211,
+}
+S5_PROTOCOL: dict[str, object] = {
+    "base_candidate_count": 32,
+    "fresh_candidate_indices": list(range(32, 64)),
+    "extension_seed_formula": "sha256(r142-stage-s-v1|S5-extension|substrate|task_id|init_state|candidate_index)->first_8_bytes_big_endian",
 }
 FROZEN_SUMMARY: dict[str, object] = {
     "task_ids": list(range(10)),
@@ -86,8 +137,13 @@ FROZEN_SUMMARY: dict[str, object] = {
     "initial_state_count": 16,
     "candidate_budget": 32,
     "world_size": CALIBRATION_WORLD_SIZE,
+    "tasks": list(A_TASKS),
+    "budget": MAIN_BUDGET,
     "seed_plan": SEED_PLAN,
     "thresholds": THRESHOLDS,
+    "divergence": DIVERGENCE_PROTOCOL,
+    "s4": S4_PROTOCOL,
+    "s5": S5_PROTOCOL,
     "compute_primary_unit": "policy_forward_pass",
     "compute_secondary_unit": "environment_step",
     "eventual_success_at_termination": True,
@@ -835,6 +891,26 @@ def _git_commit_exists(repo_root: Path, commit: str) -> None:
         raise CalibrationFreezeError(f"protocol GitHub commit is not present locally: {commit}")
 
 
+def _git_protocol_blob_matches(repo_root: Path, commit: str, source_md: Path) -> None:
+    """Bind the authority to the exact protocol bytes stored by Git.
+
+    Requiring a commit to be written inside the file that creates that commit
+    is self-referential and cannot be satisfied honestly.  The immutable
+    content binding is instead the Git object lookup itself.
+    """
+
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "show", f"{commit}:stage-s/PROTOCOL.md"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise CalibrationFreezeError("protocol Git commit does not contain stage-s/PROTOCOL.md")
+    if result.stdout != source_md.read_bytes():
+        raise CalibrationFreezeError("working PROTOCOL.md differs from the declared Git commit")
+
+
 def _validate_report_for_protocol(path: Path, *, substrate: str) -> dict[str, Any]:
     report_path, report = _read_json(path, label=f"{substrate} calibration freeze report")
     required = {
@@ -898,13 +974,13 @@ def freeze_protocol(
         raise CalibrationFreezeError("protocol source must be named stage-s/PROTOCOL.md")
     if re.fullmatch(r"[0-9a-f]{40}", protocol_git_commit) is None:
         raise CalibrationFreezeError("protocol_git_commit must be a lowercase full 40-hex commit")
-    _git_commit_exists(_path(repo_root, label="protocol repo root", directory=True), protocol_git_commit)
+    repository = _path(repo_root, label="protocol repo root", directory=True)
+    _git_commit_exists(repository, protocol_git_commit)
+    _git_protocol_blob_matches(repository, protocol_git_commit, source_md)
     protocol_text = source_md.read_text(encoding="utf-8")
     missing = _protocol_requirement_errors(protocol_text)
     if missing:
         raise CalibrationFreezeError("PROTOCOL.md is missing frozen requirements: " + ", ".join(missing))
-    if protocol_git_commit not in protocol_text:
-        raise CalibrationFreezeError("protocol Git commit is not recorded in stage-s/PROTOCOL.md")
     b_path = _path(b_report, label="B calibration report", directory=False)
     c_path = _path(c_report, label="C calibration report", directory=False)
     b_payload = _validate_report_for_protocol(b_path, substrate="B")
@@ -951,6 +1027,17 @@ def freeze_protocol(
         "schema": PROTOCOL_ACCEPTANCE_SCHEMA,
         "status": "FROZEN",
         "protocol_id": STAGE_S_PROTOCOL_ID,
+        "protocol_git_commit": protocol_git_commit,
+        "protocol_md_path": str(adjacent_md),
+        "protocol_md_sha256": md_sha,
+        "frozen_summary": FROZEN_SUMMARY,
+        "s4": S4_PROTOCOL,
+        "s5": S5_PROTOCOL,
+        "files": {
+            "PROTOCOL.md": {"path": str(adjacent_md), "sha256": md_sha},
+            "B_CALIBRATION_REPORT": {"path": str(b_path), "sha256": _sha256(b_path)},
+            "C_CALIBRATION_REPORT": {"path": str(c_path), "sha256": _sha256(c_path)},
+        },
         "acceptance": acceptance,
     }
     _atomic_json(destination, payload)
@@ -975,8 +1062,6 @@ def read_frozen_protocol(
     md = _path(acceptance_path.parent / "PROTOCOL.md", label="adjacent PROTOCOL.md", directory=False)
     if acceptance.get("protocol_md_path") != str(md) or acceptance.get("protocol_md_sha256") != _sha256(md):
         raise CalibrationFreezeError("frozen protocol markdown binding mismatch")
-    if commit not in md.read_text(encoding="utf-8"):
-        raise CalibrationFreezeError("protocol Git commit is not recorded in adjacent PROTOCOL.md")
     if acceptance.get("frozen_summary") != FROZEN_SUMMARY:
         raise CalibrationFreezeError("frozen protocol summary drift")
     reports = acceptance.get("calibration_reports")
