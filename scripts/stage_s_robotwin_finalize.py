@@ -25,6 +25,11 @@ from r142_stage_s.frozen_protocol import (
     FrozenProtocolError,
     load_frozen_protocol,
 )
+from r142_stage_s.asset_acceptance import (
+    DEFAULT_ACCEPTED_ASSET_PATH,
+    AssetAcceptanceError,
+    load_accepted_asset_preflight,
+)
 from r142_stage_s.robotwin import RoboTwinPins, select_published_tasks
 
 
@@ -36,6 +41,28 @@ EXPECTED_CANDIDATES = 10 * FAMILIES_PER_TASK * CANDIDATES_PER_FAMILY
 
 class EvaluationBundleError(RuntimeError):
     """Incomplete, inconsistent, or unverifiable persisted evaluation data."""
+
+
+def _assert_asset_lineage(
+    payload: Mapping[str, Any],
+    expected: Mapping[str, Any],
+    label: str,
+) -> None:
+    """Require the exact accepted asset fingerprint in every persisted layer."""
+
+    if payload.get("accepted_asset_preflight") != dict(expected):
+        raise EvaluationBundleError(f"{label} accepted asset preflight drifted")
+    direct = {
+        "accepted_asset_run_id": expected["accepted_run_id"],
+        "accepted_asset_job_id": expected["accepted_job_id"],
+        "accepted_asset_completion_sha256": expected["completion_sha256"],
+        "accepted_asset_sha256sums_sha256": expected["asset_sha256sums_sha256"],
+        "accepted_model_sha256sums_sha256": expected["model_sha256sums_sha256"],
+        "accepted_source_commits": dict(expected["source_commits"]),
+    }
+    for key, value in direct.items():
+        if payload.get(key) != value:
+            raise EvaluationBundleError(f"{label} {key} drifted")
 
 
 def _sha256(path: Path) -> str:
@@ -173,6 +200,7 @@ def _verify_rank(
     tasks: Sequence[str],
     run_id: str | None,
     frozen_protocol: Mapping[str, Any],
+    accepted_asset_preflight: Mapping[str, Any],
 ) -> list[Mapping[str, Any]]:
     run_manifest_path = root / f"RUN_MANIFEST_RANK-{rank:04d}.json"
     run_manifest = _read_json(run_manifest_path)
@@ -192,6 +220,7 @@ def _verify_rank(
         raise EvaluationBundleError(f"rank run manifest source pins drifted: {run_manifest_path}")
     if run_manifest.get("frozen_protocol") != dict(frozen_protocol):
         raise EvaluationBundleError(f"rank run manifest frozen protocol drifted: {run_manifest_path}")
+    _assert_asset_lineage(run_manifest, accepted_asset_preflight, "rank run manifest")
     if run_manifest.get("protocol_git_commit") != frozen_protocol["protocol_git_commit"]:
         raise EvaluationBundleError(f"rank run manifest protocol commit drifted: {run_manifest_path}")
     if run_manifest.get("protocol_json_sha256") != frozen_protocol["protocol_json_sha256"]:
@@ -214,6 +243,7 @@ def _verify_rank(
         raise EvaluationBundleError(f"rank/world_size mismatch: {marker_path}")
     if marker.get("frozen_protocol") != dict(frozen_protocol):
         raise EvaluationBundleError(f"rank completion frozen protocol drifted: {marker_path}")
+    _assert_asset_lineage(marker, accepted_asset_preflight, "rank completion")
     if marker.get("protocol_git_commit") != frozen_protocol["protocol_git_commit"]:
         raise EvaluationBundleError(f"rank completion protocol commit drifted: {marker_path}")
     if marker.get("protocol_json_sha256") != frozen_protocol["protocol_json_sha256"]:
@@ -297,6 +327,9 @@ def verify_completed_bundle(
     *,
     frozen_protocol: Mapping[str, Any] | None = None,
     frozen_protocol_path: Path = DEFAULT_PROTOCOL_PATH,
+    accepted_asset_preflight: Mapping[str, Any] | None = None,
+    accepted_asset_preflight_path: Path = DEFAULT_ACCEPTED_ASSET_PATH,
+    checkpoint_dir: Path | None = None,
 ) -> Mapping[str, Any]:
     """Verify an already completed aggregate without mutating it."""
 
@@ -305,11 +338,20 @@ def verify_completed_bundle(
             frozen_protocol = load_frozen_protocol(frozen_protocol_path)
         except FrozenProtocolError as exc:
             raise EvaluationBundleError(f"frozen protocol gate: {exc}") from exc
+    if accepted_asset_preflight is None:
+        try:
+            accepted_asset_preflight = load_accepted_asset_preflight(
+                accepted_asset_preflight_path,
+                checkpoint_dir=checkpoint_dir,
+            )
+        except AssetAcceptanceError as exc:
+            raise EvaluationBundleError(f"accepted asset preflight gate: {exc}") from exc
     result = _read_json(root / "COMPLETED_EVALUATION_RESULT.json")
     if result.get("status") != "COMPLETED" or result.get("marker_type") != "completed_stage_s_a_evaluation":
         raise EvaluationBundleError("top-level completion marker has an unexpected schema")
     if result.get("frozen_protocol") != dict(frozen_protocol):
         raise EvaluationBundleError("top-level completion frozen protocol drifted")
+    _assert_asset_lineage(result, accepted_asset_preflight, "top-level completion")
     if result.get("protocol_git_commit") != frozen_protocol["protocol_git_commit"]:
         raise EvaluationBundleError("top-level completion protocol commit drifted")
     if result.get("protocol_json_sha256") != frozen_protocol["protocol_json_sha256"]:
@@ -332,17 +374,30 @@ def finalize(
     job_id: str | None = None,
     source_commit: str | None = None,
     frozen_protocol_path: Path = DEFAULT_PROTOCOL_PATH,
+    accepted_asset_preflight_path: Path = DEFAULT_ACCEPTED_ASSET_PATH,
+    checkpoint_dir: Path | None = None,
 ) -> Mapping[str, Any]:
     root = root.resolve()
     try:
         frozen_protocol = load_frozen_protocol(frozen_protocol_path)
     except FrozenProtocolError as exc:
         raise EvaluationBundleError(f"frozen protocol gate: {exc}") from exc
+    try:
+        accepted_asset_preflight = load_accepted_asset_preflight(
+            accepted_asset_preflight_path,
+            checkpoint_dir=checkpoint_dir,
+        )
+    except AssetAcceptanceError as exc:
+        raise EvaluationBundleError(f"accepted asset preflight gate: {exc}") from exc
     existing_result = root / "COMPLETED_EVALUATION_RESULT.json"
     if existing_result.exists() or (root / "SHA256SUMS").exists():
         if not existing_result.exists() or not (root / "SHA256SUMS").exists():
             raise EvaluationBundleError("partial top-level completion bundle is present")
-        return verify_completed_bundle(root, frozen_protocol=frozen_protocol)
+        return verify_completed_bundle(
+            root,
+            frozen_protocol=frozen_protocol,
+            accepted_asset_preflight=accepted_asset_preflight,
+        )
     for forbidden in ("FAILED_A_MAIN.json", "REFUSED_WINDOW.txt"):
         if (root / forbidden).exists():
             raise EvaluationBundleError(f"failed/refused run cannot be finalized: {root / forbidden}")
@@ -357,6 +412,7 @@ def finalize(
                 tasks=tasks,
                 run_id=run_id,
                 frozen_protocol=frozen_protocol,
+                accepted_asset_preflight=accepted_asset_preflight,
             )
         )
     if len(rank_outputs) != 10 * FAMILIES_PER_TASK:
@@ -374,6 +430,13 @@ def finalize(
         "source_commit": source_commit,
         "pins": pins.as_dict(),
         "frozen_protocol": dict(frozen_protocol),
+        "accepted_asset_preflight": dict(accepted_asset_preflight),
+        "accepted_asset_run_id": accepted_asset_preflight["accepted_run_id"],
+        "accepted_asset_job_id": accepted_asset_preflight["accepted_job_id"],
+        "accepted_asset_completion_sha256": accepted_asset_preflight["completion_sha256"],
+        "accepted_asset_sha256sums_sha256": accepted_asset_preflight["asset_sha256sums_sha256"],
+        "accepted_model_sha256sums_sha256": accepted_asset_preflight["model_sha256sums_sha256"],
+        "accepted_source_commits": dict(accepted_asset_preflight["source_commits"]),
         "protocol_git_commit": frozen_protocol["protocol_git_commit"],
         "protocol_json_sha256": frozen_protocol["protocol_json_sha256"],
         "protocol_md_sha256": frozen_protocol["protocol_md_sha256"],
@@ -407,7 +470,11 @@ def finalize(
     data = (json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode()
     _write_atomic(existing_result, data)
     _write_top_level_manifest(root)
-    verify_completed_bundle(root, frozen_protocol=frozen_protocol)
+    verify_completed_bundle(
+        root,
+        frozen_protocol=frozen_protocol,
+        accepted_asset_preflight=accepted_asset_preflight,
+    )
     return result
 
 
@@ -423,6 +490,17 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_PROTOCOL_PATH,
         help="stable CPFS Stage-S protocol authority",
     )
+    parser.add_argument(
+        "--accepted-asset-preflight",
+        type=Path,
+        default=DEFAULT_ACCEPTED_ASSET_PATH,
+        help="stable CPFS accepted asset-preflight authority",
+    )
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=Path,
+        help="runtime checkpoint directory used for live model hash validation",
+    )
     return parser
 
 
@@ -435,6 +513,8 @@ if __name__ == "__main__":
             job_id=parsed.job_id or os.environ.get("PAI_TASK_JOB_ID"),
             source_commit=parsed.source_commit or os.environ.get("STAGE_S_SOURCE_COMMIT"),
             frozen_protocol_path=parsed.frozen_protocol,
+            accepted_asset_preflight_path=parsed.accepted_asset_preflight,
+            checkpoint_dir=parsed.checkpoint_dir,
         )
     except EvaluationBundleError as exc:
         print(json.dumps({"status": "BLOCKED_INCOMPLETE_EVALUATION", "error": str(exc)}))

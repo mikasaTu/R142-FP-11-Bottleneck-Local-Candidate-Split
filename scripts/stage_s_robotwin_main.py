@@ -33,6 +33,11 @@ from r142_stage_s.frozen_protocol import (
     FrozenProtocolError,
     load_frozen_protocol,
 )
+from r142_stage_s.asset_acceptance import (
+    DEFAULT_ACCEPTED_ASSET_PATH,
+    AssetAcceptanceError,
+    load_accepted_asset_preflight,
+)
 from r142_stage_s.robotwin import (
     AtomicFamilyWriter,
     CapabilityError,
@@ -441,6 +446,7 @@ def _write_rank_completion(
     world_size: int,
     manifests: Sequence[Mapping[str, Any]],
     frozen_protocol: Mapping[str, Any],
+    accepted_asset_preflight: Mapping[str, Any],
 ) -> Dict[str, Any]:
     payload = {
         "status": "COMPLETED",
@@ -449,6 +455,13 @@ def _write_rank_completion(
         "family_count": len(manifests),
         "families": list(manifests),
         "frozen_protocol": dict(frozen_protocol),
+        "accepted_asset_preflight": dict(accepted_asset_preflight),
+        "accepted_asset_run_id": accepted_asset_preflight["accepted_run_id"],
+        "accepted_asset_job_id": accepted_asset_preflight["accepted_job_id"],
+        "accepted_asset_completion_sha256": accepted_asset_preflight["completion_sha256"],
+        "accepted_asset_sha256sums_sha256": accepted_asset_preflight["asset_sha256sums_sha256"],
+        "accepted_model_sha256sums_sha256": accepted_asset_preflight["model_sha256sums_sha256"],
+        "accepted_source_commits": dict(accepted_asset_preflight["source_commits"]),
         "protocol_git_commit": frozen_protocol["protocol_git_commit"],
         "protocol_json_sha256": frozen_protocol["protocol_json_sha256"],
         "protocol_md_sha256": frozen_protocol["protocol_md_sha256"],
@@ -489,6 +502,13 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             "checkpoint path is not bound to exact HF revision "
             f"{pins.checkpoint_revision}; use the pinned snapshot directory or revision.txt"
         )
+    try:
+        accepted_asset_preflight = load_accepted_asset_preflight(
+            args.accepted_asset_preflight,
+            checkpoint_dir=checkpoint_dir,
+        )
+    except AssetAcceptanceError as exc:
+        raise CapabilityError(f"accepted asset preflight gate: {exc}") from exc
 
     selected = select_published_tasks()
     # Audit is a precondition, not an optional informational report.
@@ -520,6 +540,13 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         "expert_trajectory": False,
         "termination": "official eval_success or step_lim",
         "frozen_protocol": frozen_protocol,
+        "accepted_asset_preflight": accepted_asset_preflight,
+        "accepted_asset_run_id": accepted_asset_preflight["accepted_run_id"],
+        "accepted_asset_job_id": accepted_asset_preflight["accepted_job_id"],
+        "accepted_asset_completion_sha256": accepted_asset_preflight["completion_sha256"],
+        "accepted_asset_sha256sums_sha256": accepted_asset_preflight["asset_sha256sums_sha256"],
+        "accepted_model_sha256sums_sha256": accepted_asset_preflight["model_sha256sums_sha256"],
+        "accepted_source_commits": dict(accepted_asset_preflight["source_commits"]),
         "protocol_git_commit": frozen_protocol["protocol_git_commit"],
         "protocol_json_sha256": frozen_protocol["protocol_json_sha256"],
         "protocol_md_sha256": frozen_protocol["protocol_md_sha256"],
@@ -579,7 +606,12 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             finally:
                 episode.close()
     return _write_rank_completion(
-        output_root, args.rank, args.world_size, manifests, frozen_protocol
+        output_root,
+        args.rank,
+        args.world_size,
+        manifests,
+        frozen_protocol,
+        accepted_asset_preflight,
     )
 
 
@@ -601,6 +633,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=DEFAULT_PROTOCOL_PATH,
         help="stable CPFS Stage-S protocol authority",
+    )
+    parser.add_argument(
+        "--accepted-asset-preflight",
+        type=Path,
+        default=DEFAULT_ACCEPTED_ASSET_PATH,
+        help="stable CPFS accepted asset-preflight authority",
     )
     return parser
 
