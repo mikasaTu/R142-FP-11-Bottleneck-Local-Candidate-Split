@@ -230,6 +230,21 @@ def test_result_tamper_and_forbidden_lookahead_fail_closed(tmp_path: Path) -> No
             c_report=tmp_path / "leak-out-c.json",
         )
 
+    paths = _make_terminal_inputs(tmp_path / "s2-s5")
+    payload = json.loads(paths[0].read_text(encoding="utf-8"))
+    payload["S2-S5"] = {"metric": 1}
+    _write_json(paths[0], payload)
+    with pytest.raises(CalibrationFreezeError, match="forbidden"):
+        freeze_calibration_reports(
+            b_result=paths[0],
+            b_completion_marker=paths[1],
+            c_result=paths[2],
+            c_completion_marker=paths[3],
+            c_lineage=paths[4],
+            b_report=tmp_path / "s2-s5-out-b.json",
+            c_report=tmp_path / "s2-s5-out-c.json",
+        )
+
 
 def test_symlinked_terminal_input_is_rejected(tmp_path: Path) -> None:
     paths = _make_terminal_inputs(tmp_path)

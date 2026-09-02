@@ -115,6 +115,7 @@ _FORBIDDEN_RESULT_KEYS = frozenset(
     }
 )
 _FORBIDDEN_RESULT_SUBSTRINGS = ("near_fail", "nearallfail", "diverg", "overdisp", "recover", "rho")
+_ALLOWED_FREEZE_METADATA_KEYS = frozenset({"no_s2_s5_peeking"})
 
 
 def _sha256(path: Path) -> str:
@@ -187,7 +188,11 @@ def _reject_result_leakage(value: object, *, where: str = "CALIBRATION_RESULT.js
     if isinstance(value, Mapping):
         for key, child in value.items():
             normalized = re.sub(r"[^a-z0-9_]", "_", str(key).lower())
-            if normalized in _FORBIDDEN_RESULT_KEYS or any(token in normalized for token in _FORBIDDEN_RESULT_SUBSTRINGS):
+            if normalized not in _ALLOWED_FREEZE_METADATA_KEYS and (
+                normalized in _FORBIDDEN_RESULT_KEYS
+                or re.search(r"s[2-5]", normalized) is not None
+                or any(token in normalized for token in _FORBIDDEN_RESULT_SUBSTRINGS)
+            ):
                 raise CalibrationFreezeError(f"forbidden post-calibration field at {where}.{key}")
             _reject_result_leakage(child, where=f"{where}.{key}")
     elif isinstance(value, list):
