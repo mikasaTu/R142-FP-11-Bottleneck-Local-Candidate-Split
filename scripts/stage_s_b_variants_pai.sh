@@ -4,7 +4,7 @@ umask 077
 
 RUN_ID="${PAI_CANARY_RUN_ID:?controller must inject run id}"
 EXPECTED_GPUS="${PAI_CANARY_EXPECTED_GPUS:?controller must inject GPU count}"
-STAGE_S_SOURCE_COMMIT="${STAGE_S_SOURCE_COMMIT:?controller must pin Stage-S source commit}"
+STAGE_S_SOURCE_COMMIT=aeb3eb1d87bb8557f8aa33550e494abc32be6024
 ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon
 REPO="$ROOT/code/r142-stage-s-runtime-20260902"
 QPILOTS="$ROOT/code/QPILOTS-r16p15-stage1-task64-20260812"
