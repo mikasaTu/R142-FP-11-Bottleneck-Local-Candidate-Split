@@ -47,6 +47,12 @@ export STAGE_S_SOURCE_COMMIT STAGE_S_C_PAYLOAD_SHA256 STAGE_S_C_REGISTRY_CONFIG
 BASE_JAX=$USER_ROOT/cache/r142_stage_s/pi05_base
 BASE_PT=$USER_ROOT/cache/r142_stage_s/pi05_base_pytorch
 ASSETS=$USER_ROOT/cache/openpi/r16p15/openpi-assets/checkpoints
+HF_LEROBOT_HOME=$USER_ROOT/cache/lerobot
+HF_HOME=$USER_ROOT/cache/huggingface
+HF_DATASETS_CACHE=$HF_HOME/datasets
+HUGGINGFACE_HUB_CACHE=$HF_HOME/hub
+DATASET_ROOT=$HF_LEROBOT_HOME/physical-intelligence/libero
+STAGED_ASSETS=$USER_ROOT/cache/r142_stage_s/c_libero_assets
 CHECKPOINT_BASE=$NEW_ROOT/CKPT/leon/r142_stage_s_c
 RUN_ID=${PAI_RUN_ID:-${PAI_CANARY_RUN_ID:?registry must inject PAI_RUN_ID}}
 LOG_ROOT=$USER_ROOT/logs/r142_fp11_stage_s/c/$RUN_ID
@@ -54,6 +60,13 @@ STATUS_ROOT=$USER_ROOT/logs/r142_fp11_stage_s/c_status/$RUN_ID
 
 CURRENT_STAGE=preflight
 mkdir -p "$LOG_ROOT" "$STATUS_ROOT"
+
+# Keep all Hugging Face/LeRobot state on CPFS and force every resolver into
+# offline mode.  The launcher never permits a missing dataset metadata file to
+# fall through to network access.
+export HF_LEROBOT_HOME HF_HOME HF_DATASETS_CACHE HUGGINGFACE_HUB_CACHE
+export HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+export HF_HUB_DISABLE_TELEMETRY=1 HF_HUB_ENABLE_HF_TRANSFER=0
 
 write_status_marker() {
   local path=$1 status=$2 stage=$3 exit_code=${4:-0} evidence=${5:-}
@@ -86,6 +99,24 @@ payload = {
     ),
     "written_at": time.time(),
 }
+data_preflight = os.environ.get("STAGE_S_C_DATA_PREFLIGHT")
+if data_preflight and pathlib.Path(data_preflight).is_file():
+    try:
+        data_payload = json.loads(pathlib.Path(data_preflight).read_text(encoding="utf-8"))
+        dataset = data_payload.get("dataset", {})
+        norm_stats = data_payload.get("norm_stats", {})
+        payload.update(
+            {
+                "dataset_repo_id": dataset.get("repo_id"),
+                "dataset_revision": dataset.get("revision"),
+                "dataset_manifest_sha256": dataset.get("manifest_sha256"),
+                "dataset_manifest_file_sha256": dataset.get("manifest_file_sha256"),
+                "norm_stats_sha256": norm_stats.get("staged_sha256"),
+                "norm_stats_source_sha256": norm_stats.get("source_sha256"),
+            }
+        )
+    except (OSError, json.JSONDecodeError, TypeError):
+        payload["data_preflight_read_error"] = True
 payload["payload_sha256"] = hashlib.sha256(
     json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 ).hexdigest()
@@ -204,7 +235,7 @@ OBSERVED_PAYLOAD_SHA256=$(sha256sum "$PAYLOAD_FILE" | awk '{print $1}')
   echo "invoked C payload SHA differs from injected SHA" >&2
   exit 52
 }
-for writable in "$BASE_JAX" "$BASE_PT" "$CHECKPOINT_BASE" "$LOG_ROOT" "$STATUS_ROOT"; do
+for writable in "$BASE_JAX" "$BASE_PT" "$HF_HOME" "$HF_LEROBOT_HOME" "$DATASET_ROOT" "$STAGED_ASSETS" "$CHECKPOINT_BASE" "$LOG_ROOT" "$STATUS_ROOT"; do
   mkdir -p "$writable"
   probe="$writable/.r142-owner-probe.$$"
   : >"$probe"
@@ -212,11 +243,24 @@ for writable in "$BASE_JAX" "$BASE_PT" "$CHECKPOINT_BASE" "$LOG_ROOT" "$STATUS_R
   rm -f -- "$probe"
 done
 
-# Persist the admission identity before any asset, conversion, or training
-# mutation.  This records the exact bindings checked above; it is not a
-# substitute for the source, cleanliness, and digest checks.
+export PYTHONPATH="$PROJECT_DIR/src:$OPENPI/src"
+export WANDB_MODE=disabled
+
+CURRENT_STAGE=data_preflight
+"$PYTHON_BIN" "$PROJECT_DIR/scripts/stage_s_c_data_preflight.py" \
+  --dataset-root "$DATASET_ROOT" \
+  --assets-source-root "$ASSETS" \
+  --staged-assets-base-dir "$STAGED_ASSETS" \
+  --openpi-root "$OPENPI" \
+  --output "$STATUS_ROOT/DATA_PREFLIGHT.json"
+export STAGE_S_C_DATA_PREFLIGHT="$STATUS_ROOT/DATA_PREFLIGHT.json"
+
+# Persist the admission identity after the local data gate so the identity
+# carries the exact dataset revision/manifest and norm-stat hashes used by the
+# eventual official trainer.
 "$PYTHON_BIN" - "$STATUS_ROOT/RUNTIME_IDENTITY.json" "$PROJECT_DIR" "$QPILOTS" "$OPENPI" \
-  "$STAGE_S_SOURCE_COMMIT" "$EXPECTED_QPILOTS_COMMIT" "$EXPECTED_OPENPI_COMMIT" "$STAGE_S_C_PAYLOAD_SHA256" "$PAYLOAD_FILE" <<'PY'
+  "$STAGE_S_SOURCE_COMMIT" "$EXPECTED_QPILOTS_COMMIT" "$EXPECTED_OPENPI_COMMIT" "$STAGE_S_C_PAYLOAD_SHA256" "$PAYLOAD_FILE" \
+  "$STATUS_ROOT/DATA_PREFLIGHT.json" <<'PY'
 import hashlib
 import json
 import os
@@ -224,10 +268,14 @@ import pathlib
 import sys
 
 destination = pathlib.Path(sys.argv[1])
-project, qpilots, openpi, stage_commit, qpilots_commit, openpi_commit, payload_sha, payload_path = sys.argv[2:]
+project, qpilots, openpi, stage_commit, qpilots_commit, openpi_commit, payload_sha, payload_path, data_path = sys.argv[2:]
 payload_file = pathlib.Path(payload_path)
+data_file = pathlib.Path(data_path)
+data = json.loads(data_file.read_text(encoding="utf-8"))
+dataset = data["dataset"]
+norm_stats = data["norm_stats"]
 record = {
-    "schema": "r142-stage-s-c-runtime-identity-v1",
+    "schema": "r142-stage-s-c-runtime-identity-v2",
     "project_dir": project,
     "stage_s_source_commit": stage_commit,
     "qpilots_root": qpilots,
@@ -239,9 +287,23 @@ record = {
     "payload_sha256_observed": hashlib.sha256(payload_file.read_bytes()).hexdigest(),
     "run_id": os.environ.get("PAI_RUN_ID") or os.environ.get("PAI_CANARY_RUN_ID"),
     "job_id": os.environ.get("PAI_TASK_JOB_ID") or os.environ.get("PAI_JOB_ID"),
+    "data_preflight_path": str(data_file),
+    "data_preflight_sha256": hashlib.sha256(data_file.read_bytes()).hexdigest(),
+    "dataset_repo_id": dataset["repo_id"],
+    "dataset_revision": dataset["revision"],
+    "dataset_root": dataset["root"],
+    "dataset_manifest_path": dataset["manifest_path"],
+    "dataset_manifest_sha256": dataset["manifest_sha256"],
+    "dataset_manifest_file_sha256": dataset["manifest_file_sha256"],
+    "norm_stats_source_path": norm_stats["source_path"],
+    "norm_stats_source_sha256": norm_stats["source_sha256"],
+    "norm_stats_staged_path": norm_stats["staged_path"],
+    "norm_stats_sha256": norm_stats["staged_sha256"],
 }
 if record["payload_sha256"] != record["payload_sha256_observed"]:
     raise SystemExit("runtime identity payload digest changed during admission")
+if record["dataset_manifest_sha256"] is None or record["norm_stats_sha256"] is None:
+    raise SystemExit("runtime identity data provenance is incomplete")
 destination.parent.mkdir(parents=True, exist_ok=True)
 temporary = destination.with_name(f".{destination.name}.tmp-{os.getpid()}")
 with temporary.open("w", encoding="utf-8") as handle:
@@ -257,9 +319,6 @@ finally:
     os.close(directory_fd)
 PY
 write_status_marker "$STATUS_ROOT/COMPLETED_preflight.json" COMPLETED preflight 0 "$STATUS_ROOT/RUNTIME_IDENTITY.json"
-
-export PYTHONPATH="$PROJECT_DIR/src:$OPENPI/src"
-export WANDB_MODE=disabled
 
 CURRENT_STAGE=base_download
 if [[ -f "$BASE_JAX/BASE_DOWNLOAD_COMPLETED.json" ]]; then
@@ -284,7 +343,8 @@ TRAIN_ARGS=(
   --base-pytorch-root "$BASE_PT"
   --checkpoint-base-dir "$CHECKPOINT_BASE"
   --log-root "$LOG_ROOT"
-  --assets-base-dir "$ASSETS"
+  --assets-base-dir "$STAGED_ASSETS"
+  --data-preflight "$STATUS_ROOT/DATA_PREFLIGHT.json"
   --python "$PYTHON_BIN"
 )
 TRAIN_DIR="$CHECKPOINT_BASE/pi05_libero/r142_stage_s_c_undertrained_seed42"
