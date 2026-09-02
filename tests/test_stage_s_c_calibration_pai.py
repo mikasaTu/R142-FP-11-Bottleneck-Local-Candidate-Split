@@ -100,20 +100,46 @@ def test_c_calibration_axes_and_weak_labels_are_frozen() -> None:
         assert required in text
 
 
-def test_c_training_input_gate_requires_exact_r2_and_full_state() -> None:
+def test_c_training_input_gate_requires_acceptance_manifest_and_full_state() -> None:
     contract = _config()["evidence"]["input_contract"]
-    assert contract["training_run_id"] == "r142-stage-s-c-undertrained-20260903-r2"
+    assert contract["acceptance_manifest"] == (
+        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/"
+        "c_status/ACCEPTED_C_TRAINING.json"
+    )
+    assert contract["acceptance_manifest_schema"] == "r142-stage-s-c-training-acceptance-v1"
+    assert contract["accepted_terminal_status"] == "Succeeded"
+    assert contract["training_run_id_source"] == "accepted_run_id"
+    assert contract["training_job_id_source"] == "job_id"
     assert contract["expected_steps"] == [1000, 3000, 6000, 10000]
     assert contract["full_reference_step"] == 30000
     assert contract["full_training_state_required"] is True
     assert contract["no_interpolation"] is True
     assert contract["artificial_degradation"] is False
     assert contract["completion_and_sha_required"] is True
+    assert contract["checkpoint_hashes"] == {
+        "format": "accepted_manifest_relative_checkpoint_path_to_sha256",
+        "required_paths": [
+            "1000/model.safetensors",
+            "3000/model.safetensors",
+            "6000/model.safetensors",
+            "10000/model.safetensors",
+        ],
+    }
     assert contract["checkpoint_sha"].endswith("/r142_stage_s_c/SHA256SUMS")
-    assert contract["log_sha"].endswith("r142-stage-s-c-undertrained-20260903-r2/SHA256SUMS")
+    assert contract["training_pipeline_completion_template"].endswith(
+        "c_status/<accepted_run_id>/COMPLETED_C_PIPELINE.json"
+    )
+    assert contract["log_root_template"].endswith("c/<accepted_run_id>")
+    assert contract["log_sha_template"].endswith("c/<accepted_run_id>/SHA256SUMS")
     text = SCRIPT.read_text(encoding="utf-8")
     for required in (
-        "C_TRAINING_RUN_ID=r142-stage-s-c-undertrained-20260903-r2",
+        "C_ACCEPTANCE_MANIFEST=",
+        "accepted_run_id",
+        "job_id",
+        "pai_terminal_status",
+        "checkpoint_hashes",
+        "C acceptance checkpoint hash mismatch",
+        "C_ACCEPTANCE_MANIFEST_GATE_PASS",
         "COMPLETED_C_TRAINING.json",
         "COMPLETED_C_PIPELINE.json",
         "sha256sum --check --quiet SHA256SUMS",
