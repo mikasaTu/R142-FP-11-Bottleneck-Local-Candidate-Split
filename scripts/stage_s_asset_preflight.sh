@@ -13,7 +13,11 @@ TOOLS_ENV="$ROOT/cache/r142_stage_s/envs/tools_py311"
 RT_ENV="$ROOT/cache/r142_stage_s/envs/robotwin_py310"
 EVO_ENV="$ROOT/cache/r142_stage_s/envs/evo1_py310"
 PIP_CACHE="$ROOT/cache/r142_stage_s/pip"
+PIP_INDEX_URL="${PIP_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple}"
 mkdir -p "$OUT" "$MODEL" "$PIP_CACHE"
+export PIP_CACHE_DIR="$PIP_CACHE"
+export PIP_INDEX_URL
+export PIP_DEFAULT_TIMEOUT=120
 
 blocked_window() {
   local hm
@@ -76,7 +80,7 @@ elif ! "$TOOLS_ENV/bin/python" -m pip --version >/dev/null 2>&1; then
   "$TOOLS_ENV/bin/python" -m ensurepip --upgrade
 fi
 if ! "$TOOLS_ENV/bin/python" -c 'import huggingface_hub, uv' >/dev/null 2>&1; then
-  PIP_CACHE_DIR="$PIP_CACHE" "$TOOLS_ENV/bin/python" -m pip install 'huggingface_hub==0.36.2' 'uv==0.8.17'
+  "$TOOLS_ENV/bin/python" -m pip install --retries 8 'huggingface_hub==0.36.2' 'uv==0.8.17'
 fi
 "$TOOLS_ENV/bin/hf" download MINT-SJTU/Evo1_RoboTwin2_clean \
   --revision ce8c583724706fbf7a03c17237761c65bf6813a7 --local-dir "$MODEL"
@@ -94,14 +98,14 @@ if [[ ! -x "$RT_ENV/bin/python" ]]; then
   "$TOOLS_ENV/bin/uv" python install 3.10
   "$TOOLS_ENV/bin/uv" venv --seed --python 3.10 "$RT_ENV"
 fi
-PIP_CACHE_DIR="$PIP_CACHE" "$RT_ENV/bin/pip" install -r "$RT/script/requirements.txt" websockets
-PIP_CACHE_DIR="$PIP_CACHE" "$RT_ENV/bin/pip" install -e "$RT/envs/curobo" --no-build-isolation
+"$RT_ENV/bin/pip" install --retries 8 -r "$RT/script/requirements.txt" websockets
+"$RT_ENV/bin/pip" install --retries 8 -e "$RT/envs/curobo" --no-build-isolation
 
 if [[ ! -x "$EVO_ENV/bin/python" ]]; then
   "$TOOLS_ENV/bin/uv" venv --seed --python 3.10 "$EVO_ENV"
 fi
-PIP_CACHE_DIR="$PIP_CACHE" "$EVO_ENV/bin/pip" install -r "$DEPS/Evo-1/Evo_1/requirements.txt"
-MAX_JOBS=32 PIP_CACHE_DIR="$PIP_CACHE" "$EVO_ENV/bin/pip" install flash-attn --no-build-isolation
+"$EVO_ENV/bin/pip" install --retries 8 -r "$DEPS/Evo-1/Evo_1/requirements.txt"
+MAX_JOBS=32 "$EVO_ENV/bin/pip" install --retries 8 flash-attn --no-build-isolation
 
 rm -rf "$RT/policy/Evo1.tmp"
 cp -a "$DEPS/Evo-1/RoboTwin_evaluation/policy/Evo1" "$RT/policy/Evo1.tmp"
