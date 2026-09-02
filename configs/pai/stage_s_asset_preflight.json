@@ -72,7 +72,7 @@
     "validated_payload_sha256": "2a907feacf04cb528dc8c1fabd6a4bc485a120772dd0ef7283ff43c506d7253b",
     "expected_first_work_uid": 2254,
     "expected_first_work_gid": 2254,
-    "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/r142-stage-s-a-assets-20260902-r11/FIRST_WORK.json",
+    "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/r142-stage-s-a-assets-20260902-r12/FIRST_WORK.json",
     "runtime_gpu_smoke_only": true,
     "evo_commit": "5fd14b015013c4fd0aacf5f8f48f868ca9b870a2",
     "robotwin_commit": "13c3c47ff4312dd62484bcd51be034af55c062d1",
@@ -80,7 +80,7 @@
     "checkpoint_revision": "ce8c583724706fbf7a03c17237761c65bf6813a7",
     "explicit_user_resource_authorization": {
       "date": "2026-09-02",
-      "scope": "r142-stage-s-a-assets-20260902-r11",
+      "scope": "r142-stage-s-a-assets-20260902-r12",
       "user_request": "PAI 4-16 A800, robot idle pool, 88 CPU and 1.4 TB ceiling",
       "current_quota_name": "exp-robot",
       "resource_id": "quota1ssrabud0bh",
