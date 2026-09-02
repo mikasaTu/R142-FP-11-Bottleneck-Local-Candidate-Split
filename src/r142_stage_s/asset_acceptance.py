@@ -28,7 +28,8 @@ from typing import Any, Mapping, Sequence
 
 _CPFS_ROOT = Path("/mnt/cpfs/zbl-cpfs-new")
 DEFAULT_ACCEPTED_ASSET_PATH = (
-    _CPFS_ROOT / "USERS/leon/stage_s/protocol/ACCEPTED_A_ASSET_PREFLIGHT.json"
+    _CPFS_ROOT
+    / "USERS/leon/logs/r142_fp11_stage_s/stage_s/protocol/ACCEPTED_A_ASSET_PREFLIGHT.json"
 )
 _ASSET_OUTPUT_ROOT_SUFFIX = Path("USERS/leon/logs/r142_fp11_stage_s/assets")
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")

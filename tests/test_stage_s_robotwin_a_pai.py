@@ -11,11 +11,13 @@ import r142_stage_s.frozen_protocol as frozen_protocol_module
 import r142_stage_s.asset_acceptance as asset_acceptance_module
 from r142_stage_s.asset_acceptance import (
     AssetAcceptanceError,
+    DEFAULT_ACCEPTED_ASSET_PATH,
     EXPECTED_MODEL_REVISION,
     EXPECTED_SOURCE_COMMITS,
     load_accepted_asset_preflight,
 )
 from r142_stage_s.frozen_protocol import (
+    DEFAULT_PROTOCOL_PATH,
     EXPECTED_BUDGET,
     EXPECTED_SEED_RULE,
     EXPECTED_TASKS,
@@ -34,6 +36,7 @@ FINALIZER = ROOT / "scripts" / "stage_s_robotwin_finalize.py"
 CONFIG = ROOT / "configs" / "pai" / "stage_s_robotwin_a.json"
 ASSET_LAUNCHER = ROOT / "scripts" / "stage_s_asset_preflight.sh"
 ASSET_CONFIG = ROOT / "configs" / "pai" / "stage_s_asset_preflight.json"
+LEGACY_PROTOCOL_SUFFIX = "/".join(("USERS", "leon", "stage_s", "protocol")) + "/"
 
 
 def test_launcher_is_valid_shell_and_binds_all_eight_pairs() -> None:
@@ -53,14 +56,16 @@ def test_launcher_is_valid_shell_and_binds_all_eight_pairs() -> None:
     assert 'REQUIRED_RUNTIME_REPO="$ROOT/code/r142-stage-s-a-runtime-20260903"' in text
     assert "r142-stage-s-runtime-20260902" not in text
     assert "FROZEN_SOURCE_COMMIT=\"047f15c5cbad99e76ac47e2ce608a40bae22c49e\"" in text
-    assert "ACCEPTED_ASSET_PREFLIGHT_PATH=\"$ROOT/stage_s/protocol/ACCEPTED_A_ASSET_PREFLIGHT.json\"" in text
+    assert "ACCEPTED_ASSET_PREFLIGHT_PATH=\"$ROOT/logs/r142_fp11_stage_s/stage_s/protocol/ACCEPTED_A_ASSET_PREFLIGHT.json\"" in text
     assert "ASSET_PREFLIGHT_RUN_ID" not in text
     assert "r142-stage-s-a-assets-20260902-r15" not in text
     assert "COMPLETED_ASSET_PREFLIGHT.json" in text
     assert "asset_acceptance.py" in text
     assert "accepted run id" in text.lower()
     assert "checkpoint-dir \"$CHECKPOINT_DIR\"" in text
-    assert "stage_s/protocol/FROZEN_PROTOCOL.json" in text
+    assert "logs/r142_fp11_stage_s/stage_s/protocol/FROZEN_PROTOCOL.json" in text
+    assert LEGACY_PROTOCOL_SUFFIX not in text
+    assert ("/mnt/cpfs/zbl-cpfs-new/" + LEGACY_PROTOCOL_SUFFIX) not in text
     assert "frozen_protocol.py" in text
     assert "--frozen-protocol \"$FROZEN_PROTOCOL_PATH\"" in text
     assert "synthetic" not in text.lower() or "mock rollout" in text.lower()
@@ -95,20 +100,23 @@ def test_config_freezes_real_resource_and_evaluation_contract() -> None:
         "047f15c5cbad99e76ac47e2ce608a40bae22c49e"
     )
     assert config["runtime"]["frozen_protocol_path"] == (
-        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/stage_s/protocol/FROZEN_PROTOCOL.json"
+        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/stage_s/protocol/FROZEN_PROTOCOL.json"
     )
+    assert str(DEFAULT_PROTOCOL_PATH) == config["runtime"]["frozen_protocol_path"]
     assert config["runtime"]["command_file"] == (
         "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/"
         "stage_s_robotwin_a_pai.sh"
     )
     assert config["assets"]["asset_preflight_acceptance"]["manifest"] == (
-        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/stage_s/protocol/ACCEPTED_A_ASSET_PREFLIGHT.json"
+        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/stage_s/protocol/ACCEPTED_A_ASSET_PREFLIGHT.json"
     )
+    assert str(DEFAULT_ACCEPTED_ASSET_PATH) == config["assets"]["asset_preflight_acceptance"]["manifest"]
     assert config["assets"]["asset_preflight_acceptance"]["completion_marker"] == (
         "COMPLETED_ASSET_PREFLIGHT.json"
     )
     assert config["assets"]["asset_preflight_acceptance"]["integrity_manifest"] == "SHA256SUMS"
     assert "r142-stage-s-a-assets-20260902-r15" not in json.dumps(config)
+    assert ("/mnt/cpfs/zbl-cpfs-new/" + LEGACY_PROTOCOL_SUFFIX) not in json.dumps(config)
     assert config["fault_tolerance"]["maximum_platform_restarts"] == 50
     assert config["fault_tolerance"]["launcher_attempts"] == 1
     for field, path in (
@@ -220,7 +228,7 @@ def _sha256(path: Path) -> str:
 
 
 def _protocol_fixture(tmp_path: Path) -> tuple[Path, dict]:
-    protocol_dir = tmp_path / "stage_s" / "protocol"
+    protocol_dir = tmp_path / "USERS" / "leon" / "logs" / "r142_fp11_stage_s" / "stage_s" / "protocol"
     protocol_dir.mkdir(parents=True)
     protocol_md = protocol_dir / "PROTOCOL.md"
     b_report = tmp_path / "b_calibration_report.json"
@@ -264,7 +272,9 @@ def test_frozen_protocol_reader_returns_complete_fingerprint(tmp_path: Path, mon
     assert fingerprint["status"] == "FROZEN"
     assert fingerprint["protocol_git_commit"] == "a" * 40
     assert len(fingerprint["protocol_json_sha256"]) == 64
-    assert fingerprint["protocol_md_sha256"] == _sha256(tmp_path / "stage_s" / "protocol" / "PROTOCOL.md")
+    assert fingerprint["protocol_md_sha256"] == _sha256(
+        tmp_path / "USERS" / "leon" / "logs" / "r142_fp11_stage_s" / "stage_s" / "protocol" / "PROTOCOL.md"
+    )
     assert set(fingerprint["calibration_reports"]) == {"B", "C"}
     assert fingerprint["frozen_summary"]["tasks"] == list(EXPECTED_TASKS)
     assert fingerprint["frozen_summary"]["budget"] == EXPECTED_BUDGET
@@ -280,7 +290,16 @@ def test_frozen_protocol_reader_rejects_missing_or_tampered_authority(
         authority["status"] = "DRAFT"
         path.write_text(json.dumps(authority, sort_keys=True) + "\n", encoding="utf-8")
     elif tamper == "protocol":
-        (tmp_path / "stage_s" / "protocol" / "PROTOCOL.md").write_text("altered\n", encoding="utf-8")
+        (
+            tmp_path
+            / "USERS"
+            / "leon"
+            / "logs"
+            / "r142_fp11_stage_s"
+            / "stage_s"
+            / "protocol"
+            / "PROTOCOL.md"
+        ).write_text("altered\n", encoding="utf-8")
     elif tamper == "b_report":
         Path(authority["files"]["B_CALIBRATION_REPORT"]["path"]).write_text("altered\n", encoding="utf-8")
     elif tamper == "summary":
@@ -349,7 +368,7 @@ def _accepted_asset_fixture(tmp_path: Path) -> tuple[Path, Path, dict]:
     """Build a byte-complete accepted pointer without creating a PAI job."""
 
     output_dir = tmp_path / "USERS" / "leon" / "logs" / "r142_fp11_stage_s" / "assets" / "asset-run"
-    protocol_dir = tmp_path / "USERS" / "leon" / "stage_s" / "protocol"
+    protocol_dir = tmp_path / "USERS" / "leon" / "logs" / "r142_fp11_stage_s" / "stage_s" / "protocol"
     model_dir = tmp_path / "USERS" / "leon" / "cache" / "r142_stage_s" / "models" / EXPECTED_MODEL_REVISION
     output_dir.mkdir(parents=True)
     protocol_dir.mkdir(parents=True)
@@ -433,6 +452,15 @@ def test_accepted_asset_reader_rejects_missing_stable_pointer(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(asset_acceptance_module, "_CPFS_ROOT", tmp_path)
-    missing = tmp_path / "USERS" / "leon" / "stage_s" / "protocol" / "ACCEPTED_A_ASSET_PREFLIGHT.json"
+    missing = (
+        tmp_path
+        / "USERS"
+        / "leon"
+        / "logs"
+        / "r142_fp11_stage_s"
+        / "stage_s"
+        / "protocol"
+        / "ACCEPTED_A_ASSET_PREFLIGHT.json"
+    )
     with pytest.raises(AssetAcceptanceError, match="missing"):
         load_accepted_asset_preflight(missing, checkpoint_dir=tmp_path)

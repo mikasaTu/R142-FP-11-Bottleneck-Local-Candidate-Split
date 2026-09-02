@@ -26,7 +26,7 @@ Stage-S dispatcher handles only the three versioned exact-replay controls.
 
 The formal screen also has a hard asset gate. Before any server or client is
 started, the launcher must read the stable CPFS acceptance pointer
-`/mnt/cpfs/zbl-cpfs-new/USERS/leon/stage_s/protocol/ACCEPTED_A_ASSET_PREFLIGHT.json`.
+`/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/stage_s/protocol/ACCEPTED_A_ASSET_PREFLIGHT.json`.
 The controller may create this file atomically only after one asset-preflight
 PAI Job reaches terminal `Succeeded` and its exact output directory contains
 `COMPLETED_ASSET_PREFLIGHT.json` plus a verified `SHA256SUMS`. The launcher
@@ -39,7 +39,7 @@ record and all rechecked fields are persisted in every rank manifest,
 completion marker, and aggregate result.
 
 The A main launcher also reads the stable CPFS authority
-`/mnt/cpfs/zbl-cpfs-new/USERS/leon/stage_s/protocol/FROZEN_PROTOCOL.json`
+`/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/stage_s/protocol/FROZEN_PROTOCOL.json`
 before starting any Evo server. It must report `status=FROZEN`, a full
 40-hex protocol Git commit, matching hashes for `PROTOCOL.md` and both B/C
 calibration reports, and the frozen Stage-S threshold, seed, task, and budget

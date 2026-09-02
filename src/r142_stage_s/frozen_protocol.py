@@ -30,7 +30,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 
 DEFAULT_PROTOCOL_PATH = Path(
-    "/mnt/cpfs/zbl-cpfs-new/USERS/leon/stage_s/protocol/FROZEN_PROTOCOL.json"
+    "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/stage_s/protocol/FROZEN_PROTOCOL.json"
 )
 EXPECTED_STATUS = "FROZEN"
 EXPECTED_SEED_BASE = 14211
