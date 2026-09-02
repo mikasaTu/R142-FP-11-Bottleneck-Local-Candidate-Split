@@ -56,6 +56,9 @@ The manifest selects the registered robot idle alias
 worker, exactly 8 A800 GPUs, 88 CPU cores, 1525 GiB memory, and 1525 GiB
 shared memory. The manifest has no secrets, uses the controller's numeric
 `2254:2254` identity, and declares only `{{ARTIFACT_DIR}}` as a write path.
+Both `contract_source_job_id` and `resource_source_job_id` are pinned to the
+Stage-S carrier readback `dlckjz66iwcv38gw`; they are provenance only and do
+not represent a PAI clone.
 The artifact directory is exactly
 
 ```text
