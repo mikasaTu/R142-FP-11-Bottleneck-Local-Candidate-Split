@@ -103,6 +103,21 @@ The launcher refuses to begin/resume during `09:30-09:40` and
 stop this exact job before `09:30` and `19:30`, then resume the same run after
 `09:40` and `19:40`; it must not create a new run ID or output directory.
 
+## Execution ledger (controller/CPFS readback)
+
+These attempts are operational evidence only; neither is an accepted B
+calibration result.
+
+| Attempt | JobId | State | Evidence / disposition |
+|---|---|---|---|
+| `r142-stage-s-b-calibration-20260903-r1` | no JobId | controller `REFUSED` before CreateJob; sealed | The controller rejected the request because the required parent was missing. No PAI JobId was issued and no artifact was created. The exact configured path `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration/r142-stage-s-b-calibration-20260903-r1/` is absent; no file SHA exists to report. |
+| `r142-stage-s-b-calibration-20260903-r2` | `dlc2uj6yyuctriou` | active; unfinished | The exact configured artifact path `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration/r142-stage-s-b-calibration-20260903-r2/` exists but is empty on CPFS readback: no `FIRST_WORK.json`, rank marker, completion marker, calibration report, or `SHA256SUMS` is present. Active/running state and an empty/partial directory do not constitute calibration completion or scientific evidence. |
+
+The B calibration gate remains closed until the exact run reaches terminal PAI
+success and publishes all eight rank markers, the aggregate, and both SHA
+manifests required above. The r1 refusal is sealed; r2 must not be called
+complete while it is active or lacks those files.
+
 ## Static hand-off checks
 
 The following checks do not submit PAI:

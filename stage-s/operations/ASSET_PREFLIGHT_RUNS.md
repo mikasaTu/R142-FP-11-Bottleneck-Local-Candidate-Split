@@ -15,7 +15,9 @@ This is operational evidence only. Queueing, `Running`, `FIRST_WORK.json`, or a 
 | `r142-stage-s-a-assets-20260902-r12` | `dlcm738y2anr1vrd` | `Stopped` after fail-closed runtime failure | The Alibaba mirror repaired the pinned tools bootstrap and the persistent pip cache survived an idle eviction. The worker then proved that `huggingface.co` was network-unreachable before any checkpoint file was resolved. The failed marker and logs were preserved and the exact JobId was stopped; no completion marker or scientific rollout exists. |
 | `r142-stage-s-a-assets-20260902-r13` | `dlc1qpllai3167ml` | `Stopped` after fail-closed runtime failure | The reachable mirror completed the pinned Evo checkpoint and all three large RoboTwin asset archives, and extraction reached the final archive. The payload then executed `popd` under uid/gid 2254 and attempted to return to the inherited unreadable `/root`, producing `Permission denied`. `FAILED_ASSET_PREFLIGHT.json`, downloaded caches, extracted assets, and pod logs were preserved; no completion manifest was written. The exact JobId was stopped. |
 | `r142-stage-s-a-assets-20260902-r14` | `dlc1ielngql7vqaw` | `Stopped` after fail-closed runtime failure | The readable asset subshell succeeded and all downloads were reused, but `uv` searched the inherited unreadable `/root/uv.toml` after the uid drop. PAI restarted the task repeatedly under the same JobId; every attempt failed at the same environment bootstrap before completion. Logs and failed markers were preserved and the exact JobId was stopped. |
-| `r142-stage-s-a-assets-20260902-r15` | pending submission | prepared | Sets `UV_NO_CONFIG=1` plus explicit CPFS `UV_CACHE_DIR` and `UV_PYTHON_INSTALL_DIR`, without modifying `HOME`. It reuses the exact r13 assets and changes no source, checkpoint, task, or scientific protocol. Completion still requires terminal PAI success plus `COMPLETED_ASSET_PREFLIGHT.json` and verified `SHA256SUMS`. |
+| `r142-stage-s-a-assets-20260902-r15` | `dlc11rl91mtxp2wq` | `Stopped` after `flash-attn` `Errno 18` | Controller readback is terminal `Stopped`. The exact log `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/r142-stage-s-a-assets-20260902-r15/pai_logs/master-final-before-stop.log` has SHA-256 `d5a9db6b3451a6ddcf1497eaf1973dbde6c405a0088f91a01fe05cf7e05dc4e6`; the failure marker `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/r142-stage-s-a-assets-20260902-r15/FAILED_ASSET_PREFLIGHT.json` has SHA-256 `e0f20f3df46f791e6f625964b6c53c7b0869a3f1f8913c8ce7f7bf2c40c28beb`, and `FIRST_WORK.json` has SHA-256 `692b6b73fbeb0847fbf28d2cb70c751d7ede031bf6ff60e7c671ad82b8080107`. No `COMPLETED_ASSET_PREFLIGHT.json` or `SHA256SUMS` was written; this is an operational failure, not a scientific result. |
+| `r142-stage-s-a-assets-20260902-r16` | no JobId | controller `REFUSED` before CreateJob; sealed | The required pre-created resume directory was missing, so the controller refused the request before CreateJob. No JobId or CPFS artifact was produced. The exact configured paths checked were `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/assets/r142-stage-s-a-assets-20260902-r16/` and `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/r142-stage-s-a-assets-20260902-r16/`; both are absent and therefore have no file SHA to report. |
+| `r142-stage-s-a-assets-20260902-r17` | `dlc17mybd6alknp3` | active; unfinished | The external controller readback remains active. CPFS contains only `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/r142-stage-s-a-assets-20260902-r17/FIRST_WORK.json` (SHA-256 `38d09764a0bf6e4559098e887acc5a96e39d910de0a64f63857357e8e7fe8a72`); the registry-side path `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/assets/r142-stage-s-a-assets-20260902-r17/` has no completion marker or integrity manifest. Active/Running, queueing, `FIRST_WORK`, and partial cache activity are not completion. |
 
 The payload does not run scientific rollouts. Its only purpose is to pin and verify the exact RoboTwin/Evo-1/CuRobo sources, the published checkpoint revision, required assets, independent environments, GPU/graphics visibility, and imports before any calibration or main-screen rollout.
 
@@ -31,15 +33,15 @@ source/checkpoint/task contract. `COMPLETED_ASSET_PREFLIGHT.json` records the
 cache policy and temporary-root evidence, and the normal completion
 `SHA256SUMS` remains mandatory.
 
-## Safe r16 recovery recommendation
+## Current recovery boundary
 
-After the static checks and canonical registry validation pass, use a fresh
-run ID `r142-stage-s-a-assets-20260902-r16`; do not reuse r13 or any stopped
-run. Submit only outside the Beijing no-job windows (`09:30--09:40` and
-`19:30--19:40`, Asia/Shanghai), retain the exact same artifact/cache roots on
-every idle restart, and bind monitoring to the newly returned JobId. Treat
-`FIRST_WORK.json`, `Running`, queueing, or a partial cache as incomplete. The
-run qualifies only after terminal PAI success, a complete
-`COMPLETED_ASSET_PREFLIGHT.json`, and a passing asset-root `SHA256SUMS`; if it
-is preempted, resume the same run/artifact directory rather than creating a
-new scientific lineage.
+r15 is terminal `Stopped` after the cross-device wheel-build failure, r16 was
+refused before CreateJob and is sealed, and r17 is active but unfinished. Do
+not reuse any of these run IDs or treat their partial directories as a
+scientific lineage. A future attempt must use a fresh controller-approved run
+ID outside the Beijing no-job windows (`09:30--09:40` and `19:30--19:40`,
+Asia/Shanghai), retain the exact same artifact/cache roots across an idle
+restart, and bind monitoring to the returned JobId. Qualification still
+requires terminal PAI success, a complete `COMPLETED_ASSET_PREFLIGHT.json`,
+and a passing asset-root `SHA256SUMS`; queueing, running, first-work, and
+partial-cache markers remain incomplete.
