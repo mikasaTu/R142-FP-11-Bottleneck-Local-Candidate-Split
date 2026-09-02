@@ -14,10 +14,14 @@ RT_ENV="$ROOT/cache/r142_stage_s/envs/robotwin_py310"
 EVO_ENV="$ROOT/cache/r142_stage_s/envs/evo1_py310"
 PIP_CACHE="$ROOT/cache/r142_stage_s/pip"
 PIP_INDEX_URL="${PIP_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple}"
+HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
 mkdir -p "$OUT" "$MODEL" "$PIP_CACHE"
 export PIP_CACHE_DIR="$PIP_CACHE"
 export PIP_INDEX_URL
 export PIP_DEFAULT_TIMEOUT=120
+export HF_ENDPOINT
+export HF_HUB_DOWNLOAD_TIMEOUT=300
+export HF_HUB_ETAG_TIMEOUT=60
 
 blocked_window() {
   local hm
