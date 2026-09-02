@@ -345,11 +345,16 @@ def test_runner_requires_gate_and_persists_seed_eef_object_genealogy(tmp_path):
     payload = json.loads((tmp_path / "family-1" / "family.json").read_text())
     assert manifest["candidate_count"] == 2
     assert payload["metadata"]["replay_capability_gate"]["passed"]
+    snapshot = json.loads((tmp_path / "family-1" / "SNAPSHOT.json").read_text())
+    assert set(snapshot) == {"simulator", "policy_history", "action_queue", "rng_streams"}
     for candidate in payload["candidates"]:
         assert candidate["seed_sequence"]
         assert candidate["seed_genealogy"]["root_seed"] == 14211
         assert candidate["eef_trajectory"]
         assert candidate["object_trajectories"]["object"]
+        assert candidate["policy_history"] is not None
+        assert candidate["action_queue"] is not None
+        assert set(candidate["rng_state"]) == {"environment", "policy"}
         assert candidate["final_success"] is True
 
 

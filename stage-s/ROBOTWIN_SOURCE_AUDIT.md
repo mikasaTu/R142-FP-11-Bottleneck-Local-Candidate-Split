@@ -78,7 +78,10 @@ trajectory or synthetic success callback is accepted. Each candidate stores
 the complete action prefix, EEF trajectory, rigid-actor/object trajectories,
 policy-forward count, environment-step count, final official success flag,
 and seed genealogy. A family is written atomically as `family.json`,
-`genealogy.jsonl`, `SHA256SUMS`, then `COMPLETED_FAMILY.json`.
+`genealogy.jsonl`, `SNAPSHOT.json` (the initial simulator/policy/RNG replay
+state), `SHA256SUMS`, then `COMPLETED_FAMILY.json`. Each candidate also
+persists its terminal policy history, action queue, and environment/policy RNG
+states in `family.json`.
 
 Before candidate 0 the runner must pass the concrete
 `restore -> same action -> next-state` check at tolerance `1e-9`. Failure is a

@@ -709,6 +709,19 @@ def _jsonable(value: Any) -> Any:
         return int(value)
     if isinstance(value, np.floating):
         return float(value)
+    # Torch RNG states and model tensors are part of the replay evidence.  A
+    # list conversion preserves their exact integer/float payload instead of
+    # the non-replayable ``repr(Tensor(...))`` fallback.
+    if hasattr(value, "detach") and callable(value.detach):
+        tensor = value.detach().cpu()
+        return {
+            "dtype": str(tensor.dtype),
+            "shape": list(tensor.shape),
+            "data": tensor.tolist(),
+        }
+    # SAPIEN Pose exposes p/q arrays but is not JSON serializable itself.
+    if hasattr(value, "p") and hasattr(value, "q"):
+        return {"p": _jsonable(value.p), "q": _jsonable(value.q)}
     if isinstance(value, Mapping):
         return {str(k): _jsonable(v) for k, v in value.items()}
     if isinstance(value, (tuple, list)):
@@ -716,6 +729,24 @@ def _jsonable(value: Any) -> Any:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     return repr(value)
+
+
+def _snapshot_jsonable(value: Any) -> Any:
+    """Serialize a replay snapshot while dropping process-local handles."""
+    if hasattr(value, "__dataclass_fields__"):
+        return {
+            str(key): _snapshot_jsonable(item)
+            for key, item in vars(value).items()
+        }
+    if isinstance(value, Mapping):
+        return {
+            str(key): _snapshot_jsonable(item)
+            for key, item in value.items()
+            if key not in {"object", "scene"}
+        }
+    if isinstance(value, (tuple, list)):
+        return [_snapshot_jsonable(item) for item in value]
+    return _jsonable(value)
 
 
 @dataclass
@@ -739,6 +770,11 @@ class CandidateRecord:
     env_steps: int = 0
     seed_sequence: list = field(default_factory=list)
     seed_genealogy: Dict[str, Any] = field(default_factory=dict)
+    # Post-termination policy/runtime state is persisted for every candidate;
+    # this is separate from the family-level initial replay snapshot.
+    policy_history: Any = None
+    action_queue: Any = None
+    rng_state: Any = None
 
     def as_dict(self) -> Dict[str, Any]:
         return _jsonable(self.__dict__)
@@ -805,6 +841,7 @@ class AtomicFamilyWriter:
         records: Iterable[CandidateRecord],
         *,
         metadata: Optional[Mapping[str, Any]] = None,
+        snapshot: Optional[Any] = None,
     ) -> Dict[str, Any]:
         records = list(records)
         directory = self.root / family_id
@@ -827,18 +864,27 @@ class AtomicFamilyWriter:
             + "\n"
         ).encode()
         genealogy_sha = self._atomic(directory / "genealogy.jsonl", genealogy_data)
-        sums_data = (
-            f"{result_sha}  family.json\n{genealogy_sha}  genealogy.jsonl\n"
-        ).encode()
+        files = {"family.json": result_sha, "genealogy.jsonl": genealogy_sha}
+        if snapshot is not None:
+            snapshot_data = (
+                json.dumps(
+                    _snapshot_jsonable(snapshot),
+                    sort_keys=True,
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                + "\n"
+            ).encode()
+            files["SNAPSHOT.json"] = self._atomic(
+                directory / "SNAPSHOT.json", snapshot_data
+            )
+        sums_data = ("\n".join(f"{sha}  {name}" for name, sha in files.items()) + "\n").encode()
         sums_sha = self._atomic(directory / "SHA256SUMS", sums_data)
+        files["SHA256SUMS"] = sums_sha
         marker = {
             "family_id": family_id,
             "candidate_count": len(records),
-            "files": {
-                "family.json": result_sha,
-                "genealogy.jsonl": genealogy_sha,
-                "SHA256SUMS": sums_sha,
-            },
+            "files": files,
         }
         marker_data = (
             json.dumps(marker, sort_keys=True, ensure_ascii=False, indent=2) + "\n"
@@ -967,6 +1013,7 @@ class FamilyRolloutRunner:
         return self.writer.write(
             family_id,
             records,
+            snapshot=base,
             metadata={
                 "task_name": task_name,
                 "initial_state_id": initial_state_id,
@@ -1050,3 +1097,36 @@ class FamilyRolloutRunner:
         check = getattr(env, "check_success", None)
         if not record.final_success and callable(check):
             record.final_success = bool(check())
+        # Preserve the exact policy history, queued action suffix, and both
+        # runtime/policy RNG streams after termination.  These are raw replay
+        # evidence, not derived metrics.
+        record.policy_history = _snapshot_jsonable(
+            _invoke(
+                policy,
+                ("capture_observation_history", "snapshot_observation_history"),
+                "policy observation history",
+            )
+        )
+        record.action_queue = _snapshot_jsonable(
+            _invoke(
+                policy,
+                ("capture_action_queue", "snapshot_action_queue"),
+                "policy action queue",
+            )
+        )
+        record.rng_state = {
+            "environment": _snapshot_jsonable(
+                _invoke(
+                    env,
+                    ("capture_rng_state", "snapshot_rng", "get_rng_state"),
+                    "environment RNG streams",
+                )
+            ),
+            "policy": _snapshot_jsonable(
+                _invoke(
+                    policy,
+                    ("capture_rng_state", "snapshot_rng", "get_rng_state"),
+                    "policy RNG streams",
+                )
+            ),
+        }
