@@ -1,0 +1,158 @@
+{
+  "schema_version": 2,
+  "schema": "pai-job-registry-v2",
+  "kind": "pytorchjob",
+  "workspace_id": "179169",
+  "name_prefix": "r142-stage-s-b-main-idle",
+  "description": "R142 Stage-S substrate B frozen calibrated LIBERO main screen; 10 tasks x 16 states x 32 candidates, terminal official outcomes only",
+  "resource_alias": "idle-a800-robot-stage-s-graphics-8gpu",
+  "resource_id": "quota1ssrabud0bh",
+  "quota_name": "exp-robot",
+  "provenance": {
+    "contract_source_job_id": "dlckjz66iwcv38gw",
+    "resource_source_job_id": "dlckjz66iwcv38gw",
+    "source_role": "readback_reference",
+    "submission_method": "cli_create",
+    "pai_clone_performed": false
+  },
+  "resource": {
+    "pool_family": "robot",
+    "pool": "robot_idle",
+    "alias": "idle-a800-robot-stage-s-graphics-8gpu",
+    "id": "quota1ssrabud0bh",
+    "quota_name": "exp-robot",
+    "oversold_type": "AcceptQuotaOverSold",
+    "workers": 1,
+    "gpu": 8,
+    "cpu": 88,
+    "memory": "1525Gi",
+    "shared_memory": "1525Gi"
+  },
+  "network": {},
+  "worker": {
+    "count": 1,
+    "gpu": 8,
+    "cpu": 88,
+    "memory": "1525Gi",
+    "shared_memory": "1525Gi",
+    "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04"
+  },
+  "storage": {
+    "data_sources": [
+      {"id": "d-mkixtohdn75dp8x9tb", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon", "options": ""},
+      {"id": "d-36p023eg0f2vuqny8y", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon", "options": ""},
+      {"id": "d-ejgj2ej7io1t2t32uc", "version": "v1", "mount_path": "/mnt/cpfs/zbl-cpfs-new/dataset/leon", "options": ""}
+    ],
+    "output_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_main"
+  },
+  "runtime": {
+    "project_dir": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-bc-main-runtime-20260903",
+    "runtime_repo": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-bc-main-runtime-20260903",
+    "source_commit": "99591fc05437d7f6f68ae6dc9e68f32c5da8e640",
+    "source_commit_policy": "frozen_exact_runtime_commit",
+    "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-bc-pai-20260903/stage_s_b_main_pai.sh",
+    "command_file_sha256": "2ec48a23a968ce8f490525fdcc88d5c696866977cfd47901a54220f8f820ea52",
+    "payload_sha256": "2ec48a23a968ce8f490525fdcc88d5c696866977cfd47901a54220f8f820ea52",
+    "create_artifact_dir": true,
+    "gid": 2254,
+    "uid": 2254,
+    "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
+    "output_mode": "resume",
+    "recursive_repair": false,
+    "secret_env_names": [],
+    "pod_env": {"NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"},
+    "write_paths": [
+      "{{ARTIFACT_DIR}}",
+      "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_main/{{RUN_ID}}",
+      "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/b_main/{{RUN_ID}}"
+    ]
+  },
+  "fault_tolerance": {
+    "execution_mode": "Sync",
+    "policy": "OnFailure",
+    "application_auto_resume": true,
+    "persistent_application_autoresume": true,
+    "same_directory_on_resume": true,
+    "evaluation_resume_contract": "immutable_completed_family_markers_same_directory",
+    "retry_sleep_seconds": 30,
+    "launcher_attempts": 1,
+    "pai_automatic_fault_tolerance": true,
+    "maximum_platform_restarts": 50,
+    "max_num_of_job_restart": 50,
+    "aimaster_args": "--job-execution-mode=Sync --enable-job-restart=True --max-num-of-job-restart=50 --fault-tolerant-policy=OnFailure",
+    "complete_state_save_interval_steps": null
+  },
+  "evidence": {
+    "kind": "r142_stage_s_b_main_formal_evaluation",
+    "workload_type": "evaluation",
+    "task_id": "r142-stage-s-substrate-b-main",
+    "model_id": "pi05-libero-stage-r-pinned",
+    "success_gate": "persisted_completed_evaluation_result",
+    "contract_ready": true,
+    "idle_8gpu_contract": "generic_formal_idle_8gpu_v1",
+    "require_actual_idle": true,
+    "pai_probe_created": false,
+    "validation_status": "passed",
+    "validation_method": "static+dev14_smoke",
+    "validated_payload_sha256": "2ec48a23a968ce8f490525fdcc88d5c696866977cfd47901a54220f8f820ea52",
+    "expected_first_work_uid": 2254,
+    "expected_first_work_gid": 2254,
+    "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_main/{{RUN_ID}}/FIRST_WORK.json",
+    "completed_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_main/{{RUN_ID}}/COMPLETED_EVALUATION_RESULT.json",
+    "stage_s_source_commit": "99591fc05437d7f6f68ae6dc9e68f32c5da8e640",
+    "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
+    "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+    "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
+    "screen_protocol": "10_tasks_x_16_initial_states_x_32_candidates",
+    "world_size": 8,
+    "candidate_budget": 32,
+    "terminal_outcome": "official environment success label at termination; no synthetic callback or expert trajectory",
+    "genealogy_contract": "candidate_id parent_id generation_step candidate_seed action_prefix final_success",
+    "trajectory_contract": "actions and poses per candidate plus policy_forwards/environment_steps",
+    "replay_gate": "restore simulator/history/action_queue/Python/NumPy/Torch CPU/CUDA/policy RNG then same action next-state <= 1e-9",
+    "calibration_gate": {
+      "report": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/b_calibration/CALIBRATION_REPORT.json",
+      "requires_status": "FROZEN",
+      "requires_kind": "pooled_only",
+      "variant_run_id": "r142-stage-s-b-variants-20260903-r7",
+      "loads_only": "selected_setting variant root after pooled-only calibration completion",
+      "pre_screen_lookahead": false
+    },
+    "source_provenance": {
+      "runtime": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-bc-main-runtime-20260903",
+      "policy_checkpoint": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/openpi/r16p15/openpi-assets/checkpoints/pi05_libero"
+    },
+    "scientific_rollouts": true,
+    "synthetic_rollouts": false,
+    "expert_trajectory": false,
+    "no_s2_s5_peeking": true
+  },
+  "submission": {
+    "priority": 9,
+    "disable_ecs_stock_check": true,
+    "job_max_running_time_minutes": 0,
+    "job_reserved_minutes": 0,
+    "job_reserved_policy": "",
+    "tags": {
+      "managed_by": "pai-job-registry",
+      "purpose": "formal-evaluation",
+      "project": "r142-fp-11-stage-s",
+      "task": "r142-stage-s-substrate-b-main",
+      "model": "pi05-libero-stage-r-pinned",
+      "dataset": "libero-10-b-variants-r7-main",
+      "hardware": "8xa800-idle",
+      "resource_pool": "exp-robot",
+      "substrate": "B",
+      "autoresume": "same-directory-family-markers"
+    }
+  },
+  "blackout": {
+    "timezone": "Asia/Shanghai",
+    "windows": ["09:30-09:40", "19:30-19:40"],
+    "fail_closed": true,
+    "stop_before": ["09:30", "19:30"],
+    "resume_after": ["09:40", "19:40"]
+  },
+  "no_pai_submit_performed": true,
+  "status": "IMPLEMENTED_NOT_SUBMITTED"
+}
