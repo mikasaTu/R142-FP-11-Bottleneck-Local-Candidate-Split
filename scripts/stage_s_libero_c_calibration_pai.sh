@@ -19,7 +19,7 @@ readonly WORLD_SIZE=8
 # Pinned real Stage-R/LIBERO source trees. A dirty tree or commit drift is
 # refused before the first simulator import.
 readonly STAGE_S_REPO="$ROOT/code/r142-stage-s-c-runtime-20260903"
-readonly STAGE_S_SOURCE_COMMIT=7575da585be31eb369a604d90048b338bbbf2c92
+readonly STAGE_S_SOURCE_COMMIT=87d59e59db9b48bef5db3613e326a66390352df1
 readonly QPILOTS="$ROOT/code/QPILOTS-r16p15-stage1-task64-20260812"
 readonly QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
 readonly OPENPI="$QPILOTS/third_party/openpi"
@@ -150,7 +150,7 @@ PHASE=bootstrap
 [[ "$(stat -c '%u:%g' "$OUT")" == "$LEON_UID:$LEON_GID" ]]
 [[ "$(stat -c '%a' "$OUT")" == 700 ]]
 [[ "$(id -u):$(id -g)" == "$LEON_UID:$LEON_GID" ]]
-for command_name in bash date find git nvidia-smi realpath sha256sum stat torchrun "$PYTHON" python3; do
+for command_name in bash date find git nvidia-smi realpath sha256sum stat "$PYTHON" python3; do
   if [[ "$command_name" == /* ]]; then
     [[ -x "$command_name" ]] || { echo "C_CALIBRATION_REFUSED missing executable: $command_name" >&2; exit 69; }
   else
@@ -246,7 +246,7 @@ if acceptance.get("accepted_run_id") != run_id or not re.fullmatch(r"r142-stage-
 if acceptance.get("job_id") != job_id or not re.fullmatch(r"dlc[0-9a-z]+", job_id):
     raise SystemExit("C acceptance job id does not match its derived terminal job")
 source = {
-    "stage_s_commit": "7575da585be31eb369a604d90048b338bbbf2c92",
+    "stage_s_commit": "87d59e59db9b48bef5db3613e326a66390352df1",
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
     "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
     "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
@@ -454,7 +454,7 @@ payload = {
     "gid": os.getgid(),
     "gpu_count": 8,
     "world_size": 8,
-    "stage_s_source_commit": "7575da585be31eb369a604d90048b338bbbf2c92",
+    "stage_s_source_commit": "87d59e59db9b48bef5db3613e326a66390352df1",
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
     "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
     "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
@@ -474,10 +474,17 @@ CHECKPOINT_ARGS=(
   --checkpoint "$C_TRAIN_DIR/10000"
 )
 
-# The pinned real runtime owns the episode loop and persists only aggregate
-# rows. The rank/world-size contract is explicit and fixed at eight.
+# Materialize the immutable plan once before distributed ranks start.  This
+# avoids concurrent CPFS create/replace races on CALIBRATION_PLAN.json.
 cd "$STAGE_S_REPO"
-torchrun --standalone --nnodes=1 --nproc_per_node="$WORLD_SIZE" \
+"$PYTHON" scripts/stage_s_libero_calibrate.py \
+  --substrate C --mode prepare --output-root "$OUT" \
+  --world-size "$WORLD_SIZE" --seed "$CALIBRATION_SEED" \
+  "${CHECKPOINT_ARGS[@]}"
+
+# The pinned OpenPI interpreter owns Torch, JAX and policy dependencies; do
+# not allow PATH's system torchrun to select another Python.
+"$PYTHON" -m torch.distributed.run --standalone --nnodes=1 --nproc_per_node="$WORLD_SIZE" \
   scripts/stage_s_libero_calibrate.py \
   --substrate C --mode shard --output-root "$OUT" \
   --world-size "$WORLD_SIZE" --seed "$CALIBRATION_SEED" --max-steps 520 \
@@ -564,7 +571,7 @@ payload = {
     "rank_markers": rank_markers,
     "rank_marker_sha256": rank_marker_sha256,
     "source": {
-        "stage_s_commit": "7575da585be31eb369a604d90048b338bbbf2c92",
+        "stage_s_commit": "87d59e59db9b48bef5db3613e326a66390352df1",
         "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
         "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
         "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",

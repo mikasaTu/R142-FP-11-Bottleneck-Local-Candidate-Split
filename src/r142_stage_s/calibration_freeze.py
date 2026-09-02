@@ -32,7 +32,7 @@ C_TRAINING_ACCEPTANCE_SCHEMA = "r142-stage-s-c-training-acceptance-v1"
 C_TRAINING_COMPLETION_SCHEMA = "r142-stage-s-c-training-completion-v1"
 C_TRAINING_OPENPI_COMMIT = "54cbaee6ae0c010a1ed431871cdaa8f4684ac709"
 C_TRAINING_SOURCE = {
-    "stage_s_commit": "7575da585be31eb369a604d90048b338bbbf2c92",
+    "stage_s_commit": "95e66fb4fde388a1822c7eb66fc460b834602e79",
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
     "openpi_commit": C_TRAINING_OPENPI_COMMIT,
     "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
