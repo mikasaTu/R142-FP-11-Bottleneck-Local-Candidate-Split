@@ -179,7 +179,7 @@ def test_source_provenance_compute_and_daily_resume_contract() -> None:
         "pai_clone_performed": False,
         "source_role": "readback_reference",
     }
-    assert evidence["stage_s_source_commit"] == "f8f6d81dfb4868382b2e0132e27280ec345283bd"
+    assert evidence["stage_s_source_commit"] == "dd8fcea8e49fb5024e38c3c99e4fac6241a772ec"
     assert evidence["qpilots_commit"] == "eacf47b981e3b22357f8a74902f8dad8cfcfa375"
     assert evidence["openpi_commit"] == "54cbaee6ae0c010a1ed431871cdaa8f4684ac709"
     assert evidence["libero_commit"] == "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c"
