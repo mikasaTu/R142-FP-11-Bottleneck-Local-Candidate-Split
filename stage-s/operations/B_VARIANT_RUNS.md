@@ -12,6 +12,7 @@ result and must not be promoted to completion.
 | r4 | not created | sealed | Controller rejected the run because the required registry output parent was absent. |
 | r5 | `dlck9preyo3symau` | stopped after failure | The task wrote `FIRST_WORK.json`, then pinned LIBERO attempted its first-import interactive dataset prompt and raised `EOFError`. `FAILED_B_VARIANTS.json` was preserved. The exact job was stopped; partial artifacts are not reusable as completion. |
 | r6 | `dlc1bqps0a2dhbcw` | stopped after failure | Run-scoped LIBERO configuration succeeded and EGL initialized, but the generator compared source flattened MuJoCo states (123 values for the first task) against `sim.data.qpos` (72 values). The strict dimension check stopped the run. The exact job, log, `FAILED_B_VARIANTS.json`, and partial artifacts were preserved; none is completion evidence. |
+| r7 | pending submission | prepared | Pins Stage-S source `afe353bbc5997355f35cb0c77c5446fd4df5f1e3`, generates LIBERO `sim.get_state().flatten()` states, and requires each generated row to survive `set_init_state` with finite observations and state error <= 1e-9. It keeps the original dimension-growth gate and discards all qpos-only r5/r6 partials. |
 
 ## Recovery rules
 
