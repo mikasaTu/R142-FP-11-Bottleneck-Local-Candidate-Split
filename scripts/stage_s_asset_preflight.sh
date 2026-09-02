@@ -99,6 +99,9 @@ fi
 )
 
 export UV_PYTHON_INSTALL_DIR="$ROOT/cache/r142_stage_s/uv-python"
+export UV_CACHE_DIR="$ROOT/cache/r142_stage_s/uv-cache"
+export UV_NO_CONFIG=1
+mkdir -p "$UV_PYTHON_INSTALL_DIR" "$UV_CACHE_DIR"
 if [[ ! -x "$RT_ENV/bin/python" ]]; then
   "$TOOLS_ENV/bin/uv" python install 3.10
   "$TOOLS_ENV/bin/uv" venv --seed --python 3.10 "$RT_ENV"
