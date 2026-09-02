@@ -91,6 +91,7 @@ def _execute(args: argparse.Namespace) -> int:
         raise SystemExit(f"invalid conversion completion marker: {exc}") from exc
     if conversion.get("status") != "COMPLETED" or conversion.get("openpi_commit") != OPENPI_COMMIT:
         raise SystemExit("conversion marker is not a completed artifact from the pinned OpenPI commit")
+    compatibility = data_preflight["official_bindings"]["lerobot_compatibility"]
 
     checkpoint_base = args.checkpoint_base_dir.resolve()
     train_dir = checkpoint_base / OPENPI_CONFIG_NAME / "r142_stage_s_c_undertrained_seed42"
@@ -123,6 +124,11 @@ def _execute(args: argparse.Namespace) -> int:
         "dataset_manifest_file_sha256": data_preflight["dataset"]["manifest_file_sha256"],
         "norm_stats_source_sha256": data_preflight["norm_stats"]["source_sha256"],
         "norm_stats_sha256": data_preflight["norm_stats"]["staged_sha256"],
+        "lerobot_compatibility_contract": compatibility["contract"],
+        "lerobot_version": compatibility["lerobot_version"],
+        "lerobot_commit": compatibility["lerobot_commit"],
+        "datasets_version": compatibility["datasets_version"],
+        "lerobot_compatibility_mode": compatibility["mode"],
         "checkpoint_base_dir": str(checkpoint_base),
         "no_pai_submit_performed": True,
     }

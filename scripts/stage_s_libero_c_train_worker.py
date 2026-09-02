@@ -344,6 +344,12 @@ def _patch_checkpoint_io(trainer: Any, torch: Any) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     root, trainer_args = _parse_worker_args(list(sys.argv[1:] if argv is None else argv))
+    # Install the narrow, provenance-gated datasets Column bridge before the
+    # pinned OpenPI module imports LeRobot's dataset class.  Unknown package
+    # versions and constructor ABIs fail closed in this call.
+    from r142_stage_s.lerobot_compat import install_column_compat_bridge
+
+    install_column_compat_bridge()
     trainer = _load_trainer(root)
     import torch
 
