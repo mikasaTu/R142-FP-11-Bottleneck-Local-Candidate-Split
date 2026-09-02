@@ -5,6 +5,11 @@ This command is intentionally a thin adapter around the frozen Stage-R
 ``CleanPi05LiberoPolicy`` and ``Task64Environment`` wrappers.  It has two
 subcommands-in-one modes:
 
+``prepare``
+    Validate the frozen sources and materialize the immutable calibration
+    plan exactly once before distributed workers are launched.  This avoids
+    concurrent CPFS writers racing on ``CALIBRATION_PLAN.json``.
+
 ``shard``
     Run this rank's deterministic subset of the frozen
     ``4 settings x 4 tasks x 8 initial states x 8 candidates`` grid.  Only
@@ -44,6 +49,7 @@ from r142_stage_s.libero import (
     task_spec,
     validate_b_calibration_variants,
     verify_calibration_aggregate,
+    write_calibration_plan,
 )
 
 
@@ -56,7 +62,7 @@ def _settings(substrate: str) -> list[str]:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--substrate", choices=("B", "C"), required=True)
-    parser.add_argument("--mode", choices=("shard", "aggregate"), default="shard")
+    parser.add_argument("--mode", choices=("prepare", "shard", "aggregate"), default="shard")
     parser.add_argument("--output-root", type=Path, required=True, help="persistent calibration run root")
     parser.add_argument("--report", type=Path, help="aggregate result path (aggregate mode only)")
     parser.add_argument("--seed", type=int, default=CALIBRATION_SEED)
@@ -255,6 +261,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         return _print_dry_run(args, settings)
     sources = _prepare_sources(args, settings)
+    if args.mode == "prepare":
+        payload = write_calibration_plan(
+            args.output_root,
+            settings,
+            calibration_seed=args.seed,
+            world_size=args.world_size,
+            substrate=args.substrate,
+            sources=sources,
+        )
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
     evaluator = _make_real_evaluator(args, settings, sources)
     try:
         result = run_calibration_shard(
