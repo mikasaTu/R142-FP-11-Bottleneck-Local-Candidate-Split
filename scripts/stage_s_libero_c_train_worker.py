@@ -51,6 +51,80 @@ def _rank(torch: Any) -> int:
     return int(os.environ.get("RANK", "0"))
 
 
+def _stack_dataset_column(
+    torch: Any,
+    original_stack: Any,
+    tensors: Any,
+    *args: Any,
+    **kwargs: Any,
+) -> Any:
+    """Bridge the datasets>=4 ``Column`` API at LeRobot's old stack call.
+
+    LeRobot 0.1.0 calls ``torch.stack(dataset["timestamp"])`` during
+    construction.  Hugging Face datasets 4.x now returns a lazy ``Column``
+    for string indexing, even when a torch transform is installed, while
+    ``torch.stack`` accepts only a concrete tuple/list of tensors.  The two
+    affected fields are scalar timestamp/index columns, so materializing the
+    column directly as one tensor is equivalent and substantially cheaper
+    than allocating hundreds of thousands of scalar tensors first.
+    """
+
+    value_type = type(tensors)
+    is_column = (
+        value_type.__module__ == "datasets.arrow_dataset"
+        and value_type.__name__ == "Column"
+    )
+    if not is_column:
+        return original_stack(tensors, *args, **kwargs)
+    dim = args[0] if args else kwargs.get("dim", 0)
+    if len(args) > 1 or dim != 0 or kwargs.get("out") is not None:
+        return original_stack(tensors, *args, **kwargs)
+    source = getattr(tensors, "source", None)
+    column_name = getattr(tensors, "column_name", None)
+    if callable(getattr(source, "with_format", None)) and isinstance(
+        column_name, str
+    ):
+        # Iterating a Column backed by a custom transform evaluates that
+        # transform for every complete row (including image fields).  Read the
+        # same scalar column through a transform-free Dataset view instead.
+        values = list(source.with_format(None)[column_name])
+    else:
+        values = list(tensors)
+    return torch.as_tensor(values)
+
+
+def _patch_lerobot_dataset_column_stack(torch: Any) -> None:
+    """Apply the compatibility bridge only while LeRobot initializes."""
+
+    from lerobot.common.datasets import lerobot_dataset
+
+    dataset_type = lerobot_dataset.LeRobotDataset
+    current_init = dataset_type.__init__
+    if getattr(current_init, "_r142_datasets_column_compat", False):
+        return
+
+    def compatible_init(self: Any, *args: Any, **kwargs: Any) -> None:
+        original_stack = torch.stack
+
+        def compatible_stack(tensors: Any, *stack_args: Any, **stack_kwargs: Any) -> Any:
+            return _stack_dataset_column(
+                torch,
+                original_stack,
+                tensors,
+                *stack_args,
+                **stack_kwargs,
+            )
+
+        torch.stack = compatible_stack
+        try:
+            current_init(self, *args, **kwargs)
+        finally:
+            torch.stack = original_stack
+
+    compatible_init._r142_datasets_column_compat = True
+    dataset_type.__init__ = compatible_init
+
+
 def _atomic_torch_save(torch: Any, value: Any, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}")
@@ -273,6 +347,7 @@ def main(argv: list[str] | None = None) -> int:
     trainer = _load_trainer(root)
     import torch
 
+    _patch_lerobot_dataset_column_stack(torch)
     _patch_data_cursor(trainer, torch)
     _patch_checkpoint_io(trainer, torch)
     sys.argv = [str(root / "scripts" / "train_pytorch.py"), *trainer_args]

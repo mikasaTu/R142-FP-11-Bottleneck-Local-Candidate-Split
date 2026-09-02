@@ -320,6 +320,49 @@ def test_exact_cursor_loader_skips_resume_offset_and_sets_sampler_epoch() -> Non
     assert sampler.epochs == [1]
 
 
+def test_datasets_column_stack_compatibility_is_narrow() -> None:
+    worker = _load_worker_module()
+
+    class Column(list):
+        pass
+
+    class FakeSource:
+        def __init__(self) -> None:
+            self.formats: list[object] = []
+
+        def with_format(self, value):
+            self.formats.append(value)
+            return {"timestamp": [0.0, 0.1, 0.2]}
+
+    Column.__module__ = "datasets.arrow_dataset"
+    calls: list[tuple[object, tuple[object, ...], dict[str, object]]] = []
+
+    class FakeTorch:
+        @staticmethod
+        def as_tensor(values):
+            return ("tensor", tuple(values))
+
+    def original_stack(values, *args, **kwargs):
+        calls.append((values, args, kwargs))
+        return "original"
+
+    column = Column(["custom-transform-must-not-run"])
+    column.source = FakeSource()
+    column.column_name = "timestamp"
+    assert worker._stack_dataset_column(FakeTorch, original_stack, column) == (
+        "tensor",
+        (0.0, 0.1, 0.2),
+    )
+    assert calls == []
+    assert column.source.formats == [None]
+    normal = ["already", "supported"]
+    assert worker._stack_dataset_column(FakeTorch, original_stack, normal) == "original"
+    assert calls == [(normal, (), {})]
+    assert worker._stack_dataset_column(
+        FakeTorch, original_stack, column, 1
+    ) == "original"
+
+
 def test_registry_v2_payload_binds_pinned_runtime_and_stages() -> None:
     root = Path(__file__).resolve().parents[1]
     payload = json.loads((root / "configs/pai/stage_s_c_undertrained.json").read_text(encoding="utf-8"))
