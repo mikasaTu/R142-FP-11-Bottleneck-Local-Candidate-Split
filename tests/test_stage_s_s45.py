@@ -35,10 +35,13 @@ def _protocol(tmp_path: Path, *, complete: bool = True) -> Path:
             "anchor_rule": "fixture-anchor-rule",
             "oracle_t_rule": "fixture-oracle-grid",
             "random_t_rule": "fixture-random-grid",
-            "oracle_t_grid": [1, 2],
-            "random_t_grid": [1, 2],
-            "branch_count": 2,
+            "oracle_t_grid": list(range(1, 10)),
+            "branch_count": 4,
+            "search_branch_count": 4,
+            "heldout_branch_count": 8,
+            "random_branch_count": 8,
             "branch_seed_formula": "fixture-branch-seed-v1",
+            "random_location_hash_formula": "sha256(protocol_id|s4|family_id|episode_length|pair_index)->first_8_bytes_big_endian_mod_interior",
         },
         "s5": {
             "base_candidate_count": 32,
@@ -60,14 +63,14 @@ def _candidate(index: int, *, success: bool = False) -> dict:
         "candidate_seed": 1000 + index,
         "parent_id": None,
         "generation_step": 0,
-        "actions": [[float(index), 0.0] for _ in range(4)],
-        "trajectory": [[float(index), 0.0] for _ in range(4)],
+        "actions": [[float(index), 0.0] for _ in range(12)],
+        "trajectory": [[float(index), 0.0, 0.0, 0.0, 0.0, 0.0] for _ in range(12)],
         "success": success,
         "final_success": success,
         "terminated": True,
         "termination": "official-step-limit",
-        "policy_forwards": 4,
-        "env_steps": 4,
+        "policy_forwards": 12,
+        "env_steps": 12,
     }
 
 
@@ -124,21 +127,27 @@ class FixtureAdapter(S45Adapter):
         }
 
     def branch_seed(self, family, anchor, split_step, branch_index, mode, *, protocol):
-        return 7000 + branch_index + (100 if mode == "oracle" else 0)
+        if mode == "search":
+            return 5000 + split_step * 10 + branch_index
+        return 7000 + branch_index
 
     def run_branch(self, family, anchor, prefix, split_step, branch_seed, branch_index, mode, *, protocol):
         actions = copy.deepcopy(anchor["actions"])
         trajectory = copy.deepcopy(anchor["trajectory"])
-        # The prefix is unchanged. The fixture makes oracle branches recover
-        # and random branches fail so the analysis has a positive paired gap.
+        # The prefix is unchanged. Search has a unique max at t=3, while the
+        # held-out oracle branches recover and the paired random branches fail.
+        success = (
+            (mode == "search" and split_step == 3 and branch_index < 2)
+            or mode == "oracle_heldout"
+        )
         return {
             "actions": actions,
             "trajectory": trajectory,
             "terminated": True,
-            "success": mode == "oracle",
+            "success": success,
             "termination": "official-step-limit",
-            "policy_forwards": 4,
-            "env_steps": 4,
+            "policy_forwards": 12,
+            "env_steps": 12,
             "snapshot_restore_check": {"same_action": True, "passed": True, "max_abs_error": 0.0},
         }
 
@@ -147,13 +156,13 @@ class FixtureAdapter(S45Adapter):
 
     def run_fresh_candidate(self, family, candidate_index, candidate_seed, *, protocol):
         return {
-            "actions": [[float(candidate_index), 0.0] for _ in range(4)],
-            "trajectory": [[float(candidate_index), 0.0] for _ in range(4)],
+            "actions": [[float(candidate_index), 0.0] for _ in range(12)],
+            "trajectory": [[float(candidate_index), 0.0, 0.0, 0.0, 0.0, 0.0] for _ in range(12)],
             "terminated": True,
             "success": False,
             "termination": "official-step-limit",
-            "policy_forwards": 4,
-            "env_steps": 4,
+            "policy_forwards": 12,
+            "env_steps": 12,
             "snapshot_restore_check": {"same_action": True, "passed": True, "max_abs_error": 0.0},
         }
 
@@ -164,6 +173,28 @@ class FixtureAdapter(S45Adapter):
 def test_protocol_has_no_implicit_s4_s5_defaults(tmp_path: Path):
     with pytest.raises(S45ProtocolError):
         ProtocolAuthority.load(_protocol(tmp_path, complete=False))
+
+
+def test_protocol_freezes_two_stage_s4_budget_and_hash_locations(tmp_path: Path):
+    protocol = ProtocolAuthority.load(_protocol(tmp_path))
+    assert protocol.search_branch_count == 4
+    assert protocol.heldout_branch_count == 8
+    assert protocol.search_steps("family-00", 12) == tuple(range(1, 10))
+    locations = protocol.random_steps("family-00", 12)
+    assert len(locations) == 8
+    assert all(0 < step < 11 for step in locations)
+    assert locations == protocol.random_steps("family-00", 12)
+
+
+def test_n32_rejects_duplicate_identity_and_wrong_substrate_pose_width(tmp_path: Path):
+    protocol = ProtocolAuthority.load(_protocol(tmp_path))
+    root = _write_n32(tmp_path, protocol)
+    family_path = root / "family-00" / "family.json"
+    payload = json.loads(family_path.read_text())
+    payload["candidates"][1]["candidate_id"] = payload["candidates"][0]["candidate_id"]
+    family_path.write_text(json.dumps(payload, sort_keys=True))
+    with pytest.raises(S45BundleError):
+        discover_n32_families(root, protocol=protocol)
 
 
 def test_n32_loader_requires_sha_and_reads_all_rows(tmp_path: Path):
@@ -177,14 +208,19 @@ def test_n32_loader_requires_sha_and_reads_all_rows(tmp_path: Path):
         discover_n32_families(root, protocol=protocol)
 
 
-def test_s4_runs_equal_k_and_persists_raw_prefix_provenance(tmp_path: Path):
+def test_s4_runs_search_then_equal_heldout_pairs(tmp_path: Path):
     protocol = ProtocolAuthority.load(_protocol(tmp_path))
     n32 = _write_n32(tmp_path, protocol)
     families = discover_n32_families(n32, protocol=protocol)
     result = run_s4(families, protocol, FixtureAdapter(), tmp_path / "s4")
     assert result["near_all_fail_family_count"] == 1
     probe = json.loads((tmp_path / "s4" / "family-00" / "S4_PROBE.json").read_text())
-    assert len(probe["oracle_branches"]) == len(probe["random_branches"]) == 2
+    assert len(probe["search"]) == 9
+    assert all(len(row["branches"]) == 4 for row in probe["search"])
+    assert probe["chosen_oracle_t"] == 3
+    assert len(probe["oracle_branches"]) == len(probe["random_branches"]) == 8
+    assert probe["paired_suffix_seeds"] == [row["branch_seed"] for row in probe["oracle_branches"]]
+    assert probe["paired_suffix_seeds"] == [row["branch_seed"] for row in probe["random_branches"]]
     assert all(row["prefix_preserving"] for row in probe["oracle_branches"])
     assert all("snapshot" in row and row["snapshot"] for row in probe["oracle_branches"])
     assert (tmp_path / "s4" / "family-00" / "COMPLETED_S4_FAMILY.json").is_file()
@@ -216,6 +252,9 @@ def test_s5_preserves_base_and_writes_exact_fresh_32(tmp_path: Path):
     payload = json.loads((tmp_path / "s5" / "family-00" / "S5_FAMILY.json").read_text())
     assert [row["candidate_index"] for row in payload["fresh_rows"]] == list(FRESH_CANDIDATE_INDICES)
     assert [row["candidate_index"] for row in payload["extended_rows"]] == list(range(64))
+    assert payload["source_n32_family_file_sha256"] == families[0].source_family_file_sha256
+    marker = json.loads((tmp_path / "s5" / "family-00" / "COMPLETED_S5_FAMILY.json").read_text())
+    assert marker["source_n32_family_file_sha256"] == families[0].source_family_file_sha256
     assert hashlib.sha256((n32 / "family-00" / "family.json").read_bytes()).hexdigest() == before
 
 

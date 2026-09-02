@@ -28,10 +28,13 @@ def _protocol(tmp_path: Path) -> ProtocolAuthority:
             "anchor_rule": "candidate_index=0",
             "oracle_t_rule": "fixture-oracle-grid",
             "random_t_rule": "fixture-random-grid",
-            "oracle_t_grid": [1, 2],
-            "random_t_grid": [1, 2],
-            "branch_count": 2,
+            "oracle_t_grid": list(range(1, 10)),
+            "branch_count": 4,
+            "search_branch_count": 4,
+            "heldout_branch_count": 8,
+            "random_branch_count": 8,
             "branch_seed_formula": "fixture-branch-seed-v1",
+            "random_location_hash_formula": "sha256(protocol_id|s4|family_id|episode_length|pair_index)->first_8_bytes_big_endian_mod_interior",
             "branch_seeds": {
                 "family-00|oracle|0": 7000,
                 "family-00|oracle|1": 7001,
@@ -60,7 +63,7 @@ def _family() -> dict:
                 "candidate_id": f"family-00/candidate-{index:04d}",
                 "candidate_seed": 1000 + index,
                 "actions": [[1.0, 0.0] for _ in range(4)],
-                "trajectory": [[1.0, 0.0] for _ in range(4)],
+                "trajectory": [[1.0, 0.0, 0.0, 0.0, 0.0, 0.0] for _ in range(4)],
                 "success": False,
                 "termination": "official-step-limit",
                 "env_steps": 4,
@@ -71,6 +74,7 @@ def _family() -> dict:
         "task_id": 0,
         "init_state_id": 0,
         "metadata": {"task_id": 0, "init_state": 0, "task_name": "fixture-task", "initial_seed": 42},
+        "substrate": "B",
         "candidates": candidates,
     }
 
@@ -80,7 +84,7 @@ class FakeLiberoEnv:
         self.state = 0.0
         self.step = 0
         self.seed_value = 0
-        self._observation = {"state": np.asarray([0.0], dtype=np.float64)}
+        self._observation = {"observation/state": np.asarray([0.0] + [0.0] * 7, dtype=np.float64)}
         self.owner_rng = {"state": 0}
 
     def seed(self, seed: int) -> None:
@@ -89,7 +93,7 @@ class FakeLiberoEnv:
     def reset(self, init_state: int) -> dict[str, np.ndarray]:
         self.state = float(init_state)
         self.step = 0
-        self._observation = {"state": np.asarray([self.state], dtype=np.float64)}
+        self._observation = {"observation/state": np.asarray([self.state] + [0.0] * 7, dtype=np.float64)}
         return self._observation
 
     def capture_snapshot(self) -> dict[str, object]:
@@ -99,7 +103,7 @@ class FakeLiberoEnv:
         self.state = float(value["state"])
         self.step = int(value["step"])
         self.seed_value = int(value["seed"])
-        self._observation = {"state": np.asarray([self.state], dtype=np.float64)}
+        self._observation = {"observation/state": np.asarray([self.state] + [0.0] * 7, dtype=np.float64)}
 
     def capture_rng_state(self) -> dict[str, int]:
         return copy.deepcopy(self.owner_rng)
@@ -113,12 +117,15 @@ class FakeLiberoEnv:
             action = action[0]
         self.state += float(action[0])
         self.step += 1
-        self._observation = {"state": np.asarray([self.state], dtype=np.float64)}
+        self._observation = {"observation/state": np.asarray([self.state] + [0.0] * 7, dtype=np.float64)}
         done = self.step >= 4
         return {"done": done, "success": False}
 
     def state_vector(self) -> np.ndarray:
         return np.asarray([self.state, float(self.step)], dtype=np.float64)
+
+    def pose_vector(self) -> np.ndarray:
+        return np.asarray([self.state, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float64)
 
     def close(self) -> None:
         return None
@@ -254,7 +261,7 @@ class FakeRoboTwinEnv:
 
     def get_obs(self) -> dict[str, object]:
         value = float(self.scene.actor.pose[0])
-        return {"pose": [value], "state": [value]}
+        return {"pose": [value] + [0.0] * 13, "state": [value]}
 
     def state_for_verification(self) -> np.ndarray:
         # The official ConcreteRoboTwinRuntime restores scene actor poses and

@@ -465,6 +465,15 @@ class _LiberoS45Base(S45Adapter):
     def _state_vector(self, env: Any) -> np.ndarray:
         return libero_runtime._state_vector(env, libero_runtime._observation(env))
 
+    @staticmethod
+    def _workspace_pose(env: Any, observation: Any) -> list[float]:
+        pose = np.asarray(libero_runtime._pose_vector(env, observation), dtype=np.float64).reshape(-1)
+        if pose.shape != (6,) or not np.all(np.isfinite(pose)):
+            raise S45AdapterError(
+                f"LIBERO Stage-S workspace pose must be finite 6D, got {pose.shape}"
+            )
+        return pose.tolist()
+
     def _same_action_check(self, env: Any, policy: Any, snapshot: _LiberoSnapshot, action: Any) -> dict[str, Any]:
         action_array = np.asarray(action, dtype=np.float32)
         self._restore(env, policy, snapshot)
@@ -523,7 +532,7 @@ class _LiberoS45Base(S45Adapter):
                 raise S45ProvenanceError(f"LIBERO anchor policy replay diverged at prefix step {step}")
             result = libero_runtime._execute_one(env, action)
             observation = libero_runtime._observation(env)
-            trajectory.append(libero_runtime._pose_vector(env, observation).tolist())
+            trajectory.append(self._workspace_pose(env, observation))
             if bool(result.get("done", False)) and step + 1 < split:
                 raise S45ProvenanceError("LIBERO anchor terminated before frozen split step")
         snapshot = self._capture(env, policy, queue, candidate_seed, forwards, split)
@@ -564,7 +573,7 @@ class _LiberoS45Base(S45Adapter):
             result = libero_runtime._execute_one(env, action)
             observation = libero_runtime._observation(env)
             actions.append(action.tolist())
-            trajectory.append(libero_runtime._pose_vector(env, observation).tolist())
+            trajectory.append(self._workspace_pose(env, observation))
             success = bool(result.get("success", False))
             done = bool(result.get("done", False))
             if done:
@@ -769,7 +778,12 @@ class RoboTwinS45Adapter(S45Adapter):
 
     @staticmethod
     def _pose(observation: Any) -> Any:
-        return _jsonable(robotwin_runtime._pose(observation))
+        pose = np.asarray(robotwin_runtime._pose(observation), dtype=np.float64).reshape(-1)
+        if pose.shape != (14,) or not np.all(np.isfinite(pose)):
+            raise S45AdapterError(
+                f"RoboTwin Stage-S workspace pose must be finite 14D, got {pose.shape}"
+            )
+        return _jsonable(pose)
 
     @staticmethod
     def _snapshot_payload(snapshot: Any) -> Mapping[str, Any]:

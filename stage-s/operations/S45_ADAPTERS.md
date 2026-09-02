@@ -43,6 +43,11 @@ Stage-R policy; if that buffer or either restore hook is absent, execution
 stops. The adapter replays the persisted anchor actions and rejects the family
 if official inference diverges at any prefix step.
 
+LIBERO workspace poses are required to be finite six-dimensional vectors
+(`eef_xyz(3)+eef_axis_angle(3)`). The suffix is always re-generated after a
+restored interior snapshot; a policy chunk left over from the source rollout
+is not silently reused.
+
 ## RoboTwin A
 
 The official task setup is deployment-specific, so the adapter receives
@@ -68,6 +73,11 @@ simulator/history/queue/all-RNG snapshot and restore to
 `ConcreteRoboTwinRuntime` and checks `state_for_verification()` or `get_obs()`
 under the existing 1e-9 replay contract.
 
+RoboTwin workspace observations must decode to the canonical fourteen
+dimensions (`left_xyz+left_quaternion+right_xyz+right_quaternion`). A direct
+numpy wrapper with another dimensionality is rejected before a result marker
+can be written.
+
 The released Evo proxy alone is insufficient: it has no policy `act` contract
 or complete server-side RNG restore unless the exact-replay control patch is
 connected. In that case the adapter fails closed; it does not substitute local
@@ -79,8 +89,10 @@ Branch and extension seeds are read from the frozen protocol. The adapters
 accept either explicit protocol tables (`s4.branch_seeds` /
 `s5.extension_seeds`) or the restricted hash-formula grammar implemented in
 `_frozen_seed`; an unknown formula fails closed. No adapter-side seed, salt,
-grid, anchor, or threshold is introduced. The generic runtime still validates
-the protocol's literal interior grids and equal K before any branch runs.
+grid, anchor, or threshold is introduced. The generic runtime validates the
+protocol's nine-point search grid, four search branches, eight held-out
+branches, hash-selected random locations, and equal held-out pair count before
+any branch runs. Held-out oracle/random members receive the same pair seed.
 
 ## Remaining integration gaps
 
