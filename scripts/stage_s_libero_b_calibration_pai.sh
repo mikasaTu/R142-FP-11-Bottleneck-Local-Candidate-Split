@@ -2,15 +2,17 @@
 set -Eeuo pipefail
 
 # Stage-S B calibration is an eight-rank, aggregate-only evaluation. This
-# launcher never submits a PAI job; a registry/controller owns the artifact
-# directory and injects PAI_CANARY_RUN_ID and ARTIFACT_DIR.
+# launcher never submits a PAI job; a registry/controller supplies the unique
+# PAI run identity, and the launcher derives the exact CPFS artifact directory
+# from that identity.
 umask 077
 
 readonly LEON_UID=2254
 readonly LEON_GID=2254
 readonly ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon
 readonly RUN_ID="${PAI_CANARY_RUN_ID:?controller must inject PAI_CANARY_RUN_ID}"
-readonly ARTIFACT_DIR="${ARTIFACT_DIR:?controller must inject ARTIFACT_DIR}"
+readonly OUT_ROOT="$ROOT/logs/pai_registry/r142_stage_s/b_calibration"
+readonly ARTIFACT_DIR="$OUT_ROOT/$RUN_ID"
 readonly EXPECTED_GPUS=8
 readonly WORLD_SIZE=8
 
@@ -35,7 +37,6 @@ readonly B_VARIANT_SHA="$B_VARIANT_RUN_ROOT/SHA256SUMS"
 readonly SOURCE_INIT_ROOT="$LIBERO/libero/libero/init_files/libero_10"
 readonly RUN_SCOPED_CONFIG_SOURCE="$B_VARIANT_RUN_ROOT/libero-config/config.yaml"
 
-readonly OUT_ROOT="$ROOT/logs/pai_registry/r142_stage_s/b_calibration"
 readonly EXPECTED_ARTIFACT_DIR="$OUT_ROOT/$RUN_ID"
 readonly OUT="$ARTIFACT_DIR"
 readonly LIBERO_CONFIG_ROOT="$OUT/libero-config"

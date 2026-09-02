@@ -25,6 +25,8 @@ def test_b_launcher_is_shell_valid_and_non_submitting() -> None:
     assert "--world-size \"$WORLD_SIZE\"" in text
     assert "COMPLETED_B_CALIBRATION.json" in text
     assert "B_SHA256SUMS" in text
+    assert 'ARTIFACT_DIR="$OUT_ROOT/$RUN_ID"' in text
+    assert "controller must inject ARTIFACT_DIR" not in text
 
 
 def test_config_binds_launcher_hash_and_registry_contract() -> None:

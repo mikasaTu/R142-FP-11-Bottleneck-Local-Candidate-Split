@@ -56,6 +56,10 @@ The manifest selects the registered robot idle alias
 worker, exactly 8 A800 GPUs, 88 CPU cores, 1525 GiB memory, and 1525 GiB
 shared memory. The manifest has no secrets, uses the controller's numeric
 `2254:2254` identity, and declares only `{{ARTIFACT_DIR}}` as a write path.
+The payload does not depend on `ARTIFACT_DIR` being injected into the public
+pod environment: it derives the identical stable path from the controller's
+unique `PAI_CANARY_RUN_ID`. This keeps the one-key graphics pod-environment
+contract intact while preserving the registry-resolved write-path gate.
 Both `contract_source_job_id` and `resource_source_job_id` are pinned to the
 Stage-S carrier readback `dlckjz66iwcv38gw`; they are provenance only and do
 not represent a PAI clone.
@@ -112,6 +116,7 @@ calibration result.
 |---|---|---|---|
 | `r142-stage-s-b-calibration-20260903-r1` | no JobId | controller `REFUSED` before CreateJob; sealed | The controller rejected the request because the required parent was missing. No PAI JobId was issued and no artifact was created. The exact configured path `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration/r142-stage-s-b-calibration-20260903-r1/` is absent; no file SHA exists to report. |
 | `r142-stage-s-b-calibration-20260903-r2` | `dlc2uj6yyuctriou` | `Queuing`; unfinished | Controller readback is `Queuing`. The exact configured artifact path `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration/r142-stage-s-b-calibration-20260903-r2/` has no `FIRST_WORK.json`, rank marker, completion marker, calibration report, or `SHA256SUMS`. Queuing/running state and an empty/partial directory do not constitute calibration completion or scientific evidence. |
+| `r142-stage-s-b-calibration-20260903-r3` | `dlc1jv9y4qx9zpof` | terminal `Stopped`; no scientific work | All worker incarnations exited before `FIRST_WORK` because the controller's public pod environment intentionally did not inject `ARTIFACT_DIR`. At stop there were 31 failed histories and no calibration artifact. Logs, selected status readback, and `SHA256SUMS` are preserved under `logs/r142_fp11_stage_s/b_calibration/failures/r142-stage-s-b-calibration-20260903-r3/`. The fix derives the same frozen output path from `PAI_CANARY_RUN_ID`; no task, seed, setting, model, or pooled-success rule changed. |
 
 The B calibration gate remains closed until the exact run reaches terminal PAI
 success and publishes all eight rank markers, the aggregate, and both SHA
@@ -136,8 +141,8 @@ must be installed at the external payload path named by the manifest:
   stage_s_libero_b_calibration_pai.sh
 ```
 
-The installed payload must match SHA256
-`a9c1db905e1dbc9c7c732fbe62b279130142233d1b4873fdc1e7cc965b429d49`, and its
+The installed payload must match the SHA256 recorded in the registry manifest,
+and its
 independent runtime source must be the B-only tree
 `/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-bcal-runtime-20260903`
 at the pinned commit above. No PAI job was submitted by this change.
