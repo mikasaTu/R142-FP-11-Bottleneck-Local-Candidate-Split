@@ -70,16 +70,13 @@ if [[ ! -d "$RT/envs/curobo/.git" ]]; then
 fi
 git -C "$RT/envs/curobo" checkout --detach d64c4b005459db10c5dd867d8b30a87d5bda9bdb
 
-conda_bin=$(command -v conda || true)
-if [[ -z "$conda_bin" && -x /opt/conda/bin/conda ]]; then conda_bin=/opt/conda/bin/conda; fi
-[[ -n "$conda_bin" ]]
 if [[ ! -x "$TOOLS_ENV/bin/python" ]]; then
-  "$conda_bin" create -y -p "$TOOLS_ENV" python=3.11 pip
+  python3 -m venv "$TOOLS_ENV"
 elif ! "$TOOLS_ENV/bin/python" -m pip --version >/dev/null 2>&1; then
-  "$conda_bin" install -y -p "$TOOLS_ENV" pip
+  "$TOOLS_ENV/bin/python" -m ensurepip --upgrade
 fi
-if ! "$TOOLS_ENV/bin/python" -c 'import huggingface_hub' >/dev/null 2>&1; then
-  PIP_CACHE_DIR="$PIP_CACHE" "$TOOLS_ENV/bin/python" -m pip install 'huggingface_hub==0.36.2'
+if ! "$TOOLS_ENV/bin/python" -c 'import huggingface_hub, uv' >/dev/null 2>&1; then
+  PIP_CACHE_DIR="$PIP_CACHE" "$TOOLS_ENV/bin/python" -m pip install 'huggingface_hub==0.36.2' 'uv==0.8.17'
 fi
 "$TOOLS_ENV/bin/hf" download MINT-SJTU/Evo1_RoboTwin2_clean \
   --revision ce8c583724706fbf7a03c17237761c65bf6813a7 --local-dir "$MODEL"
@@ -92,18 +89,16 @@ for archive in background_texture.zip embodiments.zip objects.zip; do
 done
 popd >/dev/null
 
-conda_bin=$(command -v conda || true)
-if [[ -z "$conda_bin" && -x /opt/conda/bin/conda ]]; then conda_bin=/opt/conda/bin/conda; fi
-[[ -n "$conda_bin" ]]
-
+export UV_PYTHON_INSTALL_DIR="$ROOT/cache/r142_stage_s/uv-python"
 if [[ ! -x "$RT_ENV/bin/python" ]]; then
-  "$conda_bin" create -y -p "$RT_ENV" python=3.10 pip
+  "$TOOLS_ENV/bin/uv" python install 3.10
+  "$TOOLS_ENV/bin/uv" venv --seed --python 3.10 "$RT_ENV"
 fi
 PIP_CACHE_DIR="$PIP_CACHE" "$RT_ENV/bin/pip" install -r "$RT/script/requirements.txt" websockets
 PIP_CACHE_DIR="$PIP_CACHE" "$RT_ENV/bin/pip" install -e "$RT/envs/curobo" --no-build-isolation
 
 if [[ ! -x "$EVO_ENV/bin/python" ]]; then
-  "$conda_bin" create -y -p "$EVO_ENV" python=3.10 pip
+  "$TOOLS_ENV/bin/uv" venv --seed --python 3.10 "$EVO_ENV"
 fi
 PIP_CACHE_DIR="$PIP_CACHE" "$EVO_ENV/bin/pip" install -r "$DEPS/Evo-1/Evo_1/requirements.txt"
 MAX_JOBS=32 PIP_CACHE_DIR="$PIP_CACHE" "$EVO_ENV/bin/pip" install flash-attn --no-build-isolation
