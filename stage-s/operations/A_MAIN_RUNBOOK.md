@@ -31,6 +31,16 @@ The marker must report terminal `COMPLETED`, eight GPUs, and the exact Evo,
 RoboTwin, CuRobo, and checkpoint revisions above. A `FIRST_WORK.json`, an
 active/queued PAI job, or a partial cache does not satisfy this gate.
 
+The A main launcher also reads the stable CPFS authority
+`/mnt/cpfs/zbl-cpfs-new/USERS/leon/stage_s/protocol/FROZEN_PROTOCOL.json`
+before starting any Evo server. It must report `status=FROZEN`, a full
+40-hex protocol Git commit, matching hashes for `PROTOCOL.md` and both B/C
+calibration reports, and the frozen Stage-S threshold, seed, task, and budget
+summary. The launcher and each rank client fail closed on any missing,
+symlinked, malformed, or hash-mismatched authority. The rank run manifest and
+`COMPLETED_A_RANK-<rank>.json` persist the complete protocol fingerprint;
+the aggregate result repeats it and re-verifies the stable authority.
+
 ## Eight-GPU ownership
 
 The PAI worker is one node with exactly 8 A800 GPUs, 88 CPU cores, 1525 GiB
@@ -102,7 +112,9 @@ configs/pai/stage_s_robotwin_a.json
 ```
 
 The launcher hard-codes the independent runtime path and rejects every source
-revision except `c2bd51db6de0e22d09827d06460cbac8d47bb6ae`. Do not submit while
+revision except `c2bd51db6de0e22d09827d06460cbac8d47bb6ae`. It also passes the
+stable protocol authority path to every rank and to the aggregate verifier.
+Do not submit while
 the r15 asset preflight lacks terminal PAI `Succeeded`,
 `COMPLETED_ASSET_PREFLIGHT.json`, and a verified asset `SHA256SUMS`; all three
 conditions are required even if the cache appears populated. Do not submit a

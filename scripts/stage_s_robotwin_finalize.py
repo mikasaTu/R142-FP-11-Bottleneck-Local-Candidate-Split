@@ -20,6 +20,11 @@ import tempfile
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+from r142_stage_s.frozen_protocol import (
+    DEFAULT_PROTOCOL_PATH,
+    FrozenProtocolError,
+    load_frozen_protocol,
+)
 from r142_stage_s.robotwin import RoboTwinPins, select_published_tasks
 
 
@@ -161,7 +166,14 @@ def _verify_family(root: Path, *, task: str, family_index: int, rank: int) -> Ma
     }
 
 
-def _verify_rank(root: Path, *, rank: int, tasks: Sequence[str], run_id: str | None) -> list[Mapping[str, Any]]:
+def _verify_rank(
+    root: Path,
+    *,
+    rank: int,
+    tasks: Sequence[str],
+    run_id: str | None,
+    frozen_protocol: Mapping[str, Any],
+) -> list[Mapping[str, Any]]:
     run_manifest_path = root / f"RUN_MANIFEST_RANK-{rank:04d}.json"
     run_manifest = _read_json(run_manifest_path)
     if run_manifest.get("protocol") != "R142-FP-11 Stage-S substrate A":
@@ -178,6 +190,19 @@ def _verify_rank(root: Path, *, rank: int, tasks: Sequence[str], run_id: str | N
         raise EvaluationBundleError(f"rank run manifest termination drifted: {run_manifest_path}")
     if run_manifest.get("pins") != RoboTwinPins().as_dict():
         raise EvaluationBundleError(f"rank run manifest source pins drifted: {run_manifest_path}")
+    if run_manifest.get("frozen_protocol") != dict(frozen_protocol):
+        raise EvaluationBundleError(f"rank run manifest frozen protocol drifted: {run_manifest_path}")
+    if run_manifest.get("protocol_git_commit") != frozen_protocol["protocol_git_commit"]:
+        raise EvaluationBundleError(f"rank run manifest protocol commit drifted: {run_manifest_path}")
+    if run_manifest.get("protocol_json_sha256") != frozen_protocol["protocol_json_sha256"]:
+        raise EvaluationBundleError(f"rank run manifest protocol JSON hash drifted: {run_manifest_path}")
+    if run_manifest.get("protocol_md_sha256") != frozen_protocol["protocol_md_sha256"]:
+        raise EvaluationBundleError(f"rank run manifest PROTOCOL.md hash drifted: {run_manifest_path}")
+    expected_report_shas = {
+        name: item["sha256"] for name, item in frozen_protocol["calibration_reports"].items()
+    }
+    if run_manifest.get("calibration_report_sha256") != expected_report_shas:
+        raise EvaluationBundleError(f"rank run manifest calibration report hashes drifted: {run_manifest_path}")
     audit = run_manifest.get("asset_audit")
     if not isinstance(audit, Mapping) or not str(audit.get("status", "")).startswith("READY") or audit.get("server_control_deployed") is not True:
         raise EvaluationBundleError(f"rank run manifest does not prove audited server dispatch: {run_manifest_path}")
@@ -187,6 +212,16 @@ def _verify_rank(root: Path, *, rank: int, tasks: Sequence[str], run_id: str | N
         raise EvaluationBundleError(f"rank marker is not completed: {marker_path}")
     if int(marker.get("rank", -1)) != rank or int(marker.get("world_size", -1)) != WORLD_SIZE:
         raise EvaluationBundleError(f"rank/world_size mismatch: {marker_path}")
+    if marker.get("frozen_protocol") != dict(frozen_protocol):
+        raise EvaluationBundleError(f"rank completion frozen protocol drifted: {marker_path}")
+    if marker.get("protocol_git_commit") != frozen_protocol["protocol_git_commit"]:
+        raise EvaluationBundleError(f"rank completion protocol commit drifted: {marker_path}")
+    if marker.get("protocol_json_sha256") != frozen_protocol["protocol_json_sha256"]:
+        raise EvaluationBundleError(f"rank completion protocol JSON hash drifted: {marker_path}")
+    if marker.get("protocol_md_sha256") != frozen_protocol["protocol_md_sha256"]:
+        raise EvaluationBundleError(f"rank completion PROTOCOL.md hash drifted: {marker_path}")
+    if marker.get("calibration_report_sha256") != expected_report_shas:
+        raise EvaluationBundleError(f"rank completion calibration report hashes drifted: {marker_path}")
     if run_id is not None and marker.get("run_id") not in (None, run_id):
         raise EvaluationBundleError(f"rank marker run id mismatch: {marker_path}")
     sums_path = root / f"SHA256SUMS_A_RANK-{rank:04d}"
@@ -257,12 +292,35 @@ def _write_top_level_manifest(root: Path) -> None:
     _write_atomic(root / "SHA256SUMS", ("\n".join(lines) + "\n").encode())
 
 
-def verify_completed_bundle(root: Path) -> Mapping[str, Any]:
+def verify_completed_bundle(
+    root: Path,
+    *,
+    frozen_protocol: Mapping[str, Any] | None = None,
+    frozen_protocol_path: Path = DEFAULT_PROTOCOL_PATH,
+) -> Mapping[str, Any]:
     """Verify an already completed aggregate without mutating it."""
 
+    if frozen_protocol is None:
+        try:
+            frozen_protocol = load_frozen_protocol(frozen_protocol_path)
+        except FrozenProtocolError as exc:
+            raise EvaluationBundleError(f"frozen protocol gate: {exc}") from exc
     result = _read_json(root / "COMPLETED_EVALUATION_RESULT.json")
     if result.get("status") != "COMPLETED" or result.get("marker_type") != "completed_stage_s_a_evaluation":
         raise EvaluationBundleError("top-level completion marker has an unexpected schema")
+    if result.get("frozen_protocol") != dict(frozen_protocol):
+        raise EvaluationBundleError("top-level completion frozen protocol drifted")
+    if result.get("protocol_git_commit") != frozen_protocol["protocol_git_commit"]:
+        raise EvaluationBundleError("top-level completion protocol commit drifted")
+    if result.get("protocol_json_sha256") != frozen_protocol["protocol_json_sha256"]:
+        raise EvaluationBundleError("top-level completion protocol JSON hash drifted")
+    if result.get("protocol_md_sha256") != frozen_protocol["protocol_md_sha256"]:
+        raise EvaluationBundleError("top-level completion PROTOCOL.md hash drifted")
+    expected_report_shas = {
+        name: item["sha256"] for name, item in frozen_protocol["calibration_reports"].items()
+    }
+    if result.get("calibration_report_sha256") != expected_report_shas:
+        raise EvaluationBundleError("top-level completion calibration report hashes drifted")
     _verify_manifest_file(root, root / "SHA256SUMS")
     return result
 
@@ -273,13 +331,18 @@ def finalize(
     run_id: str | None = None,
     job_id: str | None = None,
     source_commit: str | None = None,
+    frozen_protocol_path: Path = DEFAULT_PROTOCOL_PATH,
 ) -> Mapping[str, Any]:
     root = root.resolve()
+    try:
+        frozen_protocol = load_frozen_protocol(frozen_protocol_path)
+    except FrozenProtocolError as exc:
+        raise EvaluationBundleError(f"frozen protocol gate: {exc}") from exc
     existing_result = root / "COMPLETED_EVALUATION_RESULT.json"
     if existing_result.exists() or (root / "SHA256SUMS").exists():
         if not existing_result.exists() or not (root / "SHA256SUMS").exists():
             raise EvaluationBundleError("partial top-level completion bundle is present")
-        return verify_completed_bundle(root)
+        return verify_completed_bundle(root, frozen_protocol=frozen_protocol)
     for forbidden in ("FAILED_A_MAIN.json", "REFUSED_WINDOW.txt"):
         if (root / forbidden).exists():
             raise EvaluationBundleError(f"failed/refused run cannot be finalized: {root / forbidden}")
@@ -287,7 +350,15 @@ def finalize(
     pins = RoboTwinPins()
     rank_outputs: list[Mapping[str, Any]] = []
     for rank in range(WORLD_SIZE):
-        rank_outputs.extend(_verify_rank(root, rank=rank, tasks=tasks, run_id=run_id))
+        rank_outputs.extend(
+            _verify_rank(
+                root,
+                rank=rank,
+                tasks=tasks,
+                run_id=run_id,
+                frozen_protocol=frozen_protocol,
+            )
+        )
     if len(rank_outputs) != 10 * FAMILIES_PER_TASK:
         raise EvaluationBundleError(f"expected 160 families, got {len(rank_outputs)}")
     total = sum(int(item["candidate_count"]) for item in rank_outputs)
@@ -302,6 +373,14 @@ def finalize(
         "job_id": job_id,
         "source_commit": source_commit,
         "pins": pins.as_dict(),
+        "frozen_protocol": dict(frozen_protocol),
+        "protocol_git_commit": frozen_protocol["protocol_git_commit"],
+        "protocol_json_sha256": frozen_protocol["protocol_json_sha256"],
+        "protocol_md_sha256": frozen_protocol["protocol_md_sha256"],
+        "calibration_report_sha256": {
+            name: item["sha256"]
+            for name, item in frozen_protocol["calibration_reports"].items()
+        },
         "tasks": list(tasks),
         "world_size": WORLD_SIZE,
         "families_per_task": FAMILIES_PER_TASK,
@@ -328,7 +407,7 @@ def finalize(
     data = (json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode()
     _write_atomic(existing_result, data)
     _write_top_level_manifest(root)
-    verify_completed_bundle(root)
+    verify_completed_bundle(root, frozen_protocol=frozen_protocol)
     return result
 
 
@@ -338,6 +417,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-id")
     parser.add_argument("--job-id")
     parser.add_argument("--source-commit")
+    parser.add_argument(
+        "--frozen-protocol",
+        type=Path,
+        default=DEFAULT_PROTOCOL_PATH,
+        help="stable CPFS Stage-S protocol authority",
+    )
     return parser
 
 
@@ -349,6 +434,7 @@ if __name__ == "__main__":
             run_id=parsed.run_id or os.environ.get("PAI_STAGE_S_RUN_ID"),
             job_id=parsed.job_id or os.environ.get("PAI_TASK_JOB_ID"),
             source_commit=parsed.source_commit or os.environ.get("STAGE_S_SOURCE_COMMIT"),
+            frozen_protocol_path=parsed.frozen_protocol,
         )
     except EvaluationBundleError as exc:
         print(json.dumps({"status": "BLOCKED_INCOMPLETE_EVALUATION", "error": str(exc)}))

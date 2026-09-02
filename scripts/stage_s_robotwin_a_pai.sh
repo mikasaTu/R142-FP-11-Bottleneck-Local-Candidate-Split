@@ -24,6 +24,7 @@ readonly FROZEN_SOURCE_COMMIT="c2bd51db6de0e22d09827d06460cbac8d47bb6ae"
 STAGE_S_SOURCE_COMMIT="${STAGE_S_SOURCE_COMMIT:-$FROZEN_SOURCE_COMMIT}"
 readonly ASSET_PREFLIGHT_RUN_ID="r142-stage-s-a-assets-20260902-r15"
 ASSET_PREFLIGHT_DIR="$ROOT/logs/r142_fp11_stage_s/assets/$ASSET_PREFLIGHT_RUN_ID"
+readonly FROZEN_PROTOCOL_PATH="$ROOT/stage_s/protocol/FROZEN_PROTOCOL.json"
 export STAGE_S_SOURCE_COMMIT
 
 SERVER_PIDS=()
@@ -145,7 +146,16 @@ trap on_error ERR
 [[ -f "$REPO/scripts/stage_s_robotwin_evo_server_patch.py" ]]
 [[ -f "$REPO/scripts/stage_s_robotwin_main.py" ]]
 [[ -f "$REPO/scripts/stage_s_robotwin_finalize.py" ]]
+[[ -f "$REPO/src/r142_stage_s/frozen_protocol.py" ]]
 [[ -d "$ROBOTWIN_ROOT/assets" ]]
+
+# Every A main incarnation reads the same stable CPFS authority before a
+# server is started.  The helper verifies the status, commit, referenced
+# PROTOCOL.md/B/C report bytes, and frozen threshold/seed/task/budget summary.
+# Its non-zero exit is intentionally not recoverable within this incarnation.
+[[ -f "$FROZEN_PROTOCOL_PATH" ]]
+"$CLIENT_PY" "$REPO/src/r142_stage_s/frozen_protocol.py" \
+  --path "$FROZEN_PROTOCOL_PATH" >/dev/null
 
 # The r15 asset preflight is a hard prerequisite for the formal screen.  Its
 # output is immutable evidence from the separate asset job; a FIRST_WORK file,
@@ -330,7 +340,8 @@ for rank in $(seq 0 7); do
       --output-root "$OUT" \
       --server-url "ws://127.0.0.1:$port" \
       --rank "$rank" --world-size "$WORLD_SIZE" \
-      --families-per-task 16 --candidates 32 --seed-base 14211
+      --families-per-task 16 --candidates 32 --seed-base 14211 \
+      --frozen-protocol "$FROZEN_PROTOCOL_PATH"
   ) >"$OUT/logs/client-rank-$(printf '%04d' "$rank").log" 2>&1 &
   CLIENT_PIDS[$rank]=$!
 done
@@ -357,7 +368,8 @@ SERVER_PIDS=()
 
 "$CLIENT_PY" "$REPO/scripts/stage_s_robotwin_finalize.py" \
   --output-root "$OUT" --run-id "$RUN_ID" \
-  --job-id "${PAI_TASK_JOB_ID:-}" --source-commit "$STAGE_S_SOURCE_COMMIT"
+  --job-id "${PAI_TASK_JOB_ID:-}" --source-commit "$STAGE_S_SOURCE_COMMIT" \
+  --frozen-protocol "$FROZEN_PROTOCOL_PATH"
 [[ -f "$OUT/COMPLETED_EVALUATION_RESULT.json" && -f "$OUT/SHA256SUMS" ]]
 [[ "$(stat -c '%u:%g' "$OUT/COMPLETED_EVALUATION_RESULT.json")" == 2254:2254 ]]
 [[ "$(stat -c '%u:%g' "$OUT/SHA256SUMS")" == 2254:2254 ]]

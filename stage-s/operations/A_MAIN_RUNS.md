@@ -12,6 +12,7 @@ test never count as a RoboTwin result.
 | r16 | no JobId | controller `REFUSED` before CreateJob; sealed | The controller rejected the run because the required pre-created resume directory was missing. No PAI JobId was issued and no CPFS artifact was produced. The exact configured paths checked were `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/assets/r142-stage-s-a-assets-20260902-r16/` and `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/r142-stage-s-a-assets-20260902-r16/`; both are absent, so no file SHA exists to report. |
 | r17 | `dlc17mybd6alknp3` | `Stopped`; infrastructure preflight failed | Controller readback is terminal `Stopped`. The same log proves the cross-filesystem repair itself worked: `flash-attn` built and installed successfully, then the new setuptools environment failed at the infrastructure gate with `ModuleNotFoundError: pkg_resources`. Exact log `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/r142-stage-s-a-assets-20260902-r17/pai_logs/master-final-before-stop.log` SHA-256 `89c97f91389e845c2d5df9de47166a7bfc6bdb8d9d0716bd4dfdc09edae4f3d9`; `FAILED_ASSET_PREFLIGHT.json` SHA-256 `a49fffcd2c34221e2b46f2605edcafcb740932c97b7497ce07137a766b61e5af`; `FIRST_WORK.json` SHA-256 `0b55dbc7294bbf00eca356e6cad1e9df84a2c5edab62905d749c03253a99cfef`. The registry-side path `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/assets/r142-stage-s-a-assets-20260902-r17/` has no completion marker or integrity manifest. This is an infrastructure gate failure, not a scientific result. |
 | runtime-independent-20260903 | not created | prepared, no PAI submission | A runtime is frozen to `/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-a-runtime-20260903` @ `c2bd51db6de0e22d09827d06460cbac8d47bb6ae`; external payload path remains `/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_robotwin_a_pai.sh`. Updated payload hash: `4e37de86b0e9e5eb7bb37990cb29bcbad93db2e9483f330d5a73ac4155f2e179`. |
+| protocol-authority-20260903 | not eligible | prepared, no PAI submission | A main now requires stable CPFS `stage_s/protocol/FROZEN_PROTOCOL.json` before any server/client; rank metadata, rank completion, and aggregate completion must carry its protocol Git commit, JSON/PROTOCOL.md hashes, B/C report hashes, and frozen threshold/seed/task/budget summary. Current authority is absent, so this is intentionally fail-closed. |
 
 ## Submission gate
 
@@ -27,6 +28,11 @@ The parent must copy the three runtime files into the independent A runtime
 checkout, verify the exact frozen commit, update the run-scoped
 `explicit_user_resource_authorization.scope` and `validated_payload_sha256`
 binding if the launcher bytes change, then run the canonical validator again.
+
+The stable protocol authority is an additional hard gate. It is not satisfied
+by a local copy, a GitHub plan, a `FIRST_WORK.json`, or a partial B/C report;
+the exact CPFS JSON and all three referenced file hashes must verify before
+the first server starts.
 
 The launcher uses `/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/a_main/<RUN_ID>`
 as the same-directory resume root. It starts eight independent Evo server
