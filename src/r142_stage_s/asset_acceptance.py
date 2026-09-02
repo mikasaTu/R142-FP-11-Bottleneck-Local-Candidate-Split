@@ -264,7 +264,22 @@ def load_accepted_asset_preflight(
         raise AssetAcceptanceError(
             f"asset completion marker is not terminal COMPLETED: {marker_path}"
         )
-    if str(marker.get("job_id") or "") != job_id:
+    marker_job_id = marker.get("job_id")
+    if marker_job_id is None:
+        # DLC does not guarantee a PAI_TASK_JOB_ID variable inside the worker.
+        # The controller may accept that explicit absence only when the stable
+        # record binds the terminal JobId and the run id is also the immutable
+        # output-directory basename.  A missing flag or any path drift remains
+        # fail-closed.
+        if record.get("completion_marker_job_id_unavailable") is not True:
+            raise AssetAcceptanceError(
+                "asset completion marker lacks JobId without an explicit controller attestation"
+            )
+        if output_dir.name != run_id:
+            raise AssetAcceptanceError(
+                "accepted run id does not match the asset output-directory basename"
+            )
+    elif str(marker_job_id) != job_id:
         raise AssetAcceptanceError("asset completion marker JobId does not match accepted JobId")
     if marker.get("gpus") != EXPECTED_GPUS:
         raise AssetAcceptanceError("asset completion marker does not prove the frozen 8-GPU preflight")
@@ -343,6 +358,7 @@ def load_accepted_asset_preflight(
         "status": EXPECTED_STATUS,
         "accepted_run_id": run_id,
         "accepted_job_id": job_id,
+        "completion_marker_job_id": marker_job_id,
         "terminal_pai_state": terminal_state,
         "output_dir": str(output_dir),
         "completion_marker": str(marker_path),

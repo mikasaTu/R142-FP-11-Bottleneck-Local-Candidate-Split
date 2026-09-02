@@ -46,7 +46,7 @@
     "aggregate_verifier": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-a-runtime-20260903/scripts/stage_s_robotwin_finalize.py",
     "aggregate_verifier_sha256": "a57319efad2b99b1ecb09728ce88cc47b93e48db9615a4cb93bfb8c3d892423d",
     "asset_acceptance_helper": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-a-runtime-20260903/src/r142_stage_s/asset_acceptance.py",
-    "asset_acceptance_helper_sha256": "dfeafc0cd2abe0a3e8347e3115451c12afdb5269ce7be97a5b2e44e2d748661e",
+    "asset_acceptance_helper_sha256": "dcedbf6610ae5c5e33eafe35e86cc3450a2cea62a5b21697b87b44a6aa757d48",
     "source_commit_policy": "frozen_exact_commit_01f964ff3cfa2b1d99eb8f76d06d9971e096977b",
     "uid": 2254,
     "gid": 2254,

@@ -430,6 +430,37 @@ def test_accepted_asset_reader_rechecks_terminal_lineage_and_live_hashes(
     assert len(fingerprint["accepted_manifest_sha256"]) == 64
 
 
+def test_accepted_asset_reader_allows_attested_missing_worker_job_id_only_for_bound_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pointer, model_dir, record = _accepted_asset_fixture(tmp_path)
+    monkeypatch.setattr(asset_acceptance_module, "_CPFS_ROOT", tmp_path)
+    output_dir = Path(record["output_dir"])
+    marker_path = output_dir / "COMPLETED_ASSET_PREFLIGHT.json"
+    marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    marker["job_id"] = None
+    marker_path.write_text(json.dumps(marker, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    first_work = output_dir / "FIRST_WORK.json"
+    asset_sums = output_dir / "SHA256SUMS"
+    asset_sums.write_text(
+        "\n".join(f"{_sha256(item)}  {item.name}" for item in (marker_path, first_work)) + "\n",
+        encoding="utf-8",
+    )
+    record["completion_marker_job_id_unavailable"] = True
+    record["completion_sha256"] = _sha256(marker_path)
+    record["asset_sha256sums_sha256"] = _sha256(asset_sums)
+    pointer.write_text(json.dumps(record, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
+    fingerprint = load_accepted_asset_preflight(pointer, checkpoint_dir=model_dir)
+    assert fingerprint["accepted_job_id"] == "dlc-terminal"
+    assert fingerprint["completion_marker_job_id"] is None
+
+    record["accepted_run_id"] = "different-run"
+    pointer.write_text(json.dumps(record, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    with pytest.raises(AssetAcceptanceError, match="output-directory basename"):
+        load_accepted_asset_preflight(pointer, checkpoint_dir=model_dir)
+
+
 def test_accepted_asset_reader_rejects_running_job_and_tampered_bytes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
