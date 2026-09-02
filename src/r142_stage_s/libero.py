@@ -520,7 +520,11 @@ def validate_regenerated_initial_states(
         # checks below.  Legacy unit fixtures intentionally use opaque bytes;
         # they remain accepted only when the manifest does not claim a qpos
         # serialization format.
-        if payload.get("qpos_format"):
+        if payload.get("qpos_format") and not payload.get("state_format"):
+            errors.append(
+                f"legacy qpos-only regenerated manifest is not executable as LIBERO sim state: {path.name}"
+            )
+        if payload.get("state_format"):
             try:
                 array = _load_qpos_array(path)
             except Exception as exc:  # noqa: BLE001 - fail closed in result
@@ -528,8 +532,20 @@ def validate_regenerated_initial_states(
             else:
                 minimum = int(payload.get("init_state_count", B_INIT_STATE_COUNT))
                 if array.ndim != 2 or array.shape[0] < minimum:
-                    errors.append(f"regenerated qpos {path.name} has shape {array.shape}, expected >=({minimum}, dim)")
-                record["qpos_shape"] = list(array.shape)
+                    errors.append(f"regenerated sim state {path.name} has shape {array.shape}, expected >=({minimum}, dim)")
+                if old.is_file():
+                    try:
+                        old_state = _load_qpos_array(old)
+                    except Exception as exc:  # noqa: BLE001 - include source corruption in the audit
+                        errors.append(f"cannot load source sim state {old.name}: {exc}")
+                    else:
+                        if array.ndim == 2 and array.shape[1] <= old_state.shape[1]:
+                            errors.append(
+                                f"regenerated sim state width did not grow after BDDL edit: "
+                                f"old={old_state.shape[1]}, new={array.shape[1]}"
+                            )
+                        record["source_state_shape"] = list(old_state.shape)
+                record["state_shape"] = list(array.shape)
         files.append(record)
     return {"valid": not errors, "errors": errors, "files": files, "manifest": payload}
 
@@ -666,8 +682,16 @@ def _write_torch_qpos(path: str | Path, array: np.ndarray) -> None:
     _fsync_directory(destination.parent)
 
 
-def _qpos_from_simulator(environment: Any) -> np.ndarray:
-    """Read qpos from an OffScreenRenderEnv or a Task64Environment wrapper."""
+def _sim_state_from_simulator(environment: Any) -> np.ndarray:
+    """Read LIBERO's full flattened simulator state from a real wrapper.
+
+    LIBERO ``.pruned_init`` files are produced by
+    ``ControlEnv.get_sim_state()``, which is ``sim.get_state().flatten()``
+    (time, qpos, and qvel), not by ``sim.data.qpos`` alone.  A duplicate BDDL
+    body must therefore increase the flattened state width before the state
+    can be used as an init state.  Refusing a qpos-only object here is
+    intentional: accepting it would silently create a shape-invalid B run.
+    """
 
     pending = [environment]
     seen: set[int] = set()
@@ -676,18 +700,36 @@ def _qpos_from_simulator(environment: Any) -> np.ndarray:
         if owner is None or id(owner) in seen:
             continue
         seen.add(id(owner))
+        getter = getattr(owner, "get_sim_state", None)
+        if callable(getter):
+            try:
+                value = getter()
+            except Exception:  # noqa: BLE001 - try the strict simulator fallback below
+                value = None
+            if value is not None:
+                array = np.asarray(value, dtype=np.float64).reshape(-1)
+                if array.size and np.all(np.isfinite(array)):
+                    return array.copy()
         sim = getattr(owner, "sim", None)
-        data = getattr(sim, "data", None)
-        qpos = getattr(data, "qpos", None)
-        if qpos is not None:
-            array = np.asarray(qpos, dtype=np.float64).reshape(-1)
+        getter = getattr(sim, "get_state", None)
+        if callable(getter):
+            try:
+                state = getter()
+                flatten = getattr(state, "flatten", None)
+                value = flatten() if callable(flatten) else state
+                array = np.asarray(value, dtype=np.float64).reshape(-1)
+            except Exception:  # noqa: BLE001 - report a strict state-interface error below
+                array = np.empty(0, dtype=np.float64)
             if array.size and np.all(np.isfinite(array)):
                 return array.copy()
         for name in ("environment", "env", "unwrapped", "base"):
             child = getattr(owner, name, None)
             if child is not None:
                 pending.append(child)
-    raise VariantGenerationError("simulator does not expose finite sim.data.qpos")
+    raise VariantGenerationError(
+        "simulator does not expose finite get_sim_state() or sim.get_state().flatten(); "
+        "sim.data.qpos alone is not a valid LIBERO .pruned_init state"
+    )
 
 
 def _seed_simulator(environment: Any, seed: int) -> None:
@@ -769,7 +811,7 @@ def generate_variant_initial_qpos(
                 reset()
             except TypeError:
                 reset(seed=int(seed))
-            rows.append(_qpos_from_simulator(environment))
+            rows.append(_sim_state_from_simulator(environment))
         finally:
             if environment is not None and hasattr(environment, "close"):
                 environment.close()
@@ -800,8 +842,9 @@ def generate_variant_initial_qpos(
         "path": str(destination),
         "sha256": sha256_file(destination),
         "count": int(generated.shape[0]),
-        "qpos_dim": int(generated.shape[1]),
-        "source_qpos_dim": int(old_array.shape[1]),
+        "state_dim": int(generated.shape[1]),
+        "source_state_dim": int(old_array.shape[1]),
+        "state_format": "sim.get_state().flatten()",
         "seeds": [int(value) for value in selected_seeds],
         "generated_by": "real_libero_offscreen_render_env_reset",
         "old_init_reused": False,
@@ -943,7 +986,7 @@ def build_b_variant_matrix(
             "magnitude_m": float(magnitude),
             "regenerated": True,
             "old_init_reused": False,
-            "qpos_format": "torch.save",
+            "state_format": "torch.save(sim.get_state().flatten())",
             "init_state_count": int(count),
             "seed_base": int(seed_base),
             "generated_by": "real_libero_offscreen_render_env_reset",
