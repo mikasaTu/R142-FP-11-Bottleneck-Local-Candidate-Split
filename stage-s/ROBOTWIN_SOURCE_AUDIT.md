@@ -89,9 +89,14 @@ Before candidate 0 the runner must pass the concrete
 `restore -> same action -> next-state` check at tolerance `1e-9`. Failure is a
 capability block and produces no family completion marker. A valid marker is
 immutable and is skipped on same-directory retry; a hash mismatch is
-fail-closed. `scripts/stage_s_robotwin_payload.py` emits a template only (it
-never submits PAI), with one rank shard per shared output root, robot idle
-8×A800/88 CPU/1525 GiB limits, and Beijing 09:30–09:40 and 19:30–19:40
+fail-closed. `scripts/stage_s_robotwin_payload.py` remains a non-submitting
+rank template. The formal launcher is `scripts/stage_s_robotwin_a_pai.sh`:
+one robot-idle 8×A800 worker starts exactly eight one-server/one-client pairs,
+binds rank `r` to `CUDA_VISIBLE_DEVICES=r` and `127.0.0.1:19000+r`, and shards
+`flat_task_family_index % 8 == rank`. It uses the same output directory across
+platform restarts and invokes `stage_s_robotwin_finalize.py` only after all
+eight rank markers and all 160 family markers verify. The launcher enforces
+88 CPU/1525 GiB memory limits and Beijing 09:30–09:40 and 19:30–19:40
 fail-closed scheduler guards. The visible calibration command refuses
 Step-0 because substrate A has no registered calibration phase.
 
@@ -117,9 +122,12 @@ Every message has `r142-evo-exact-replay/v1` and a request id. Inference
 payloads are not changed. `scripts/stage_s_robotwin_evo_server_patch.py`
 contains the minimal dispatcher: call `control_response()` before the
 unchanged pinned `infer_from_json_dict()` branch and send a control response
-on the same socket. A malformed, unversioned, or rejected control fails
-closed; there is no local-RNG or synthetic fallback. The runner prefers the
-exact integer `SeedSequence([initial_seed, candidate_index])` via
+on the same socket. `scripts/stage_s_robotwin_evo_server.py` loads the
+released server by path, checks its immutable revision and checkpoint
+manifest, installs this dispatcher with `require_torch=True`, and records
+server/model/source provenance per rank. A malformed, unversioned, or
+rejected control fails closed; there is no local-RNG or synthetic fallback.
+The runner prefers the exact integer `SeedSequence([initial_seed, candidate_index])` via
 `OfficialEvoPolicy.seed()` and retains `set_rng(Generator)` only for local
 test adapters.
 
