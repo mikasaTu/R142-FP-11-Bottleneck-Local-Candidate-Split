@@ -36,6 +36,9 @@ def test_config_binds_launcher_hash_and_registry_contract() -> None:
     assert runtime["command_file_sha256"] == digest
     assert evidence["validated_payload_sha256"] == digest
     assert config["resource_alias"] == "idle-a800-robot-stage-s-graphics-8gpu"
+    assert runtime["pod_env"] == {
+        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
+    }
     assert runtime["command_file"] == (
         "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/"
         "stage_s_libero_b_calibration_pai.sh"

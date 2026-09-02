@@ -55,7 +55,9 @@
     "create_artifact_dir": true,
     "recursive_repair": false,
     "secret_env_names": [],
-    "pod_env": {},
+    "pod_env": {
+      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
+    },
     "write_paths": [
       "{{ARTIFACT_DIR}}"
     ]

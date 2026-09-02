@@ -66,10 +66,10 @@ The artifact directory is exactly
   r142_stage_s/b_calibration/{{RUN_ID}}
 ```
 
-The launcher sets `MUJOCO_GL=egl`, `PYOPENGL_PLATFORM=egl`,
-`EGL_PLATFORM=device`, and `NVIDIA_DRIVER_CAPABILITIES` inside the workload;
-the registry manifest leaves public `pod_env` empty because the registered
-robot resource has no required public pod environment.
+The registry manifest binds the required public
+`NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics` environment for the
+registered graphics alias. The launcher additionally sets `MUJOCO_GL=egl`,
+`PYOPENGL_PLATFORM=egl`, and `EGL_PLATFORM=device` inside the workload.
 
 The launcher records `FIRST_WORK.json`, runs the eight ranks with
 `torchrun --standalone --nnodes=1 --nproc_per_node=8`, and calls the existing
