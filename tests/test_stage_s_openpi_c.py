@@ -324,6 +324,12 @@ def test_registry_v2_payload_binds_pinned_runtime_and_stages() -> None:
     root = Path(__file__).resolve().parents[1]
     payload = json.loads((root / "configs/pai/stage_s_c_undertrained.json").read_text(encoding="utf-8"))
     assert payload["schema_version"] == 2
+    assert payload["provenance"]["contract_source_job_id"] == "dlckjz66iwcv38gw"
+    assert payload["provenance"]["resource_source_job_id"] == "dlckjz66iwcv38gw"
+    assert payload["provenance"]["source_role"] == "readback_reference"
+    assert payload["provenance"]["submission_method"] == "cli_create"
+    assert payload["provenance"]["pai_clone_performed"] is False
+    assert payload["provenance"]["code_source_role"] == "official_openpi_pi05_base_and_pytorch_trainer"
     assert payload["resource_alias"] == "idle-a800-robot-stage-s-graphics-8gpu"
     assert payload["resource_id"] == "quota1ssrabud0bh"
     assert payload["quota_name"] == "exp-robot"
@@ -343,17 +349,29 @@ def test_registry_v2_payload_binds_pinned_runtime_and_stages() -> None:
     assert payload["runtime"]["qpilots_commit"] == "eacf47b981e3b22357f8a74902f8dad8cfcfa375"
     assert payload["runtime"]["openpi_commit"] == OPENPI_COMMIT
     assert payload["runtime"]["required_env_names"] == [
-        "PAI_RUN_ID",
+        "PAI_CANARY_RUN_ID",
         "STAGE_S_SOURCE_COMMIT",
         "STAGE_S_C_PROJECT_DIR",
         "STAGE_S_C_PAYLOAD_SHA256",
     ]
     assert payload["runtime"]["pod_env"]["STAGE_S_C_PROJECT_DIR"] == payload["runtime"]["project_dir"]
     assert payload["runtime"]["pod_env"]["STAGE_S_C_PAYLOAD_SHA256"] == payload["runtime"]["payload_sha256"]
+    assert payload["runtime"]["pod_env"]["STAGE_S_SOURCE_COMMIT"] == "7575da585be31eb369a604d90048b338bbbf2c92"
+    assert payload["runtime"]["pod_env"]["NVIDIA_DRIVER_CAPABILITIES"] == "compute,utility,graphics"
+    assert payload["evidence"]["idle_8gpu_contract"] == "generic_formal_idle_8gpu_v1"
+    assert payload["evidence"]["kind"].endswith("_formal_training")
+    assert payload["evidence"]["success_gate"] == "persisted_step_and_loss"
+    assert payload["evidence"]["validated_payload_sha256"] == payload["runtime"]["payload_sha256"]
+    assert payload["evidence"]["checkpoint_contract"] == "model_optimizer_scheduler_rng_global_step"
+    assert payload["evidence"]["first_work_evidence_path"].endswith("{{RUN_ID}}/RUNTIME_IDENTITY.json")
+    assert payload["submission"]["tags"]["purpose"] == "formal-training"
+    assert payload["submission"]["tags"]["model"] == payload["evidence"]["model_id"]
     assert payload["fault_tolerance"]["application_auto_resume"] is True
     assert payload["fault_tolerance"]["same_directory_on_resume"] is True
     assert payload["fault_tolerance"]["max_num_of_job_restart"] == 50
-    assert all(path.startswith("/mnt/cpfs/zbl-cpfs-new/") for path in payload["runtime"]["write_paths"])
+    assert payload["fault_tolerance"]["complete_state_save_interval_steps"] == 500
+    assert payload["runtime"]["write_paths"][0] == "{{ARTIFACT_DIR}}"
+    assert all(path == "{{ARTIFACT_DIR}}" or path.startswith("/mnt/cpfs/zbl-cpfs-new/") for path in payload["runtime"]["write_paths"])
     script = root / "scripts/stage_s_c_undertrained_pai.sh"
     assert hashlib.sha256(script.read_bytes()).hexdigest() == payload["runtime"]["command_file_sha256"]
     assert payload["runtime"]["home_policy"].startswith("inherit")
