@@ -66,8 +66,8 @@ gate.
 ```text
 RUNTIME_PROJECT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903
 STAGE_S_C_PROJECT_DIR=$RUNTIME_PROJECT
-STAGE_S_SOURCE_COMMIT=7575da585be31eb369a604d90048b338bbbf2c92
-STAGE_S_C_PAYLOAD_SHA256=3b0dedbaeb4da2dae9bb9553ba7463a649114b1008a23b8d18c517df8378604f
+STAGE_S_SOURCE_COMMIT=5f69b8977c49b51aa8ad1fd554b1a4e196583e6f
+STAGE_S_C_PAYLOAD_SHA256=55dc398ba7a66a12cf5d670919b3957ade8474eab8cfb03b33d477d22fc9ed21
 PAI_CANARY_RUN_ID=<registry-injected run id>
 OPENPI=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi
 OPENPI_PYTHON=/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python
