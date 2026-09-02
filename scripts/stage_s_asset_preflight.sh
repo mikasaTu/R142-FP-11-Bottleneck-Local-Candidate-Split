@@ -15,13 +15,6 @@ EVO_ENV="$ROOT/cache/r142_stage_s/envs/evo1_py310"
 PIP_CACHE="$ROOT/cache/r142_stage_s/pip"
 mkdir -p "$OUT" "$MODEL" "$PIP_CACHE"
 
-conda_bin=$(command -v conda || true)
-if [[ -z "$conda_bin" && -x /opt/conda/bin/conda ]]; then conda_bin=/opt/conda/bin/conda; fi
-[[ -n "$conda_bin" ]]
-if [[ ! -x "$TOOLS_ENV/bin/python" ]]; then
-  "$conda_bin" create -y -p "$TOOLS_ENV" python=3.11 pip
-fi
-
 blocked_window() {
   local hm
   hm=$(TZ=Asia/Shanghai date +%H%M)
@@ -77,6 +70,14 @@ if [[ ! -d "$RT/envs/curobo/.git" ]]; then
 fi
 git -C "$RT/envs/curobo" checkout --detach d64c4b005459db10c5dd867d8b30a87d5bda9bdb
 
+conda_bin=$(command -v conda || true)
+if [[ -z "$conda_bin" && -x /opt/conda/bin/conda ]]; then conda_bin=/opt/conda/bin/conda; fi
+[[ -n "$conda_bin" ]]
+if [[ ! -x "$TOOLS_ENV/bin/python" ]]; then
+  "$conda_bin" create -y -p "$TOOLS_ENV" python=3.11 pip
+elif ! "$TOOLS_ENV/bin/python" -m pip --version >/dev/null 2>&1; then
+  "$conda_bin" install -y -p "$TOOLS_ENV" pip
+fi
 if ! "$TOOLS_ENV/bin/python" -c 'import huggingface_hub' >/dev/null 2>&1; then
   PIP_CACHE_DIR="$PIP_CACHE" "$TOOLS_ENV/bin/python" -m pip install 'huggingface_hub==0.36.2'
 fi
