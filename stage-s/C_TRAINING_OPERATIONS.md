@@ -26,21 +26,24 @@ Missing metadata is an immediate failure and cannot fall back to
 The pinned OpenPI lock resolves LeRobot `0.1.0` at commit
 `0cf864870cf29f4738d3ade893e6fd13fbd7cdb5` and `datasets==3.6.0`. The
 observed dev14 image has the same LeRobot source but `datasets==4.8.4`.
-That API exposes a scalar `datasets.arrow_dataset.Column` for `timestamp` and
-`episode_index`, while this LeRobot constructor passes the column container
-to `torch.stack`; PyTorch accepts the scalar tensors but not the Column
-container. The preflight therefore constructs one real episode with a
-constructor-scoped bridge that materializes only a non-empty scalar-real
-Column (or tuples already containing scalar tensors). It restores
-`torch.stack` immediately after construction, writes no dataset/parquet
-bytes, and records the actual versions, LeRobot source URL, mode, and bridge
-status in `DATA_PREFLIGHT.json` and subsequent runtime markers.
+That API exposes a `datasets.arrow_dataset.Column` where the pinned LeRobot
+expects a concrete tensor sequence, both while checking timestamp/index
+columns in the constructor and while stacking action windows in
+`_query_hf_dataset`. The bridge is scoped to those exact, source-audited
+methods and mirrors the pinned `hf_transform_to_torch` path: each non-string
+item is converted with `torch.tensor`, then the original `torch.stack` is
+called. It restores `torch.stack` after every method call, writes no
+dataset/parquet bytes, and records the actual versions, LeRobot source URL,
+patched methods, query smoke, and bridge status in `DATA_PREFLIGHT.json` and
+subsequent runtime markers.
 
 Only the native pinned `datasets==3.6.0` path or this exact `datasets==4.8.4`
-scalar-column bridge is accepted. Unknown versions, an unrecognized
-LeRobot constructor ABI, non-scalar/mixed columns, or a missing source
+numeric-column bridge is accepted. Unknown versions, an unrecognized
+constructor/query ABI, ragged/non-tensorizable columns, or a missing source
 provenance fail closed; no silent v2.0 data conversion or dependency fallback
-is permitted.
+is permitted. The preflight now reads one real `dataset[0]` action window and
+re-hashes a representative parquet file before/after, so constructor-only
+success cannot mask a later data-loader failure.
 
 The base checkpoint's norm stats are intentionally staged without mutating the
 base artifact. The source is
@@ -67,7 +70,7 @@ gate.
 RUNTIME_PROJECT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903
 STAGE_S_C_PROJECT_DIR=$RUNTIME_PROJECT
 STAGE_S_SOURCE_COMMIT=ce8236dc1b713e535487d9e436c99478e6e1f2a6
-STAGE_S_C_PAYLOAD_SHA256=76085d2ec51cea6534106d10400fe88efcbfd27aada7fde14446e67b29051c63
+STAGE_S_C_PAYLOAD_SHA256=384719945c0f699083bc4011c5fccdd709f7de4783a1abcce9dcaab0a7543380
 PAI_CANARY_RUN_ID=<registry-injected run id>
 OPENPI=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi
 OPENPI_PYTHON=/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python

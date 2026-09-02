@@ -127,7 +127,16 @@ def _load_official_bindings(openpi_root: Path, dataset_root: Path, staged_assets
         "lerobot_compatibility": dataset_smoke["dependency_contract"],
         "dataset_constructor_smoke": {
             key: dataset_smoke[key]
-            for key in ("episode_index", "length", "revision", "root")
+            for key in (
+                "episode_index",
+                "length",
+                "revision",
+                "root",
+                "sample_keys",
+                "action_shape",
+                "representative_parquet",
+                "representative_parquet_sha256",
+            )
         },
     }
 

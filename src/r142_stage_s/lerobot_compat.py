@@ -7,20 +7,21 @@ but ``datasets==4.8.4``.  In the latter API, ``Dataset["timestamp"]`` is a
 constructor still passes it to ``torch.stack``, which only accepts tensors.
 
 The bridge is deliberately narrow: it is enabled only for the exact observed
-package provenance and only converts a real datasets ``Column`` whose values
-are scalar real numbers.  It does not rewrite the dataset, touch parquet
-bytes, or alter model/training values.  Any unknown package/version/source or
-non-scalar column fails closed.
+package provenance and only materializes a real datasets ``Column`` through
+the same per-item ``torch.tensor`` conversion used by LeRobot's pinned
+``hf_transform_to_torch``. It does not rewrite the dataset, touch parquet
+bytes, or alter model/training values. Any unknown package/version/source,
+constructor/query ABI, or non-tensorizable column fails closed.
 """
 
 from __future__ import annotations
 
 import contextlib
 import functools
+import hashlib
 import importlib.metadata
 import inspect
 import json
-import numbers
 import threading
 from pathlib import Path
 from typing import Any, Iterator
@@ -33,7 +34,7 @@ SUPPORTED_COLUMN_DATASETS_VERSION = "4.8.4"
 COMPATIBILITY_CONTRACT = (
     f"lerobot=={PINNED_LEROBOT_VERSION}@{PINNED_LEROBOT_COMMIT}; "
     f"datasets=={PINNED_DATASETS_VERSION} native or "
-    f"datasets=={SUPPORTED_COLUMN_DATASETS_VERSION} scalar-column bridge"
+    f"datasets=={SUPPORTED_COLUMN_DATASETS_VERSION} numeric-column bridge"
 )
 
 _PATCH_LOCK = threading.RLock()
@@ -88,7 +89,7 @@ def runtime_dependency_contract() -> dict[str, Any]:
     if datasets_version == PINNED_DATASETS_VERSION:
         mode = "native-pinned-datasets"
     elif datasets_version == SUPPORTED_COLUMN_DATASETS_VERSION:
-        mode = "datasets-column-scalar-bridge"
+        mode = "datasets-column-numeric-bridge"
     else:
         mode = "unsupported"
         errors.append(
@@ -125,7 +126,7 @@ def _stack_scalar_column(
     *args: Any,
     **kwargs: Any,
 ) -> Any:
-    """Adapt only scalar datasets Columns at LeRobot's timestamp check."""
+    """Adapt only tensorizable numeric datasets Columns at pinned stack sites."""
 
     if not isinstance(values, column_type):
         return original_stack(values, *args, **kwargs)
@@ -154,26 +155,28 @@ def _stack_scalar_column(
     else:
         materialized = list(values)
     if not materialized:
-        raise TypeError(
-            "Stage-S Column bridge accepts only non-empty scalar real timestamp/index columns"
-        )
+        raise TypeError("Stage-S Column bridge accepts only non-empty numeric columns")
     tensor_type = getattr(torch_module, "Tensor", ())
-    if all(
-        isinstance(value, tensor_type) and getattr(value, "ndim", None) == 0
-        for value in materialized
-    ):
-        # torch.stack in the image rejects a datasets Column container even
-        # though its transformed elements are already scalar tensors.  A
-        # tuple is the only adaptation needed; tensor values stay untouched.
-        return original_stack(tuple(materialized), *args, **kwargs)
-    if not all(isinstance(value, numbers.Real) and not isinstance(value, bool) for value in materialized):
-        raise TypeError(
-            "Stage-S Column bridge accepts only non-empty scalar real timestamp/index columns"
-        )
-    # ``as_tensor`` preserves the scalar values and produces the same 1-D
-    # tensor shape that stacking scalar tensors would produce.  No dataset
-    # object or parquet file is changed.
-    return torch_module.as_tensor(materialized)
+    converted = []
+    for value in materialized:
+        if isinstance(value, tensor_type):
+            converted.append(value)
+            continue
+        if isinstance(value, (str, bytes)) or value is None:
+            raise TypeError("Stage-S Column bridge rejects string/bytes/None columns")
+        try:
+            tensor = torch_module.tensor(value)
+        except (TypeError, ValueError, RuntimeError) as exc:
+            raise TypeError(
+                "Stage-S Column bridge accepts only tensorizable numeric columns"
+            ) from exc
+        converted.append(tensor)
+    shapes = {tuple(getattr(value, "shape", ())) for value in converted}
+    if len(shapes) != 1:
+        raise TypeError("Stage-S Column bridge rejects ragged numeric columns")
+    # This exactly mirrors the pinned LeRobot transform: torch.tensor(item)
+    # for each non-string item, followed by the original torch.stack call.
+    return original_stack(tuple(converted), *args, **kwargs)
 
 
 @contextlib.contextmanager
@@ -192,7 +195,7 @@ def _temporary_column_stack(torch_module: Any, column_type: type[Any]) -> Iterat
 
 
 def install_column_compat_bridge() -> dict[str, Any]:
-    """Install the exact datasets-4.8.4 bridge on LeRobot's constructor."""
+    """Install the exact datasets-4.8.4 bridge on pinned stack call sites."""
 
     contract = runtime_dependency_contract()
     if not contract["valid"]:
@@ -207,58 +210,86 @@ def install_column_compat_bridge() -> dict[str, Any]:
     if getattr(dataset_class, "_r142_stage_s_column_bridge", False):
         contract["bridge_installed"] = True
         return contract
-    source = inspect.getsource(dataset_class.__init__)
-    required_anchors = (
-        'torch.stack(self.hf_dataset["timestamp"])',
-        'torch.stack(self.hf_dataset["episode_index"])',
-    )
-    missing = [anchor for anchor in required_anchors if anchor not in source]
-    if missing:
-        raise RuntimeError(
-            "Stage-S Column bridge refuses an unknown LeRobot constructor ABI: " + ", ".join(missing)
-        )
+    method_anchors = {
+        "__init__": (
+            'torch.stack(self.hf_dataset["timestamp"])',
+            'torch.stack(self.hf_dataset["episode_index"])',
+        ),
+        "_get_query_timestamps": ("torch.stack(timestamps)",),
+        "_query_hf_dataset": ("torch.stack(self.hf_dataset.select(q_idx)[key])",),
+    }
+    for method_name, anchors in method_anchors.items():
+        method = getattr(dataset_class, method_name, None)
+        if method is None:
+            raise RuntimeError(f"Stage-S Column bridge cannot resolve LeRobot method {method_name}")
+        source = inspect.getsource(method)
+        missing = [anchor for anchor in anchors if anchor not in source]
+        if missing:
+            raise RuntimeError(
+                "Stage-S Column bridge refuses an unknown LeRobot "
+                f"{method_name} ABI: " + ", ".join(missing)
+            )
     column_type = _datasets_column_type()
     if column_type is None:
         raise RuntimeError("Stage-S Column bridge cannot resolve datasets.arrow_dataset.Column")
-    original_init = dataset_class.__init__
+    for method_name in method_anchors:
+        original = getattr(dataset_class, method_name)
 
-    @functools.wraps(original_init)
-    def compatible_init(self: Any, *args: Any, **kwargs: Any) -> Any:
-        # LeRobot constructs synchronously in each torchrun rank.  Keep the
-        # patch scoped to this constructor and restore torch.stack even on an
-        # exception; no global behavior remains after dataset construction.
-        with _PATCH_LOCK, _temporary_column_stack(torch, column_type):
-            return original_init(self, *args, **kwargs)
+        @functools.wraps(original)
+        def compatible(self: Any, *args: Any, __original: Any = original, **kwargs: Any) -> Any:
+            # Each pinned method is synchronous in one torchrun rank. Keep the
+            # global torch function patched only for that method call and
+            # restore it on every success/failure path.
+            with _PATCH_LOCK, _temporary_column_stack(torch, column_type):
+                return __original(self, *args, **kwargs)
 
-    compatible_init._r142_stage_s_column_bridge = True  # type: ignore[attr-defined]
-    dataset_class.__init__ = compatible_init
+        compatible._r142_stage_s_column_bridge = True  # type: ignore[attr-defined]
+        setattr(dataset_class, method_name, compatible)
     contract["bridge_installed"] = True
+    contract["patched_methods"] = sorted(method_anchors)
     return contract
 
 
 def smoke_test_lerobot_dataset(dataset_root: str | Path, revision: str, *, episode_index: int = 0) -> dict[str, Any]:
-    """Construct one real frozen episode after installing the narrow bridge."""
+    """Construct and query one real frozen episode with byte preservation."""
 
     contract = install_column_compat_bridge()
     from lerobot.common.datasets.lerobot_dataset import LeRobotDataset  # type: ignore[import-not-found]
 
     root = Path(dataset_root).expanduser().resolve()
+    parquet_paths = sorted((root / "data").rglob("*.parquet"))
+    if not parquet_paths:
+        raise RuntimeError("Stage-S LeRobot compatibility smoke found no parquet input")
+    representative = parquet_paths[0]
+    parquet_sha_before = hashlib.sha256(representative.read_bytes()).hexdigest()
     dataset = LeRobotDataset(
         "physical-intelligence/libero",
         root=root,
         revision=revision,
         episodes=[episode_index],
+        delta_timestamps={"actions": [0.0]},
         download_videos=False,
     )
     length = len(dataset)
     if length <= 0:
         raise RuntimeError("Stage-S LeRobot compatibility smoke produced an empty dataset")
+    sample = dataset[0]
+    action = sample.get("actions")
+    if action is None or tuple(getattr(action, "shape", ())) == ():
+        raise RuntimeError("Stage-S LeRobot compatibility smoke did not query an action sequence")
+    parquet_sha_after = hashlib.sha256(representative.read_bytes()).hexdigest()
+    if parquet_sha_after != parquet_sha_before:
+        raise RuntimeError("Stage-S LeRobot compatibility smoke changed parquet bytes")
     return {
         "valid": True,
         "episode_index": episode_index,
         "length": length,
         "revision": revision,
         "root": str(root),
+        "sample_keys": sorted(sample),
+        "action_shape": list(action.shape),
+        "representative_parquet": str(representative),
+        "representative_parquet_sha256": parquet_sha_after,
         "dependency_contract": contract,
     }
 

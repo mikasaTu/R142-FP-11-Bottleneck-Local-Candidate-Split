@@ -28,7 +28,7 @@ EXPECTED_OPENPI_COMMIT=54cbaee6ae0c010a1ed431871cdaa8f4684ac709
 # The OpenPI lock expects datasets 3.6.0.  This image has 4.8.4, so the
 # runtime may use only the audited scalar-Column bridge; unknown versions fail
 # closed in the preflight and worker.  Keep this contract in every marker.
-STAGE_S_C_LEROBOT_COMPAT_CONTRACT='lerobot==0.1.0@0cf864870cf29f4738d3ade893e6fd13fbd7cdb5; datasets==3.6.0 native or datasets==4.8.4 scalar-column bridge'
+STAGE_S_C_LEROBOT_COMPAT_CONTRACT='lerobot==0.1.0@0cf864870cf29f4738d3ade893e6fd13fbd7cdb5; datasets==3.6.0 native or datasets==4.8.4 numeric-column bridge'
 PAYLOAD_FILE=$(realpath -e -- "$0") || { echo "cannot resolve invoked C payload" >&2; exit 43; }
 CONFIG_FILE=$(realpath -e -- "$STAGE_S_C_REGISTRY_CONFIG") || {
   echo "missing external C registry companion config: $STAGE_S_C_REGISTRY_CONFIG" >&2

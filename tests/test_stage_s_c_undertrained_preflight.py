@@ -166,12 +166,12 @@ def test_training_gate_rechecks_text_checksum_manifest(tmp_path: Path, monkeypat
                 "valid": True,
                 "contract": (
                     "lerobot==0.1.0@0cf864870cf29f4738d3ade893e6fd13fbd7cdb5; "
-                    "datasets==3.6.0 native or datasets==4.8.4 scalar-column bridge"
+                    "datasets==3.6.0 native or datasets==4.8.4 numeric-column bridge"
                 ),
                 "lerobot_version": "0.1.0",
                 "lerobot_commit": "0cf864870cf29f4738d3ade893e6fd13fbd7cdb5",
                 "datasets_version": "4.8.4",
-                "mode": "datasets-column-scalar-bridge",
+                "mode": "datasets-column-numeric-bridge",
             }
         },
     }
@@ -202,22 +202,32 @@ def test_launcher_and_training_wrapper_bind_offline_data_gate() -> None:
     assert "data_preflight_path" in train
     assert 'cd "$PROJECT_DIR"' in launcher
     assert launcher.index('cd "$PROJECT_DIR"') < launcher.index("CURRENT_STAGE=data_preflight")
-    assert "install_column_compat_bridge" in WORKER.read_text(encoding="utf-8")
+    worker = WORKER.read_text(encoding="utf-8")
+    assert "install_column_compat_bridge" in worker
+    assert "_patch_lerobot_dataset_column_stack" not in worker
+    compat = (ROOT / "src/r142_stage_s/lerobot_compat.py").read_text(encoding="utf-8")
+    assert '"_query_hf_dataset"' in compat
+    assert '"_get_query_timestamps"' in compat
 
 
-def test_column_bridge_converts_only_scalar_dataset_columns() -> None:
+def test_column_bridge_matches_pinned_numeric_transform_and_rejects_ragged() -> None:
     class Column(list):
         pass
 
-    class ScalarTensor:
-        ndim = 0
+    class FakeTensor:
+        def __init__(self, value):
+            self.value = value
+            if isinstance(value, list):
+                self.shape = (len(value),)
+            else:
+                self.shape = ()
 
     class FakeTorch:
-        Tensor = ScalarTensor
+        Tensor = FakeTensor
 
         @staticmethod
-        def as_tensor(values):
-            return ("tensor", list(values))
+        def tensor(value):
+            return FakeTensor(value)
 
     calls = []
 
@@ -225,10 +235,8 @@ def test_column_bridge_converts_only_scalar_dataset_columns() -> None:
         calls.append((values, args, kwargs))
         return "native"
 
-    assert _stack_scalar_column(original_stack, FakeTorch, Column, Column([0.0, 1.0])) == (
-        "tensor",
-        [0.0, 1.0],
-    )
+    assert _stack_scalar_column(original_stack, FakeTorch, Column, Column([0.0, 1.0])) == "native"
+    assert [value.value for value in calls[-1][0]] == [0.0, 1.0]
 
     class TransformFreeSource:
         def __init__(self) -> None:
@@ -242,19 +250,23 @@ def test_column_bridge_converts_only_scalar_dataset_columns() -> None:
     transformed = Column([99.0])
     transformed.source = source
     transformed.column_name = "timestamp"
-    assert _stack_scalar_column(original_stack, FakeTorch, Column, transformed) == (
-        "tensor",
-        [2.0, 3.0],
-    )
+    assert _stack_scalar_column(original_stack, FakeTorch, Column, transformed) == "native"
+    assert [value.value for value in calls[-1][0]] == [2.0, 3.0]
     assert source.formats == [None]
     assert _stack_scalar_column(original_stack, FakeTorch, Column, [0.0, 1.0]) == "native"
-    assert calls == [([0.0, 1.0], (), {})]
+    assert calls[-1] == ([0.0, 1.0], (), {})
     assert _stack_scalar_column(
-        original_stack, FakeTorch, Column, Column([ScalarTensor(), ScalarTensor()])
+        original_stack, FakeTorch, Column, Column([FakeTensor(0.0), FakeTensor(1.0)])
     ) == "native"
     assert isinstance(calls[-1][0], tuple)
-    with pytest.raises(TypeError, match="scalar real"):
-        _stack_scalar_column(original_stack, FakeTorch, Column, Column([[0.0], [1.0]]))
+    assert _stack_scalar_column(
+        original_stack, FakeTorch, Column, Column([[0.0, 1.0], [2.0, 3.0]])
+    ) == "native"
+    assert [value.shape for value in calls[-1][0]] == [(2,), (2,)]
+    with pytest.raises(TypeError, match="ragged"):
+        _stack_scalar_column(original_stack, FakeTorch, Column, Column([[0.0], [1.0, 2.0]]))
+    with pytest.raises(TypeError, match="string"):
+        _stack_scalar_column(original_stack, FakeTorch, Column, Column(["bad"]))
 
 
 def test_dependency_contract_fails_closed_on_unknown_provenance(monkeypatch: pytest.MonkeyPatch) -> None:

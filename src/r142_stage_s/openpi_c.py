@@ -1589,7 +1589,7 @@ def _audit_data_preflight(path: str | Path) -> tuple[dict[str, Any] | None, list
         errors.append("C data preflight LeRobot source commit mismatch")
     expected_modes = {
         PINNED_DATASETS_VERSION: "native-pinned-datasets",
-        SUPPORTED_COLUMN_DATASETS_VERSION: "datasets-column-scalar-bridge",
+        SUPPORTED_COLUMN_DATASETS_VERSION: "datasets-column-numeric-bridge",
     }
     if expected_modes.get(compatibility.get("datasets_version")) != compatibility.get("mode"):
         errors.append("C data preflight datasets version/mode mismatch")
