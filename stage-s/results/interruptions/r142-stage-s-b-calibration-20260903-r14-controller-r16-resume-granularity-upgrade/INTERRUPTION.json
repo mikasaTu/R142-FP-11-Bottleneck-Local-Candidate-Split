@@ -1,0 +1,11 @@
+{
+  "schema": "r142-stage-s-planned-runtime-upgrade-interruption-v1",
+  "reason": "replace rank-granularity restart with SHA-bound aggregate-only trial-granularity spot resume",
+  "job_id": "dlc1lc59myfc56uy",
+  "run_id": "r142-stage-s-b-calibration-20260903-r14",
+  "scientific_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration/r142-stage-s-b-calibration-20260903-r14",
+  "stopped_at": "2026-09-03T12:54:01+08:00",
+  "terminal_status": "Stopped",
+  "completed_shards": 0,
+  "resume_policy": "new PAI controller r17, exact same scientific directory/seeds/tasks/settings; runtime change only adds pooled-counter trial progress sidecars"
+}

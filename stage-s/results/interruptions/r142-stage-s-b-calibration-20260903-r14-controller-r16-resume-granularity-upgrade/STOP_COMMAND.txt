@@ -1,0 +1,2 @@
+[OK] Using config file from [/workspace/leon/.dlc/config]
+[OK] Job [dlc1lc59myfc56uy] was stopped successfully

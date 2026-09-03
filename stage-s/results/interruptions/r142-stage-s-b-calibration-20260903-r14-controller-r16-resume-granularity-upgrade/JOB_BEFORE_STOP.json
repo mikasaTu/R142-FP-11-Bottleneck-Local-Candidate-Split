@@ -1,0 +1,46 @@
+{
+  "JobId": "dlc1lc59myfc56uy",
+  "Status": "Running",
+  "Pods": [
+    {
+      "PodId": "dlc1lc59myfc56uy-aimaster-0",
+      "Status": "Running",
+      "Type": "aimaster",
+      "GmtCreateTime": "2026-09-03T01:41:40Z",
+      "GmtStartTime": "2026-09-03T01:41:44Z"
+    },
+    {
+      "PodId": "dlc1lc59myfc56uy-master-0",
+      "Status": "Running",
+      "Type": "master",
+      "GmtCreateTime": "2026-09-03T03:32:12Z",
+      "GmtStartTime": "2026-09-03T03:33:30Z"
+    }
+  ],
+  "ResourceConfig": [
+    {
+      "AssignNodeSpec": {
+        "EnableAssignNode": false,
+        "NodeNames": "",
+        "AntiAffinityNodeNames": ""
+      },
+      "EcsSpec": "",
+      "Image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
+      "ImageConfig": {
+        "Auth": "",
+        "DockerRegistry": "",
+        "Password": "",
+        "Username": ""
+      },
+      "PodCount": 1,
+      "ResourceConfig": {
+        "CPU": "88",
+        "GPU": "8",
+        "GPUType": "",
+        "Memory": "1400Gi",
+        "SharedMemory": "1400Gi"
+      },
+      "Type": "Worker"
+    }
+  ]
+}
