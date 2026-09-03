@@ -12,9 +12,11 @@ readonly LEON_GID=2254
 readonly ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon
 readonly CONTROLLER_RUN_ID="${PAI_CANARY_RUN_ID:?controller must inject PAI_CANARY_RUN_ID}"
 # A resumed PAI incarnation gets a fresh controller run id, while the
-# scientific application keeps one immutable CPFS directory.  The registry
-# bootstrap explicitly forwards PAI_TASK_* variables through env -i.
-readonly RUN_ID="${PAI_TASK_STAGE_S_APPLICATION_RUN_ID:-$CONTROLLER_RUN_ID}"
+# scientific application keeps one immutable CPFS directory.  This launcher
+# is pinned to the already-started r14 application lineage; keeping that
+# identity in the hashed payload avoids widening the registry pod-env
+# contract for a one-off controller restart.
+readonly RUN_ID=r142-stage-s-b-calibration-20260903-r14
 readonly OUT_ROOT="$ROOT/logs/pai_registry/r142_stage_s/b_calibration"
 readonly ARTIFACT_DIR="$OUT_ROOT/$RUN_ID"
 readonly EXPECTED_GPUS=8

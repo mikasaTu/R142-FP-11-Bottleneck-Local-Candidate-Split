@@ -40,7 +40,7 @@ def test_b_launcher_is_shell_valid_and_non_submitting() -> None:
     assert "COMPLETED_B_CALIBRATION.json" in text
     assert "B_SHA256SUMS" in text
     assert 'ARTIFACT_DIR="$OUT_ROOT/$RUN_ID"' in text
-    assert 'RUN_ID="${PAI_TASK_STAGE_S_APPLICATION_RUN_ID:-$CONTROLLER_RUN_ID}"' in text
+    assert "RUN_ID=r142-stage-s-b-calibration-20260903-r14" in text
     assert "controller-incarnations" in text
     assert "controller must inject ARTIFACT_DIR" not in text
     assert "rev-parse --is-inside-work-tree" in text
@@ -88,7 +88,6 @@ def test_config_binds_launcher_hash_and_registry_contract() -> None:
     assert config["resource_alias"] == "idle-a800-robot-stage-s-graphics-8gpu"
     assert runtime["pod_env"] == {
         "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics",
-        "PAI_TASK_STAGE_S_APPLICATION_RUN_ID": "r142-stage-s-b-calibration-20260903-r14",
     }
     assert runtime["command_file"] == (
         "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/"

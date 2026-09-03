@@ -46,8 +46,8 @@
   },
   "runtime": {
     "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_libero_b_calibration_pai.sh",
-    "command_file_sha256": "35a950af9d1d08fa54fbc1bc6fa870e4bace46eeebfc662fab4a3542c424ba39",
-    "payload_sha256": "35a950af9d1d08fa54fbc1bc6fa870e4bace46eeebfc662fab4a3542c424ba39",
+    "command_file_sha256": "b2ae4b6a590fc39697a0a8cf068c78594fe2fff9df3762ce944c8d7ef6254bdc",
+    "payload_sha256": "b2ae4b6a590fc39697a0a8cf068c78594fe2fff9df3762ce944c8d7ef6254bdc",
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
     "uid": 2254,
     "gid": 2254,
@@ -56,8 +56,7 @@
     "recursive_repair": false,
     "secret_env_names": [],
     "pod_env": {
-      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics",
-      "PAI_TASK_STAGE_S_APPLICATION_RUN_ID": "r142-stage-s-b-calibration-20260903-r14"
+      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
     },
     "write_paths": [
       "{{ARTIFACT_DIR}}",
@@ -81,7 +80,7 @@
     "contract_ready": true,
     "validation_method": "static",
     "validation_status": "passed",
-    "validated_payload_sha256": "35a950af9d1d08fa54fbc1bc6fa870e4bace46eeebfc662fab4a3542c424ba39",
+    "validated_payload_sha256": "b2ae4b6a590fc39697a0a8cf068c78594fe2fff9df3762ce944c8d7ef6254bdc",
     "pai_probe_created": false,
     "explicit_user_resource_authorization": {
       "resource_id": "quota1ssrabud0bh",
