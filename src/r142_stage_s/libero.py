@@ -51,6 +51,13 @@ CALIBRATION_SEED = 142042
 CALIBRATION_SHARD_SCHEMA = "r142-stage-s-calibration-shard-v1"
 CALIBRATION_RESULT_SCHEMA = "r142-stage-s-calibration-result-v1"
 CALIBRATION_PLAN_SCHEMA = "r142-stage-s-calibration-plan-v1"
+# The progress sidecar is deliberately separate from the final shard
+# ``SHA256SUMS``.  The latter keeps the historical, aggregate-only shard
+# format, while this pair lets a spot-preempted worker resume without making
+# an unfinished shard look complete.
+CALIBRATION_PROGRESS_SCHEMA = "r142-stage-s-calibration-progress-v1"
+CALIBRATION_PROGRESS_FILE = "CALIBRATION_PROGRESS.json"
+CALIBRATION_PROGRESS_SHA_FILE = "CALIBRATION_PROGRESS_SHA256SUMS"
 CALIBRATION_SHARD_MARKER = "CALIBRATION_SHARD_COMPLETE"
 CALIBRATION_RESULT_MARKER = "CALIBRATION_COMPLETE"
 MAIN_ACTION_HORIZON = 10
@@ -2582,6 +2589,258 @@ def verify_calibration_shard(
     return validated
 
 
+def _calibration_assigned_ordinals(
+    *,
+    total_trials: int,
+    world_size: int,
+    rank: int,
+) -> tuple[int, ...]:
+    """Return the immutable round-robin assignment for one rank.
+
+    The ordinal is the flattened ``setting/task/init/candidate`` index.  It
+    is intentionally the only trial-level identity retained by the progress
+    sidecar: reconstructing the descriptor from this ordinal keeps the
+    calibration pooled-only and gives a resumed worker exactly the same seed
+    as an uninterrupted worker.
+    """
+
+    return tuple(
+        ordinal
+        for ordinal in range(int(total_trials))
+        if ordinal % int(world_size) == int(rank)
+    )
+
+
+def _calibration_progress_identity(
+    root: Path,
+    values: Sequence[str | int | float | bool],
+    tasks: Sequence[int],
+    states: Sequence[int],
+    count: int,
+    *,
+    calibration_seed: int,
+    world_size: int,
+    rank: int,
+) -> dict[str, Any]:
+    """Build immutable hashes used to bind a progress sidecar to its plan."""
+
+    plan_path = root / "CALIBRATION_PLAN.json"
+    if not plan_path.is_file():
+        raise StageSError(f"calibration plan disappeared before progress initialization: {plan_path}")
+    total_trials = len(values) * len(tasks) * len(states) * int(count)
+    assigned = _calibration_assigned_ordinals(
+        total_trials=total_trials,
+        world_size=world_size,
+        rank=rank,
+    )
+    settings_payload = list(values)
+    axes_payload = {
+        "task_ids": [int(value) for value in tasks],
+        "initial_states": [int(value) for value in states],
+        "candidate_count": int(count),
+    }
+    return {
+        "plan_sha256": sha256_file(plan_path),
+        "settings_sha256": sha256_bytes(canonical_json(settings_payload).encode("utf-8")),
+        "axes_sha256": sha256_bytes(canonical_json(axes_payload).encode("utf-8")),
+        "assignment_sha256": sha256_bytes(canonical_json(list(assigned)).encode("utf-8")),
+        "total_trials": int(total_trials),
+    }
+
+
+def _calibration_next_ordinal(
+    assigned: Sequence[int],
+    finished: Sequence[int],
+    *,
+    total_trials: int,
+) -> int:
+    finished_set = set(int(value) for value in finished)
+    for ordinal in assigned:
+        if int(ordinal) not in finished_set:
+            return int(ordinal)
+    # ``total_trials`` is the explicit sentinel for a fully finished rank;
+    # unlike a nullable field it is stable in JSON and easy to audit.
+    return int(total_trials)
+
+
+def _validate_calibration_progress_payload(
+    payload: Mapping[str, Any],
+    values: Sequence[str | int | float | bool],
+    *,
+    calibration_seed: int,
+    world_size: int,
+    rank: int,
+    identity: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Validate an aggregate-only progress sidecar, failing closed on drift."""
+
+    _reject_calibration_leakage(payload)
+    required = {
+        "schema",
+        "protocol_id",
+        "calibration_seed",
+        "world_size",
+        "rank",
+        "plan_sha256",
+        "settings_sha256",
+        "axes_sha256",
+        "assignment_sha256",
+        "total_trials",
+        "next_ordinal",
+        "finished_ordinals",
+        "successes",
+        "totals",
+    }
+    if set(payload) != required:
+        raise ValueError(
+            "calibration progress fields drifted: "
+            f"missing={sorted(required - set(payload))}, extra={sorted(set(payload) - required)}"
+        )
+    if payload.get("schema") != CALIBRATION_PROGRESS_SCHEMA or payload.get("protocol_id") != STAGE_S_PROTOCOL_ID:
+        raise ValueError("unsupported calibration progress schema")
+    if (
+        int(payload["calibration_seed"]) != int(calibration_seed)
+        or int(payload["world_size"]) != int(world_size)
+        or int(payload["rank"]) != int(rank)
+    ):
+        raise ValueError("calibration progress identity does not match the requested plan")
+    for key in ("plan_sha256", "settings_sha256", "axes_sha256", "assignment_sha256"):
+        if payload.get(key) != identity.get(key):
+            raise ValueError(f"calibration progress {key} does not match the immutable plan")
+    total_trials = int(identity["total_trials"])
+    if int(payload["total_trials"]) != total_trials:
+        raise ValueError("calibration progress total_trials does not match the immutable plan")
+
+    assigned = _calibration_assigned_ordinals(
+        total_trials=total_trials,
+        world_size=world_size,
+        rank=rank,
+    )
+    assigned_set = set(assigned)
+    finished_raw = payload["finished_ordinals"]
+    if not isinstance(finished_raw, list):
+        raise ValueError("calibration progress finished_ordinals must be a list")
+    if any(isinstance(value, bool) or not isinstance(value, int) for value in finished_raw):
+        raise ValueError("calibration progress finished_ordinals must contain integers")
+    finished = [int(value) for value in finished_raw]
+    if finished != sorted(set(finished)):
+        raise ValueError("calibration progress finished_ordinals must be sorted and unique")
+    if any(value not in assigned_set for value in finished):
+        raise ValueError("calibration progress contains an ordinal assigned to another rank")
+    next_ordinal = payload["next_ordinal"]
+    if isinstance(next_ordinal, bool) or not isinstance(next_ordinal, int):
+        raise ValueError("calibration progress next_ordinal must be an integer")
+    next_ordinal = int(next_ordinal)
+    if next_ordinal < 0 or next_ordinal > total_trials:
+        raise ValueError("calibration progress next_ordinal is outside the trial range")
+    expected_finished = [ordinal for ordinal in assigned if ordinal < next_ordinal]
+    if finished != expected_finished:
+        raise ValueError("calibration progress next_ordinal/finished_ordinals are inconsistent")
+    expected_next = _calibration_next_ordinal(assigned, finished, total_trials=total_trials)
+    if next_ordinal != expected_next:
+        raise ValueError("calibration progress next_ordinal is not the next assigned trial")
+
+    successes_raw = payload["successes"]
+    totals_raw = payload["totals"]
+    if not isinstance(successes_raw, list) or not isinstance(totals_raw, list):
+        raise ValueError("calibration progress successes/totals must be lists")
+    if len(successes_raw) != len(values) or len(totals_raw) != len(values):
+        raise ValueError("calibration progress successes/totals length does not match settings")
+    expected_totals = [0] * len(values)
+    per_setting = _calibration_trial_count_per_setting()
+    for ordinal in finished:
+        expected_totals[int(ordinal) // per_setting] += 1
+    totals: list[int] = []
+    successes: list[int] = []
+    for index, (success_value, total_value) in enumerate(zip(successes_raw, totals_raw)):
+        if any(isinstance(value, bool) or not isinstance(value, int) for value in (success_value, total_value)):
+            raise ValueError("calibration progress successes/totals must contain integers")
+        success_count = int(success_value)
+        total_count = int(total_value)
+        if total_count != expected_totals[index] or total_count < 0 or success_count < 0 or success_count > total_count:
+            raise ValueError(f"calibration progress aggregate counters are inconsistent at setting {index}")
+        successes.append(success_count)
+        totals.append(total_count)
+    return {
+        "schema": CALIBRATION_PROGRESS_SCHEMA,
+        "protocol_id": STAGE_S_PROTOCOL_ID,
+        "calibration_seed": int(calibration_seed),
+        "world_size": int(world_size),
+        "rank": int(rank),
+        "plan_sha256": str(identity["plan_sha256"]),
+        "settings_sha256": str(identity["settings_sha256"]),
+        "axes_sha256": str(identity["axes_sha256"]),
+        "assignment_sha256": str(identity["assignment_sha256"]),
+        "total_trials": total_trials,
+        "next_ordinal": next_ordinal,
+        "finished_ordinals": finished,
+        "successes": successes,
+        "totals": totals,
+    }
+
+
+def _write_calibration_progress_atomic(
+    shard_root: str | Path,
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Atomically persist and hash one aggregate-only progress state."""
+
+    root = Path(shard_root)
+    root.mkdir(parents=True, exist_ok=True)
+    progress_path = root / CALIBRATION_PROGRESS_FILE
+    sha_path = root / CALIBRATION_PROGRESS_SHA_FILE
+    atomic_json(progress_path, dict(payload))
+    progress_sha = sha256_file(progress_path)
+    atomic_text(sha_path, f"{progress_sha}  {CALIBRATION_PROGRESS_FILE}\n")
+    return {"progress_file": progress_path.name, "progress_sha256": progress_sha}
+
+
+def _read_calibration_progress(
+    shard_root: str | Path,
+    values: Sequence[str | int | float | bool],
+    *,
+    calibration_seed: int,
+    world_size: int,
+    rank: int,
+    identity: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Read a complete progress pair or fail closed on any partial/corrupt pair."""
+
+    root = Path(shard_root)
+    progress_path = root / CALIBRATION_PROGRESS_FILE
+    sha_path = root / CALIBRATION_PROGRESS_SHA_FILE
+    progress_exists = progress_path.is_file()
+    sha_exists = sha_path.is_file()
+    if not progress_exists and not sha_exists:
+        return None
+    if not progress_exists or not sha_exists:
+        raise StageSError(f"incomplete calibration progress sidecar: {root}")
+    expected_line = f"{sha256_file(progress_path)}  {CALIBRATION_PROGRESS_FILE}"
+    try:
+        observed_lines = sha_path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise StageSError(f"cannot read calibration progress SHA: {sha_path}: {exc}") from exc
+    if observed_lines != [expected_line]:
+        raise StageSError(f"calibration progress SHA mismatch: {root}")
+    try:
+        payload = json.loads(progress_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise StageSError(f"invalid calibration progress JSON: {progress_path}: {exc}") from exc
+    if not isinstance(payload, Mapping):
+        raise StageSError(f"calibration progress must be a JSON object: {progress_path}")
+    try:
+        return _validate_calibration_progress_payload(
+            payload,
+            values,
+            calibration_seed=calibration_seed,
+            world_size=world_size,
+            rank=rank,
+            identity=identity,
+        )
+    except (TypeError, ValueError, KeyError) as exc:
+        raise StageSError(f"invalid calibration progress state: {progress_path}: {exc}") from exc
+
+
 def run_calibration_shard(
     evaluator: Callable[[int, Any, int, int, int, int], bool],
     settings: Sequence[Any],
@@ -2619,18 +2878,122 @@ def run_calibration_shard(
     if (shard_root / "COMPLETED_SHARD.json").is_file():
         existing = verify_calibration_shard(shard_root, values, calibration_seed=calibration_seed, world_size=world_size, rank=rank)
         return {"status": "already_complete", "shard_root": str(shard_root), "payload": existing}
-    successes = [0] * len(values)
-    totals = [0] * len(values)
+    identity = _calibration_progress_identity(
+        root,
+        values,
+        tasks,
+        states,
+        count,
+        calibration_seed=calibration_seed,
+        world_size=world_size,
+        rank=rank,
+    )
+    progress = _read_calibration_progress(
+        shard_root,
+        values,
+        calibration_seed=calibration_seed,
+        world_size=world_size,
+        rank=rank,
+        identity=identity,
+    )
+    assigned = _calibration_assigned_ordinals(
+        total_trials=int(identity["total_trials"]),
+        world_size=world_size,
+        rank=rank,
+    )
+    if progress is None:
+        successes = [0] * len(values)
+        totals = [0] * len(values)
+        finished_ordinals: list[int] = []
+        next_ordinal = _calibration_next_ordinal(
+            assigned,
+            finished_ordinals,
+            total_trials=int(identity["total_trials"]),
+        )
+        progress = {
+            "schema": CALIBRATION_PROGRESS_SCHEMA,
+            "protocol_id": STAGE_S_PROTOCOL_ID,
+            "calibration_seed": int(calibration_seed),
+            "world_size": int(world_size),
+            "rank": int(rank),
+            "plan_sha256": str(identity["plan_sha256"]),
+            "settings_sha256": str(identity["settings_sha256"]),
+            "axes_sha256": str(identity["axes_sha256"]),
+            "assignment_sha256": str(identity["assignment_sha256"]),
+            "total_trials": int(identity["total_trials"]),
+            "next_ordinal": int(next_ordinal),
+            "finished_ordinals": finished_ordinals,
+            "successes": successes,
+            "totals": totals,
+        }
+        _write_calibration_progress_atomic(shard_root, progress)
+    else:
+        successes = [int(value) for value in progress["successes"]]
+        totals = [int(value) for value in progress["totals"]]
+        finished_ordinals = [int(value) for value in progress["finished_ordinals"]]
+
+    finished_set = set(finished_ordinals)
     ordinal = 0
     for setting_index, setting in enumerate(values):
         for task_id in tasks:
             for init_state in states:
                 for candidate_id in range(count):
-                    if ordinal % int(world_size) == int(rank):
+                    if ordinal % int(world_size) == int(rank) and ordinal not in finished_set:
                         trial_seed = calibration_trial_seed(calibration_seed, setting_index, task_id, init_state, candidate_id)
-                        successes[setting_index] += int(bool(evaluator(setting_index, setting, int(task_id), int(init_state), int(candidate_id), trial_seed)))
+                        outcome = evaluator(
+                            setting_index,
+                            setting,
+                            int(task_id),
+                            int(init_state),
+                            int(candidate_id),
+                            trial_seed,
+                        )
+                        successes[setting_index] += int(bool(outcome))
                         totals[setting_index] += 1
+                        finished_ordinals.append(int(ordinal))
+                        finished_ordinals.sort()
+                        finished_set.add(int(ordinal))
+                        progress = {
+                            "schema": CALIBRATION_PROGRESS_SCHEMA,
+                            "protocol_id": STAGE_S_PROTOCOL_ID,
+                            "calibration_seed": int(calibration_seed),
+                            "world_size": int(world_size),
+                            "rank": int(rank),
+                            "plan_sha256": str(identity["plan_sha256"]),
+                            "settings_sha256": str(identity["settings_sha256"]),
+                            "axes_sha256": str(identity["axes_sha256"]),
+                            "assignment_sha256": str(identity["assignment_sha256"]),
+                            "total_trials": int(identity["total_trials"]),
+                            "next_ordinal": int(
+                                _calibration_next_ordinal(
+                                    assigned,
+                                    finished_ordinals,
+                                    total_trials=int(identity["total_trials"]),
+                                )
+                            ),
+                            "finished_ordinals": list(finished_ordinals),
+                            "successes": list(successes),
+                            "totals": list(totals),
+                        }
+                        # Validate before replacing the sidecar so a coding or
+                        # evaluator error cannot persist an internally
+                        # inconsistent counter state.
+                        _validate_calibration_progress_payload(
+                            progress,
+                            values,
+                            calibration_seed=calibration_seed,
+                            world_size=world_size,
+                            rank=rank,
+                            identity=identity,
+                        )
+                        _write_calibration_progress_atomic(shard_root, progress)
                     ordinal += 1
+    expected_totals = [
+        _calibration_assigned_count(index, world_size, rank)
+        for index in range(len(values))
+    ]
+    if totals != expected_totals or len(finished_ordinals) != len(assigned):
+        raise StageSError("calibration shard stopped before all assigned trials completed")
     rows = [
         {
             "setting": setting,
@@ -2654,7 +3017,7 @@ def run_calibration_shard(
         calibration_seed=calibration_seed,
         world_size=world_size,
         rank=rank,
-        expected_totals=totals,
+        expected_totals=expected_totals,
     )
     marker = write_calibration_shard_atomic(shard_root, payload)
     return {"status": "completed", "shard_root": str(shard_root), "payload": payload, "marker": marker}
@@ -3293,6 +3656,9 @@ __all__ = [
     "CALIBRATION_CANDIDATE_COUNT",
     "CALIBRATION_INITIAL_STATES",
     "CALIBRATION_PLAN_SCHEMA",
+    "CALIBRATION_PROGRESS_FILE",
+    "CALIBRATION_PROGRESS_SCHEMA",
+    "CALIBRATION_PROGRESS_SHA_FILE",
     "CALIBRATION_RESULT_MARKER",
     "CALIBRATION_RESULT_SCHEMA",
     "CALIBRATION_SEED",
