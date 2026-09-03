@@ -29,6 +29,12 @@ from r142_stage_s.total_analysis import (
     EXPECTED_S4_BOOTSTRAP_SEED,
     TOTAL_COMPLETION_FILE,
     TOTAL_RESULT_FILE,
+    TotalAnalysisError,
+    _extract_arm_inputs,
+    _load_controls,
+    _normalise_row,
+    _verify_replay_check,
+    _verify_snapshot,
     analyze_stage_s,
 )
 
@@ -294,3 +300,118 @@ def test_production_authority_without_bootstrap_seed_fails_closed(tmp_path: Path
     path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
     with pytest.raises(S45ProtocolError, match="paired_bootstrap_seed"):
         ProtocolAuthority.load(path)
+
+
+def test_production_arm_rejects_in_memory_artifacts_even_with_verification_flags(tmp_path: Path) -> None:
+    protocol = ProtocolAuthority.load(_protocol(tmp_path))
+    with pytest.raises(TotalAnalysisError, match="unsupported/in-memory"):
+        _extract_arm_inputs(
+            "A",
+            {
+                "substrate": "A",
+                "records": _arm_rows("A"),
+                "artifact_verification": {
+                    "terminal_markers": True,
+                    "sha256": True,
+                    "genealogy": True,
+                    "compute": True,
+                },
+                "main_root": tmp_path,
+                "s4_root": tmp_path,
+                "s5_root": tmp_path,
+            },
+            protocol=protocol,
+            strict=True,
+        )
+
+
+def test_production_controls_reject_in_memory_mapping() -> None:
+    with pytest.raises(TotalAnalysisError, match="audited directory"):
+        _load_controls(
+            {
+                "overall_verdict": "CONTROLS_PASS",
+                "positive_verdict": "POSITIVE_CONTROL_PASS",
+                "null_verdict": "NO_FAMILY_COLLAPSE",
+                "pipeline_commit": COMMIT,
+            },
+            strict=True,
+        )
+
+
+def test_snapshot_requires_all_rng_streams_and_replay_error_is_tight() -> None:
+    snapshot = {
+        "simulator": {"state": 1},
+        "observation_history": [],
+        "action_queue": [],
+        "python_rng_state": {"state": 1},
+        "numpy_rng_state": {"state": 1},
+        "policy_rng_state": {"state": 1},
+        "torch_rng_state": {"cpu": [1], "cuda": [2]},
+    }
+    _verify_snapshot(snapshot, label="test snapshot")
+    del snapshot["torch_rng_state"]["cuda"]
+    with pytest.raises(TotalAnalysisError, match="CPU/CUDA"):
+        _verify_snapshot(snapshot, label="test snapshot")
+    with pytest.raises(TotalAnalysisError, match="exceeds 1e-9"):
+        _verify_replay_check(
+            {"same_action": True, "passed": True, "max_abs_error": 1.1e-9},
+            label="test replay",
+        )
+
+
+def test_robotwin_snapshot_requires_runtime_and_policy_rng_streams() -> None:
+    stream = {"python": [1], "numpy": [2], "torch": [3], "torch_cuda": []}
+    _verify_snapshot(
+        {
+            "simulator": {"state": 1},
+            "policy_history": [],
+            "action_queue": [],
+            "rng_streams": {"runtime": stream, "policy": stream},
+        },
+        label="Robotwin snapshot",
+    )
+
+
+def test_strict_normalise_rejects_missing_task_id_and_replay() -> None:
+    row = _row("a-family-0", 0, substrate="A", success=False)
+    row.pop("task_id")
+    with pytest.raises(TotalAnalysisError, match="lacks task_id"):
+        _normalise_row(
+            row,
+            family={"family_id": "a-family-0", "task_id": None, "init_state": 0},
+            index=0,
+            substrate="A",
+            strict=True,
+        )
+    row = _row("a-family-0", 0, substrate="A", success=False)
+    with pytest.raises(TotalAnalysisError, match="snapshot_restore_check"):
+        _normalise_row(
+            row,
+            family={"family_id": "a-family-0", "task_id": 0, "init_state": 0},
+            index=0,
+            substrate="A",
+            strict=True,
+        )
+
+
+def test_strict_normalise_rejects_genealogy_without_explicit_root() -> None:
+    row = _row("a-family-0", 0, substrate="A", success=False)
+    row["task_id"] = 0
+    row["init_state"] = 0
+    row["snapshot_restore_check"] = {"same_action": True, "passed": True, "max_abs_error": 0.0}
+    row["genealogy"].update(
+        {
+            "candidate_id": row["candidate_id"],
+            "candidate_index": 0,
+            "candidate_seed": row["candidate_seed"],
+        }
+    )
+    with pytest.raises(TotalAnalysisError, match="lacks root binding"):
+        _normalise_row(
+            row,
+            family={"family_id": "a-family-0", "task_id": 0, "init_state": 0},
+            index=0,
+            substrate="A",
+            genealogy=row["genealogy"],
+            strict=True,
+        )

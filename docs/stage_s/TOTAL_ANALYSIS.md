@@ -4,14 +4,38 @@
 
 ## Inputs
 
-- One frozen `FROZEN_PROTOCOL.json`, loaded by `ProtocolAuthority`.
-- A positive-control report with `overall_verdict=CONTROLS_PASS` and one pipeline commit.
-- Exactly three arms (`A`, `B`, `C`). Each arm must provide either verified in-memory rows or a persisted completion tree.
+- One canonical frozen `protocol/FROZEN_PROTOCOL.json`. The production CLI
+  validates it with both the signed frozen-protocol envelope and the S4/S5
+  `ProtocolAuthority`, including `PROTOCOL.md`, B/C calibration hashes, the
+  frozen status, and the exact budget/threshold summary.
+- A positive-control report with `overall_verdict=CONTROLS_PASS` and one
+  full-length pipeline commit. Controls remain compatible with the existing
+  marker schema, but production accepts them only from an audited directory.
+- Exactly three production arms (`A`, `B`, `C`). The CLI accepts only
+  directory references (`main_root`, `s4_root`, `s5_root`); raw records,
+  probes, extended rows, and `artifact_verification` overrides are rejected.
+- Each main root must contain a terminal `COMPLETED_EVALUATION_RESULT.json`
+  with `status=COMPLETED`, an exact root `SHA256SUMS` coverage set, eight
+  ranks, the frozen 10-task x 16-initial-state x 32-candidate grid, and the
+  correct task/state/rank/world-size binding.
 - Each persisted family must carry an immutable completion marker, a SHA256 manifest, 32 terminal candidates, full genealogy, terminal actions/poses, full replay snapshot, and policy/environment compute counts.
+- Every candidate genealogy must explicitly bind its root family (or the
+  producer's equivalent `family_id` root alias) and is checked against its
+  raw candidate ID, root, order, generation, seed, action prefix, and
+  final-success label. Every
+  candidate snapshot must contain all replay components and Python/NumPy/
+  Torch CPU/CUDA RNG streams, plus a passing restore-to-same-action check with
+  error at most `1e-9`.
 - S4 must cover exactly every near-all-fail family with the authority-owned nine-point search grid, four search branches per location, and equal eight/eight held-out oracle/random branches.
-- S5 must bind the fresh candidate extension to indices 32--63.
+- S4 receives the accepted main family objects and therefore binds its marker
+  to the exact source family SHA values. S5 is loaded through
+  `load_s5_extended`, binding immutable main base rows/source SHAs and checking
+  the complete 64-candidate extension, termination, trajectory/action, and
+  replay evidence.
 
-In-memory handoffs are accepted only with explicit `artifact_verification` flags for terminal markers, SHA256, genealogy, and compute. This keeps a Python list of booleans from becoming a substitute for an audited disk bundle.
+The Python API retains a non-production, explicitly verified in-memory mode
+for fixture/legacy callers. It is not reachable through the production CLI;
+`production=True` rejects every in-memory artifact and verification override.
 
 ## Frozen production metrics
 
@@ -33,6 +57,16 @@ PYTHONPATH=src python scripts/stage_s_total_analysis.py \
   --controls /path/to/controls \
   --arms-json /path/to/arms.json \
   --output-root /path/to/total-analysis
+```
+
+`arms.json` must contain only directory references, for example:
+
+```json
+{
+  "A": {"substrate": "A", "main_root": "/cpfs/A-main", "s4_root": "/cpfs/A-s4", "s5_root": "/cpfs/A-s5"},
+  "B": {"substrate": "B", "main_root": "/cpfs/B-main", "s4_root": "/cpfs/B-s4", "s5_root": "/cpfs/B-s5"},
+  "C": {"substrate": "C", "main_root": "/cpfs/C-main", "s4_root": "/cpfs/C-s4", "s5_root": "/cpfs/C-s5"}
+}
 ```
 
 On an output directory, `STAGE_S_TOTAL_ANALYSIS.json`, `COMPLETED_EVALUATION_RESULT.json`, and `SHA256SUMS` are written atomically and read back before the call returns.
