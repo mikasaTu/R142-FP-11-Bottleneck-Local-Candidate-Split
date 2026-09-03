@@ -1,0 +1,9 @@
+[rank1-rank7] RuntimeError: native checkpoint directory is absent after save: .../r142_stage_s_c_undertrained_seed42/1000
+[rank0] Saved checkpoint at step 1000 -> .../r142_stage_s_c_undertrained_seed42/1000
+torch.distributed.run returned non-zero exit status 1.
+
+Observed artifact split:
+  final 1000/: model.safetensors, optimizer.pt, metadata.pt, rng_state.rank0.pt
+  .rng_stage_1000/: rng_state.rank1.pt ... rng_state.rank7.pt
+  missing: RNG_SHA256SUMS, COMPLETE_RNG_STATE.json
+

@@ -1,0 +1,20 @@
+{
+  "job_id": "dlc1mg3n62bspsuc",
+  "run_id": "r142-stage-s-c-undertrained-20260903-r11",
+  "status": "Stopped",
+  "pods": [
+    {
+      "pod_id": "dlc1mg3n62bspsuc-aimaster-0",
+      "status": "Stopped",
+      "type": "aimaster"
+    },
+    {
+      "pod_id": "dlc1mg3n62bspsuc-master-0",
+      "status": "Stopped",
+      "type": "master"
+    }
+  ],
+  "accepted_as_completion": false,
+  "failure_class": "APPLICATION_CHECKPOINT_SAVE_RACE"
+}
+
