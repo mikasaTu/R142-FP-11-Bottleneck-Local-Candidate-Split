@@ -29,7 +29,7 @@ import re
 import shutil
 import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
@@ -1338,14 +1338,27 @@ def _state_vector(environment: Any, observation: Any = None) -> np.ndarray:
     return np.zeros(1, dtype=np.float64)
 
 
-def _pose_vector(environment: Any, observation: Any = None) -> np.ndarray:
+def _validate_pose_dimension(pose: Any, expected_dimension: int | None) -> np.ndarray:
+    try:
+        result = np.asarray(pose, dtype=np.float64).reshape(-1)
+    except (TypeError, ValueError) as exc:
+        raise StageSError("workspace pose hook returned non-numeric values") from exc
+    if not np.all(np.isfinite(result)):
+        raise StageSError("workspace pose hook returned non-finite values")
+    if expected_dimension is not None and result.size != int(expected_dimension):
+        raise StageSError(
+            f"workspace pose must be {int(expected_dimension)}D, got {result.size}D"
+        )
+    return result
+
+
+def _pose_vector(environment: Any, observation: Any = None, *, expected_dimension: int | None = None) -> np.ndarray:
     for name in ("pose_vector", "get_pose_vector", "current_pose_vector"):
         if hasattr(environment, name):
             value = getattr(environment, name)
-            pose = np.asarray(value() if callable(value) else value, dtype=np.float64).reshape(-1)
-            if not np.all(np.isfinite(pose)):
-                raise StageSError("workspace pose hook returned non-finite values")
-            return pose
+            return _validate_pose_dimension(
+                value() if callable(value) else value, expected_dimension
+            )
     # The pinned Stage-R Task64Environment exposes raw observation/state as
     # [eef_xyz(3), eef_axis_angle(3), gripper_qpos(2)].  S3 is defined on the
     # workspace trajectory, so the gripper/joint suffix must never leak into
@@ -1358,10 +1371,8 @@ def _pose_vector(environment: Any, observation: Any = None) -> np.ndarray:
                 "eef_xyz(3)+eef_axis_angle(3)+gripper_qpos(2)"
             )
         pose = state[:LIBERO_WORKSPACE_POSE_DIMENSION].copy()
-        if not np.all(np.isfinite(pose)):
-            raise StageSError("pinned Task64 workspace pose contains non-finite values")
-        return pose
-    return _state_vector(environment, observation)
+        return _validate_pose_dimension(pose, expected_dimension)
+    return _validate_pose_dimension(_state_vector(environment, observation), expected_dimension)
 
 
 def _execute_one(environment: Any, action: np.ndarray) -> dict[str, Any]:
@@ -1539,26 +1550,114 @@ def restore_stage_r_snapshot(environment: Any, snapshot: StageRSnapshot, *, poli
     _restore_torch_rng(snapshot.torch_rng_state)
     _restore_policy_rng(policy, snapshot.policy_rng_state)
     return [np.asarray(value, dtype=np.float32).copy() for value in snapshot.action_queue]
+def _numeric_snapshot_leaves(value: Any, path: str = "snapshot") -> dict[str, np.ndarray]:
+    """Extract every numeric leaf from an official simulator snapshot.
+
+    Task64 snapshots are nested dataclasses (sim_state/sim_aux/controller/
+    robot/observable).  Comparing only observation/state or end-pose values
+    can miss hidden simulator drift, so paths and shapes are part of the
+    replay schema.  Opaque simulator handles are intentionally ignored.
+    """
+    if value is None or isinstance(value, (str, bytes)):
+        return {}
+    if is_dataclass(value) and not isinstance(value, type):
+        result: dict[str, np.ndarray] = {}
+        for item in fields(value):
+            result.update(
+                _numeric_snapshot_leaves(
+                    getattr(value, item.name), f"{path}.{item.name}"
+                )
+            )
+        return result
+    if isinstance(value, Mapping):
+        result = {}
+        for key in sorted(value, key=str):
+            if str(key) in {"object", "scene"}:
+                continue
+            result.update(_numeric_snapshot_leaves(value[key], f"{path}.{key}"))
+        return result
+    if hasattr(value, "p") and hasattr(value, "q"):
+        result = {}
+        result.update(_numeric_snapshot_leaves(value.p, f"{path}.p"))
+        result.update(_numeric_snapshot_leaves(value.q, f"{path}.q"))
+        return result
+    if hasattr(value, "detach") and callable(value.detach):
+        try:
+            value = value.detach().cpu().numpy()
+        except Exception:
+            return {}
+    if isinstance(value, np.ndarray):
+        if np.issubdtype(value.dtype, np.number) or np.issubdtype(
+            value.dtype, np.bool_
+        ):
+            return {path: np.array(value, copy=True)}
+        if value.dtype == object:
+            result = {}
+            for index, item in enumerate(value.tolist()):
+                result.update(
+                    _numeric_snapshot_leaves(item, f"{path}[{index}]")
+                )
+            return result
+        return {}
+    if isinstance(value, np.generic):
+        return _numeric_snapshot_leaves(np.asarray(value), path)
+    if isinstance(value, (list, tuple)):
+        result = {}
+        for index, item in enumerate(value):
+            result.update(_numeric_snapshot_leaves(item, f"{path}[{index}]"))
+        return result
+    if isinstance(value, (bool, int, float, complex, np.number)):
+        array = np.asarray(value)
+        if np.issubdtype(array.dtype, np.number) or np.issubdtype(
+            array.dtype, np.bool_
+        ):
+            return {path: np.array(array, copy=True)}
+    return {}
 
 
 def _numeric_leaves(value: Any) -> list[np.ndarray]:
-    if isinstance(value, np.ndarray):
-        if np.issubdtype(value.dtype, np.number):
-            return [value.astype(np.float64).reshape(-1)]
-        return []
-    if isinstance(value, Mapping):
-        result: list[np.ndarray] = []
-        for key in sorted(value, key=str):
-            result.extend(_numeric_leaves(value[key]))
-        return result
-    if isinstance(value, (list, tuple)):
-        result = []
-        for item in value:
-            result.extend(_numeric_leaves(item))
-        return result
-    if isinstance(value, (bool, int, float, np.number)):
-        return [np.asarray([value], dtype=np.float64)]
-    return []
+    """Compatibility view used by older diagnostics."""
+    return [item.reshape(-1).astype(np.float64) for item in _numeric_snapshot_leaves(value).values()]
+
+
+def _complete_snapshot_error(first: Any, second: Any) -> float:
+    """Compare complete post-action snapshots, including hidden state."""
+    first_leaves = _numeric_snapshot_leaves(first)
+    second_leaves = _numeric_snapshot_leaves(second)
+    if not first_leaves or not second_leaves:
+        raise SnapshotReplayError(
+            "full replay gate requires a complete snapshot with numeric leaves"
+        )
+    if set(first_leaves) != set(second_leaves):
+        raise SnapshotReplayError("full replay snapshot schema changed between replays")
+    maximum = 0.0
+    for path in sorted(first_leaves):
+        left = first_leaves[path]
+        right = second_leaves[path]
+        if left.shape != right.shape:
+            raise SnapshotReplayError(f"full replay snapshot shape mismatch at {path}")
+        left_integer = np.issubdtype(left.dtype, np.integer) or np.issubdtype(
+            left.dtype, np.bool_
+        )
+        right_integer = np.issubdtype(right.dtype, np.integer) or np.issubdtype(
+            right.dtype, np.bool_
+        )
+        if left_integer or right_integer:
+            error = 0.0 if np.array_equal(left, right) else float("inf")
+        else:
+            if not np.all(np.isfinite(left)) or not np.all(np.isfinite(right)):
+                raise SnapshotReplayError(
+                    f"full replay snapshot contains non-finite leaf at {path}"
+                )
+            error = (
+                float(np.max(np.abs(left.astype(np.float64) - right.astype(np.float64))))
+                if left.size
+                else 0.0
+            )
+        maximum = max(maximum, error)
+    return maximum
+
+
 
 
 def validate_restore_same_action(
@@ -1575,23 +1674,54 @@ def validate_restore_same_action(
 
     if require_full_rng:
         _require_full_torch_rng(snapshot.torch_rng_state)
+        if not callable(getattr(environment, "capture_snapshot", None)):
+            raise SnapshotReplayError(
+                "full replay gate requires environment.capture_snapshot"
+            )
+        if second_environment is not None and not callable(
+            getattr(second_environment, "capture_snapshot", None)
+        ):
+            raise SnapshotReplayError(
+                "full replay gate requires second_environment.capture_snapshot"
+            )
     action_array = np.asarray(action, dtype=np.float32)
     restore_stage_r_snapshot(environment, snapshot, policy=policy)
     _execute_one(environment, action_array)
-    first = _state_vector(environment, _observation(environment))
+    if require_full_rng:
+        first_snapshot = copy.deepcopy(environment.capture_snapshot())
+        first = None
+    else:
+        first = _state_vector(environment, _observation(environment))
     if second_environment is None:
         restore_stage_r_snapshot(environment, snapshot, policy=policy)
         _execute_one(environment, action_array)
-        second = _state_vector(environment, _observation(environment))
+        if require_full_rng:
+            second_snapshot = copy.deepcopy(environment.capture_snapshot())
+            second = None
+        else:
+            second = _state_vector(environment, _observation(environment))
     else:
         restore_stage_r_snapshot(second_environment, snapshot, policy=policy)
         _execute_one(second_environment, action_array)
-        second = _state_vector(second_environment, _observation(second_environment))
-    if first.shape != second.shape:
-        error = float("inf")
+        if require_full_rng:
+            second_snapshot = copy.deepcopy(second_environment.capture_snapshot())
+            second = None
+        else:
+            second = _state_vector(second_environment, _observation(second_environment))
+    if require_full_rng:
+        error = _complete_snapshot_error(first_snapshot, second_snapshot)
     else:
-        error = float(np.max(np.abs(first - second))) if first.size else 0.0
-    result = {"passed": bool(error <= float(tolerance)), "max_abs_error": error, "tolerance": float(tolerance), "same_action": True}
+        if first.shape != second.shape:
+            error = float("inf")
+        else:
+            error = float(np.max(np.abs(first - second))) if first.size else 0.0
+    result = {
+        "passed": bool(error <= float(tolerance)),
+        "max_abs_error": error,
+        "tolerance": float(tolerance),
+        "same_action": True,
+        "full_snapshot": bool(require_full_rng),
+    }
     if not result["passed"]:
         raise SnapshotReplayError(f"restore same-action next-state error {error} > {tolerance}")
     return result
@@ -1607,6 +1737,10 @@ class CandidateOutcome:
     policy_forwards: int
     environment_steps: int
     snapshot: StageRSnapshot | None = None
+    candidate_index: int | None = None
+    terminated: bool = False
+    termination_reason: str | None = None
+    terminal_step: int | None = None
 
 
 def _factory_call(factory: Callable[..., Any], task_id: int, init_state: int, candidate_id: int, seed: int, variant: Any) -> Any:
@@ -1635,6 +1769,8 @@ def collect_family(
 
     if candidate_count <= 0 or max_steps <= 0:
         raise ValueError("candidate_count and max_steps must be positive")
+    substrate = getattr(variant, "substrate", None) or ("B" if variant is not None else "A_OR_C")
+    expected_pose_dimension = LIBERO_WORKSPACE_POSE_DIMENSION if substrate in {"B", "C"} else None
     envs = []
     outcomes: list[CandidateOutcome] = []
     try:
@@ -1674,7 +1810,7 @@ def collect_family(
                 result = _execute_one(env, action)
                 observation = _observation(env)
                 actions.append(action.copy())
-                poses.append(_pose_vector(env, observation))
+                poses.append(_pose_vector(env, observation, expected_dimension=expected_pose_dimension))
                 success = bool(result.get("success", False))
                 done = bool(result.get("done", False))
                 if done:
@@ -1691,7 +1827,25 @@ def collect_family(
                     policy=policy,
                     require_full_rng=True,
                 )
-            outcomes.append(CandidateOutcome(candidate_id, seed, np.asarray(actions, dtype=np.float32), np.asarray(poses, dtype=np.float64), success, forwards, len(actions), initial_snapshot))
+            termination_reason = (
+                "official_eval_success" if success else "official_terminal"
+            )
+            outcomes.append(
+                CandidateOutcome(
+                    candidate_id=candidate_id,
+                    candidate_seed=seed,
+                    actions=np.asarray(actions, dtype=np.float32),
+                    poses=np.asarray(poses, dtype=np.float64),
+                    success=success,
+                    policy_forwards=forwards,
+                    environment_steps=len(actions),
+                    snapshot=initial_snapshot,
+                    candidate_index=candidate_id,
+                    terminated=True,
+                    termination_reason=termination_reason,
+                    terminal_step=len(actions),
+                )
+            )
     finally:
         for env in envs:
             if hasattr(env, "close"):
@@ -1699,7 +1853,7 @@ def collect_family(
     family_id = f"task{int(task_id):02d}_init{int(init_state):03d}"
     return {
         "protocol_id": STAGE_S_PROTOCOL_ID,
-        "substrate": getattr(variant, "substrate", None) or ("B" if variant is not None else "A_OR_C"),
+        "substrate": substrate,
         "suite": LIBERO_SUITE,
         "task_id": int(task_id),
         "task_name": task_spec(task_id).name,
@@ -1731,12 +1885,36 @@ def _snapshot_payload(snapshot: StageRSnapshot | None) -> Any:
 
 def _pack_family(family: Mapping[str, Any]) -> dict[str, np.ndarray]:
     outcomes: Sequence[CandidateOutcome] = family["outcomes"]
+    substrate = str(family.get("substrate") or "")
+    expected_pose_dimension = (
+        LIBERO_WORKSPACE_POSE_DIMENSION if substrate in {"B", "C"} else None
+    )
+    if any(value.candidate_index is None for value in outcomes):
+        raise StageSError("every candidate must carry an explicit candidate_index")
+    candidate_indices = [
+        int(value.candidate_index)
+        for value in outcomes
+    ]
+    if candidate_indices != list(range(len(outcomes))):
+        raise StageSError("candidate indices must be contiguous from zero")
+    if any(not value.terminated for value in outcomes):
+        raise StageSError("every candidate must carry official termination evidence")
+    if any(value.terminal_step is None or not value.termination_reason for value in outcomes):
+        raise StageSError("every candidate must carry terminal_step and termination_reason")
+    if any(int(value.terminal_step) != len(value.actions) for value in outcomes):
+        raise StageSError("terminal_step must equal the recorded action count")
     lengths = np.asarray([len(value.actions) for value in outcomes], dtype=np.int32)
     offsets = np.concatenate(([0], np.cumsum(lengths, dtype=np.int64)))
     pose_width = max((value.poses.shape[1] if value.poses.ndim == 2 else 0) for value in outcomes)
     padded_poses = []
     for value in outcomes:
         poses = value.poses if value.poses.ndim == 2 else np.empty((len(value.actions), 0), dtype=np.float64)
+        if expected_pose_dimension is not None and (
+            poses.ndim != 2 or poses.shape[1] != expected_pose_dimension
+        ):
+            raise StageSError(
+                f"{substrate} family poses must be {expected_pose_dimension}D"
+            )
         if poses.shape[1] < pose_width:
             poses = np.pad(poses, ((0, 0), (0, pose_width - poses.shape[1])))
         padded_poses.append(poses)
@@ -1747,6 +1925,9 @@ def _pack_family(family: Mapping[str, Any]) -> dict[str, np.ndarray]:
         "poses": np.concatenate(padded_poses, axis=0).astype(np.float64),
         "success": np.asarray([value.success for value in outcomes], dtype=np.bool_),
         "candidate_id": np.asarray([value.candidate_id for value in outcomes], dtype=np.int16),
+        "candidate_index": np.asarray(candidate_indices, dtype=np.int16),
+        "terminated": np.asarray([value.terminated for value in outcomes], dtype=np.bool_),
+        "terminal_step": np.asarray([value.terminal_step for value in outcomes], dtype=np.int32),
         "candidate_seed": np.asarray([value.candidate_seed for value in outcomes], dtype=np.uint64),
         "generation_step": np.zeros(len(outcomes), dtype=np.int32),
         "policy_forwards": np.asarray([value.policy_forwards for value in outcomes], dtype=np.int32),
@@ -1772,7 +1953,16 @@ def family_is_complete(directory: str | Path, *, expected_candidates: int = MAIN
         if marker.get("files") != {name: sha256_file(root / name) for name in ("rollouts.npz", "genealogy.json", "snapshots.pkl", "metadata.json")}:
             return False
         with np.load(root / "rollouts.npz", allow_pickle=False) as data:
-            return len(data["success"]) == int(expected_candidates)
+            required = {"candidate_index", "terminated", "terminal_step"}
+            if not required.issubset(set(data.files)):
+                return False
+            return (
+                len(data["success"]) == int(expected_candidates)
+                and np.array_equal(data["candidate_index"], np.arange(len(data["success"])))
+                and bool(np.all(data["terminated"]))
+                and bool(np.all(data["terminal_step"] >= 0))
+                and np.array_equal(data["terminal_step"], data["lengths"])
+            )
     except (OSError, ValueError, KeyError, json.JSONDecodeError):
         return False
 
@@ -1791,16 +1981,22 @@ def write_family_atomic(directory: str | Path, family: Mapping[str, Any]) -> dic
         genealogy.append(
             {
                 "candidate_id": int(value.candidate_id),
+                "candidate_index": int(value.candidate_index),
                 "parent_id": None,
                 "generation_step": 0,
                 "candidate_seed": int(value.candidate_seed),
                 "action_prefix": value.actions.astype(float).tolist(),
                 "final_success": bool(value.success),
+                "terminated": bool(value.terminated),
+                "termination_reason": str(value.termination_reason),
+                "termination": str(value.termination_reason),
+                "terminal_step": int(value.terminal_step),
             }
         )
     metadata = {
         "protocol_id": STAGE_S_PROTOCOL_ID,
         "schema_version": 1,
+        "pose_dimension": LIBERO_WORKSPACE_POSE_DIMENSION if family.get("substrate") in {"B", "C"} else None,
         "substrate": family.get("substrate"),
         "suite": family["suite"],
         "task_id": int(family["task_id"]),
@@ -1843,6 +2039,11 @@ def write_family_atomic(directory: str | Path, family: Mapping[str, Any]) -> dic
     # marker so a rank/top-level verifier can reject a mixed-protocol tree
     # before trusting the family checksum manifest.
     for key in (
+        "substrate_annotation",
+        "substrate",
+        "pose_dimension",
+        "protocol_authority_path",
+        "protocol_authority_sha256",
         "protocol_acceptance_path",
         "protocol_acceptance_sha256",
         "protocol_git_commit",

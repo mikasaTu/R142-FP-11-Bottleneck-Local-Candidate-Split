@@ -255,6 +255,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         except FrozenProtocolError as exc:
             raise SystemExit(f"frozen protocol acceptance gate failed closed: {exc}") from exc
+        frozen_protocol["protocol_authority_path"] = frozen_protocol["protocol_acceptance_path"]
+        frozen_protocol["protocol_authority_sha256"] = frozen_protocol["protocol_acceptance_sha256"]
     # From this point on the calibration report, not a caller-provided path,
     # is the sole checkpoint/variant source of truth.
     args.checkpoint = resolved_checkpoint
@@ -336,6 +338,8 @@ def main(argv: list[str] | None = None) -> int:
             {
                 key: frozen_protocol[key]
                 for key in (
+                    "protocol_authority_path",
+                    "protocol_authority_sha256",
                     "protocol_acceptance_path",
                     "protocol_acceptance_sha256",
                     "protocol_git_commit",
@@ -404,6 +408,8 @@ def main(argv: list[str] | None = None) -> int:
             {
                 key: frozen_protocol[key]
                 for key in (
+                    "protocol_authority_path",
+                    "protocol_authority_sha256",
                     "protocol_acceptance_path",
                     "protocol_acceptance_sha256",
                     "protocol_git_commit",

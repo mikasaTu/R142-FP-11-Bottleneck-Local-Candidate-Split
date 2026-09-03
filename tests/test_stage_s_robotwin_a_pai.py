@@ -314,6 +314,7 @@ def test_frozen_protocol_reader_rejects_missing_or_tampered_authority(
 
 def test_rank_completion_persists_protocol_fingerprint() -> None:
     fingerprint = {
+        "path": "/mnt/cpfs/zbl-cpfs-new/logs/stage_s/protocol/FROZEN_PROTOCOL.json",
         "protocol_git_commit": "b" * 40,
         "protocol_json_sha256": "c" * 64,
         "protocol_md_sha256": "d" * 64,
@@ -344,6 +345,8 @@ def test_rank_completion_persists_protocol_fingerprint() -> None:
             (Path(directory) / "COMPLETED_A_RANK-0000.json").read_text(encoding="utf-8")
         )
     assert result["frozen_protocol"] == fingerprint
+    assert marker["protocol_authority_path"] == fingerprint["path"]
+    assert marker["protocol_authority_sha256"] == fingerprint["protocol_json_sha256"]
     assert marker["protocol_git_commit"] == "b" * 40
     assert marker["protocol_json_sha256"] == "c" * 64
     assert marker["protocol_md_sha256"] == "d" * 64

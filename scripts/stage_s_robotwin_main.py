@@ -45,6 +45,7 @@ from r142_stage_s.robotwin import (
     EvoProxyStateAdapter,
     FamilyRolloutRunner,
     RoboTwinPins,
+    STAGE_S_PROTOCOL_ID,
     _jsonable,
     select_published_tasks,
 )
@@ -462,6 +463,9 @@ def _write_rank_completion(
         "accepted_asset_sha256sums_sha256": accepted_asset_preflight["asset_sha256sums_sha256"],
         "accepted_model_sha256sums_sha256": accepted_asset_preflight["model_sha256sums_sha256"],
         "accepted_source_commits": dict(accepted_asset_preflight["source_commits"]),
+        "protocol_id": STAGE_S_PROTOCOL_ID,
+        "protocol_authority_path": frozen_protocol["path"],
+        "protocol_authority_sha256": frozen_protocol["protocol_json_sha256"],
         "protocol_git_commit": frozen_protocol["protocol_git_commit"],
         "protocol_json_sha256": frozen_protocol["protocol_json_sha256"],
         "protocol_md_sha256": frozen_protocol["protocol_md_sha256"],
@@ -547,6 +551,9 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         "accepted_asset_sha256sums_sha256": accepted_asset_preflight["asset_sha256sums_sha256"],
         "accepted_model_sha256sums_sha256": accepted_asset_preflight["model_sha256sums_sha256"],
         "accepted_source_commits": dict(accepted_asset_preflight["source_commits"]),
+        "protocol_id": STAGE_S_PROTOCOL_ID,
+        "protocol_authority_path": frozen_protocol["path"],
+        "protocol_authority_sha256": frozen_protocol["protocol_json_sha256"],
         "protocol_git_commit": frozen_protocol["protocol_git_commit"],
         "protocol_json_sha256": frozen_protocol["protocol_json_sha256"],
         "protocol_md_sha256": frozen_protocol["protocol_md_sha256"],
@@ -568,10 +575,11 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             flat_index = task_index * args.families_per_task + family_index
             if flat_index % args.world_size != args.rank:
                 continue
-            family_id = f"{task_name}/family-{family_index:04d}"
+            local_family_id = f"family-{family_index:04d}"
+            family_id = f"{task_name}/{local_family_id}"
             family_output = output_root / f"rank-{args.rank:04d}"
             writer = AtomicFamilyWriter(family_output / task_name)
-            existing = writer.completed(f"family-{family_index:04d}")
+            existing = writer.completed(local_family_id)
             if existing is not None:
                 manifests.append(existing)
                 continue
@@ -597,10 +605,19 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
                 manifests.append(
                     runner.run_family(
                         task_name=task_name,
-                        family_id=f"family-{family_index:04d}",
+                        family_id=family_id,
+                        local_family_id=local_family_id,
                         initial_state_id=f"{task_name}/state-{family_index:04d}",
                         initial_seed=args.seed_base + task_index * 1_000_000 + family_index,
                         candidate_count=args.candidates,
+                        metadata={
+                            "protocol_id": STAGE_S_PROTOCOL_ID,
+                            "protocol_authority_path": frozen_protocol["path"],
+                            "protocol_authority_sha256": frozen_protocol["protocol_json_sha256"],
+                            "protocol_git_commit": frozen_protocol["protocol_git_commit"],
+                            "substrate": "A",
+                            "pose_dimension": 14,
+                        },
                     )
                 )
             finally:

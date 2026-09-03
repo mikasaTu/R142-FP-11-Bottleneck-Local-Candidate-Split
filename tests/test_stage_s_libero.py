@@ -65,7 +65,7 @@ class FakeSnapshotEnvironment:
         return {"state": np.asarray([self.state], dtype=np.float64)}
 
     def state_vector(self) -> np.ndarray:
-        return np.asarray([self.state, self.step], dtype=np.float64)
+        return np.asarray([self.state, self.step, 0.0, 0.0, 0.0, 0.0], dtype=np.float64)
 
     def capture_snapshot(self) -> dict[str, object]:
         return {"state": self.state, "step": self.step, "seed": self.evaluation_seed}
@@ -460,6 +460,41 @@ def test_stage_r_snapshot_same_action_is_exact() -> None:
     assert result["passed"] is True
     assert result["max_abs_error"] <= 1e-9
 
+def test_full_snapshot_replay_rejects_hidden_drift_with_same_observation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class HiddenSnapshotEnvironment(FakeSnapshotEnvironment):
+        def __init__(self) -> None:
+            super().__init__()
+            self.capture_count = 0
+
+        def capture_snapshot(self) -> dict[str, object]:
+            self.capture_count += 1
+            snapshot = super().capture_snapshot()
+            snapshot["hidden_integrator"] = np.asarray(
+                [self.capture_count], dtype=np.int64
+            )
+            return snapshot
+
+    environment = HiddenSnapshotEnvironment()
+    environment.seed(11)
+    environment.reset(3)
+    monkeypatch.setattr(libero, "_require_full_torch_rng", lambda state: None)
+    snapshot = capture_stage_r_snapshot(
+        environment,
+        [],
+        stable_seed("hidden-snapshot"),
+        0,
+        0,
+    )
+    with pytest.raises(libero.SnapshotReplayError, match="same-action"):
+        validate_restore_same_action(
+            environment,
+            snapshot,
+            [0.5, 0.0],
+            require_full_rng=True,
+        )
+
 
 def test_family_artifacts_are_atomic_and_resumable(tmp_path: Path) -> None:
     def factory(**kwargs: object) -> FakeSnapshotEnvironment:
@@ -469,6 +504,7 @@ def test_family_artifacts_are_atomic_and_resumable(tmp_path: Path) -> None:
     family = collect_family(
         factory,
         FakePolicy(),
+        variant=types.SimpleNamespace(substrate="C"),
         task_id=0,
         init_state=0,
         candidate_count=4,
@@ -476,9 +512,30 @@ def test_family_artifacts_are_atomic_and_resumable(tmp_path: Path) -> None:
     )
     assert family["candidate_count"] == 4
     assert family["policy_forwards"] == 4
-    target = tmp_path / "A" / "task00" / "init000"
+    family["metadata_extra"] = {
+        "protocol_authority_path": "/cpfs/stage_s/protocol/FROZEN_PROTOCOL.json",
+        "protocol_authority_sha256": "a" * 64,
+        "protocol_git_commit": "b" * 40,
+        "substrate_annotation": "WEAK_SUBSTRATE",
+    }
+    target = tmp_path / "C" / "task00" / "init000"
     marker = write_family_atomic(target, family)
     assert marker["checkpoint"] == "FAMILY_COMPLETE"
+    assert family["substrate"] == "C"
+    with np.load(target / "rollouts.npz", allow_pickle=False) as rollouts:
+        assert set(["candidate_index", "terminated", "terminal_step"]).issubset(
+            rollouts.files
+        )
+        assert rollouts["poses"].shape[1] == 6
+        assert np.array_equal(rollouts["candidate_index"], np.arange(4))
+        assert np.all(rollouts["terminated"])
+    assert marker["protocol_id"] == libero.STAGE_S_PROTOCOL_ID
+    assert marker["protocol_authority_path"] == family["metadata_extra"]["protocol_authority_path"]
+    assert marker["protocol_authority_sha256"] == family["metadata_extra"]["protocol_authority_sha256"]
+    assert marker["protocol_git_commit"] == family["metadata_extra"]["protocol_git_commit"]
+    assert marker["substrate"] == "C"
+    assert marker["pose_dimension"] == 6
+    assert marker["substrate_annotation"] == "WEAK_SUBSTRATE"
     assert family_is_complete(target, expected_candidates=4)
     (target / "rollouts.npz").write_bytes((target / "rollouts.npz").read_bytes() + b"corrupt")
     assert family_is_complete(target, expected_candidates=4) is False
