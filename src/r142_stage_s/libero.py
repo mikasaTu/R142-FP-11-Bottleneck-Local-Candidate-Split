@@ -50,6 +50,20 @@ CALIBRATION_TARGET_SUCCESS = 0.45
 CALIBRATION_SEED = 142042
 CALIBRATION_SHARD_SCHEMA = "r142-stage-s-calibration-shard-v1"
 CALIBRATION_RESULT_SCHEMA = "r142-stage-s-calibration-result-v1"
+
+
+def _calibration_selection_key(row: Mapping[str, Any]) -> tuple[float, int | str]:
+    """Use numeric checkpoint order while preserving B label ordering."""
+
+    setting = row.get("setting")
+    if isinstance(setting, str):
+        match = re.fullmatch(r"step_([0-9]+)", setting)
+        order: int | str = int(match.group(1)) if match else setting
+    else:
+        order = str(setting)
+    return abs(float(row["pooled_success"]) - CALIBRATION_TARGET_SUCCESS), order
+
+
 CALIBRATION_PLAN_SCHEMA = "r142-stage-s-calibration-plan-v1"
 # The progress sidecar is deliberately separate from the final shard
 # ``SHA256SUMS``.  The latter keeps the historical, aggregate-only shard
@@ -2320,7 +2334,7 @@ def run_pooled_calibration(
                     successes += int(bool(evaluator(setting, int(task_id), int(init_state), int(candidate_id), int(seed))))
                     total += 1
         rows.append({"setting": setting, "successes": int(successes), "total": int(total), "pooled_success": float(successes / total if total else float("nan"))})
-    selected = min(rows, key=lambda row: (abs(float(row["pooled_success"]) - CALIBRATION_TARGET_SUCCESS), str(row["setting"])))
+    selected = min(rows, key=_calibration_selection_key)
     return {"protocol_id": STAGE_S_PROTOCOL_ID, "target_pooled_success": CALIBRATION_TARGET_SUCCESS, "rows": rows, "selected_setting": selected["setting"]}
 
 
@@ -3205,10 +3219,7 @@ def _aggregate_result_payload(
         }
         for row in rows
     ]
-    selected = min(
-        validated_rows,
-        key=lambda row: (abs(float(row["pooled_success"]) - CALIBRATION_TARGET_SUCCESS), str(row["setting"])),
-    )
+    selected = min(validated_rows, key=_calibration_selection_key)
     return {
         "schema": CALIBRATION_RESULT_SCHEMA,
         "protocol_id": STAGE_S_PROTOCOL_ID,
@@ -3280,7 +3291,7 @@ def verify_calibration_aggregate(
     rows = _validate_calibration_rows(payload["rows"], settings, expected_totals=[_calibration_trial_count_per_setting()] * 4)
     if payload.get("target_pooled_success") != CALIBRATION_TARGET_SUCCESS:
         raise StageSError("calibration aggregate target drift")
-    if payload.get("selected_setting") != min(rows, key=lambda row: (abs(float(row["pooled_success"]) - CALIBRATION_TARGET_SUCCESS), str(row["setting"])))['setting']:
+    if payload.get("selected_setting") != min(rows, key=_calibration_selection_key)['setting']:
         raise StageSError("calibration aggregate selected setting drift")
     if (
         marker.get("schema") != CALIBRATION_RESULT_SCHEMA

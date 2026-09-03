@@ -6,6 +6,11 @@ agent performs the external credential, mount, UID/GID, and resource readback.
 
 ## Local LIBERO and normalization preflight
 
+The C under-training payload pins its source identity through the
+accepted training manifest; the runbook never hard-codes a Stage-S source
+commit. The C calibration config and committed protocol must repeat the same
+four source pins before freezing.
+
 The C under-training payload pins the LeRobot dataset to
 `physical-intelligence/libero` revision
 `9dfa69510ea9e1613fc54112bc706444b686a231` (published v2.0). Before base
@@ -69,7 +74,7 @@ gate.
 ```text
 RUNTIME_PROJECT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903
 STAGE_S_C_PROJECT_DIR=$RUNTIME_PROJECT
-STAGE_S_SOURCE_COMMIT=95e66fb4fde388a1822c7eb66fc460b834602e79
+STAGE_S_SOURCE_COMMIT=<accepted C training source.stage_s_commit>
 STAGE_S_C_PAYLOAD_SHA256=6601a6e5abdde7a04b1e613ad359e823a642ea158340202dc043b21aa8dc6b0a
 PAI_CANARY_RUN_ID=<registry-injected run id>
 OPENPI=/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi

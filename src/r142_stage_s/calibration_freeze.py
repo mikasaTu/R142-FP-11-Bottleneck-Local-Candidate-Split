@@ -30,13 +30,6 @@ PROTOCOL_ACCEPTANCE_SCHEMA = "r142-stage-s-protocol-acceptance-v1"
 STAGE_S_PROTOCOL_ID = "r142-stage-s-v1"
 C_TRAINING_ACCEPTANCE_SCHEMA = "r142-stage-s-c-training-acceptance-v1"
 C_TRAINING_COMPLETION_SCHEMA = "r142-stage-s-c-training-completion-v1"
-C_TRAINING_OPENPI_COMMIT = "54cbaee6ae0c010a1ed431871cdaa8f4684ac709"
-C_TRAINING_SOURCE = {
-    "stage_s_commit": "95e66fb4fde388a1822c7eb66fc460b834602e79",
-    "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
-    "openpi_commit": C_TRAINING_OPENPI_COMMIT,
-    "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
-}
 CALIBRATION_TARGET = 0.45
 CALIBRATION_SEED = 142042
 CALIBRATION_WORLD_SIZE = 8
@@ -50,6 +43,7 @@ B_SETTINGS = (
 )
 C_STEPS = (1000, 3000, 6000, 10000)
 C_SETTINGS = tuple(f"step_{step}" for step in C_STEPS)
+_SOURCE_COMMIT_KEYS = ("stage_s_commit", "qpilots_commit", "openpi_commit", "libero_commit")
 
 # These are the exact constants consumed by the B/C main-screen acceptance
 # reader.  Keep this copy dependency-free: the freeze utility must work in a
@@ -222,7 +216,61 @@ def _full_sha(value: object, *, where: str, length: int = 64) -> str:
     return value
 
 
+def _validate_source_commits(value: object, *, where: str) -> dict[str, str]:
+    """Validate source provenance supplied by terminal acceptance evidence.
+
+    Source pins are deliberately not hard-coded here: the accepted training
+    manifest is the authority, and the calibration config/protocol must bind
+    to the same four full commit ids before the protocol is frozen.
+    """
+
+    if not isinstance(value, Mapping) or set(value) != set(_SOURCE_COMMIT_KEYS):
+        raise CalibrationFreezeError(f"{where} must contain exactly the four source commit fields")
+    return {
+        key: _full_sha(value[key], where=f"{where}.{key}", length=40)
+        for key in _SOURCE_COMMIT_KEYS
+    }
+
+
+def _setting_order_key(setting: object, *, substrate: str) -> int | str:
+    if substrate == "C":
+        if not isinstance(setting, str):
+            raise CalibrationFreezeError("C calibration setting must be a step label")
+        match = re.fullmatch(r"step_([0-9]+)", setting)
+        if match is None:
+            raise CalibrationFreezeError(f"invalid C calibration setting: {setting}")
+        return int(match.group(1))
+    return str(setting)
+
+
+def _select_calibration_row(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    substrate: str,
+    target: float = CALIBRATION_TARGET,
+) -> Mapping[str, Any]:
+    """Select by pooled-success distance with a substrate-stable tie-break.
+
+    C checkpoints are ordered by their numeric training step.  Comparing the
+    labels lexicographically would select step_10000 before step_3000 on an
+    exact distance tie, so both validation and protocol reproduction call
+    this one helper.
+    """
+
+    if not rows:
+        raise CalibrationFreezeError("cannot select from empty calibration rows")
+    return min(
+        rows,
+        key=lambda row: (
+            abs(float(row["pooled_success"]) - target),
+            _setting_order_key(row.get("setting"), substrate=substrate),
+        ),
+    )
+
+
 def _path(value: str | Path, *, label: str, directory: bool | None = None) -> Path:
+    if not isinstance(value, (str, Path)) or not value:
+        raise CalibrationFreezeError(f"{label} must be a non-empty path")
     candidate = Path(value).expanduser()
     if candidate.is_symlink():
         raise CalibrationFreezeError(f"{label} is symlinked: {candidate}")
@@ -348,7 +396,356 @@ def _artifact_sha256(path: Path) -> str:
     raise CalibrationFreezeError(f"selected artifact is not a file/directory: {path}")
 
 
-def _validate_rows(payload: Mapping[str, Any], *, settings: Sequence[str]) -> list[dict[str, Any]]:
+_TERMINAL_PAI_STATUSES = frozenset({"Succeeded", "Success", "JobSucceeded"})
+
+
+def _sha256_sidecar(path: Path, sha_path: Path, *, label: str) -> str:
+    """Verify a sha256sum-style sidecar for an external evidence file."""
+
+    rows = sha_path.read_text(encoding="utf-8").splitlines()
+    if len(rows) != 1:
+        raise CalibrationFreezeError(f"{label} SHA sidecar must contain exactly one line")
+    parts = rows[0].strip().split(maxsplit=1)
+    if len(parts) != 2 or re.fullmatch(r"[0-9a-f]{64}", parts[0]) is None:
+        raise CalibrationFreezeError(f"{label} SHA sidecar is malformed")
+    declared_name = parts[1].lstrip(" *")
+    if Path(declared_name).name != path.name:
+        raise CalibrationFreezeError(f"{label} SHA sidecar names the wrong file")
+    observed = _sha256(path)
+    if observed != parts[0]:
+        raise CalibrationFreezeError(f"{label} SHA sidecar digest mismatch")
+    return observed
+
+
+def _external_file_binding(path: Path, *, label: str) -> dict[str, str]:
+    return {"path": str(path), "sha256": _sha256(path)}
+
+
+def _validate_external_pai_binding(
+    *,
+    registry_run: str | Path,
+    jobs_ledger: str | Path,
+    getjob_terminal: str | Path,
+    getjob_terminal_sha: str | Path,
+    artifact_dir: Path,
+    application_run_id: object,
+    substrate: str,
+) -> dict[str, Any]:
+    """Validate the external controller/job/artifact chain for B or C.
+
+    The freeze utility deliberately accepts no inferred JobId.  The registry
+    result, submission state, resolved payload, unique ledger row, terminal
+    GetJob response, and its SHA sidecar are all required inputs.  For a
+    restarted B controller, a controller-incarnation marker additionally
+    binds the controller run to the application run; C's same-run identity is
+    checked explicitly.
+    """
+
+    registry_root = _path(registry_run, label=f"{substrate} PAI registry run", directory=True)
+    if not isinstance(application_run_id, str) or not application_run_id:
+        raise CalibrationFreezeError(f"{substrate} completion marker lacks application run id")
+    if registry_root.name != registry_root.name.strip() or not registry_root.name:
+        raise CalibrationFreezeError(f"{substrate} PAI registry run directory has no stable name")
+
+    result_path, result = _read_json(registry_root / "result.json", label=f"{substrate} registry result")
+    state_path, state = _read_json(
+        registry_root / "submission-state.json",
+        label=f"{substrate} registry submission state",
+    )
+    resolved_path, resolved = _read_json(
+        registry_root / "resolved.json",
+        label=f"{substrate} registry resolved payload",
+    )
+    controller_run_id = result.get("run_id")
+    job_id = result.get("job_id")
+    if not isinstance(controller_run_id, str) or not controller_run_id:
+        raise CalibrationFreezeError(f"{substrate} registry result lacks controller run id")
+    if registry_root.name != controller_run_id:
+        raise CalibrationFreezeError(f"{substrate} registry directory name does not match controller run id")
+    if not isinstance(job_id, str) or re.fullmatch(r"dlc[0-9a-z]+", job_id) is None:
+        raise CalibrationFreezeError(f"{substrate} registry result lacks a valid JobId")
+    if result.get("submission_state") != "submitted_verified":
+        raise CalibrationFreezeError(f"{substrate} registry result is not submitted_verified")
+    if state.get("job_id") != job_id or state.get("state") != result.get("submission_state"):
+        raise CalibrationFreezeError(f"{substrate} submission state does not bind result/job")
+    if resolved.get("run_id") != controller_run_id:
+        raise CalibrationFreezeError(f"{substrate} resolved payload run id mismatch")
+
+    runtime = resolved.get("runtime")
+    write_paths = runtime.get("write_paths") if isinstance(runtime, Mapping) else None
+    if not isinstance(write_paths, list) or not any(
+        isinstance(value, str) and Path(value).expanduser().resolve() == artifact_dir.resolve()
+        for value in write_paths
+    ):
+        raise CalibrationFreezeError(
+            f"{substrate} resolved payload does not bind the calibration artifact directory"
+        )
+
+    ledger_path = _path(jobs_ledger, label=f"{substrate} PAI jobs ledger", directory=False)
+    matching: list[dict[str, Any]] = []
+    for number, raw in enumerate(ledger_path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not raw.strip():
+            continue
+        try:
+            entry = json.loads(raw)
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise CalibrationFreezeError(f"{substrate} jobs ledger line {number} is invalid JSON") from exc
+        if not isinstance(entry, Mapping):
+            raise CalibrationFreezeError(f"{substrate} jobs ledger line {number} is not an object")
+        if entry.get("run_id") == controller_run_id:
+            matching.append(dict(entry))
+    if len(matching) != 1:
+        raise CalibrationFreezeError(
+            f"{substrate} jobs ledger must contain exactly one controller run binding"
+        )
+    if matching[0].get("job_id") != job_id:
+        raise CalibrationFreezeError(f"{substrate} jobs ledger JobId disagrees with registry result")
+
+    getjob_path = _path(
+        getjob_terminal,
+        label=f"{substrate} terminal GetJob response",
+        directory=False,
+    )
+    getjob_sha_path = _path(
+        getjob_terminal_sha,
+        label=f"{substrate} terminal GetJob SHA sidecar",
+        directory=False,
+    )
+    getjob_sha = _sha256_sidecar(
+        getjob_path,
+        getjob_sha_path,
+        label=f"{substrate} terminal GetJob",
+    )
+    _, getjob = _read_json(getjob_path, label=f"{substrate} terminal GetJob response")
+    observed_job_id = getjob.get("JobId", getjob.get("job_id"))
+    observed_status = getjob.get("Status", getjob.get("status"))
+    reason_code = getjob.get("ReasonCode", getjob.get("reason_code"))
+    if observed_job_id != job_id or observed_status not in _TERMINAL_PAI_STATUSES:
+        raise CalibrationFreezeError(
+            f"{substrate} terminal GetJob is not a successful terminal response for the bound JobId"
+        )
+    if reason_code is not None and reason_code not in {"JobSucceeded", "Succeeded", "Success"}:
+        raise CalibrationFreezeError(f"{substrate} terminal GetJob reason is not successful")
+
+    # A B controller may have restarted under a new application run id.  The
+    # incarnation record is the explicit controller->application edge.  C
+    # intentionally uses one run id for both roles and must prove that
+    # identity rather than silently accepting an unrelated artifact.
+    if controller_run_id != application_run_id:
+        incarnation = artifact_dir / "controller-incarnations" / f"{controller_run_id}.json"
+        incarnation_path, incarnation_payload = _read_json(
+            incarnation,
+            label=f"{substrate} controller incarnation",
+        )
+        if (
+            incarnation_payload.get("controller_run_id") != controller_run_id
+            or incarnation_payload.get("application_run_id") != application_run_id
+        ):
+            raise CalibrationFreezeError(f"{substrate} controller incarnation does not bind application run")
+    else:
+        incarnation_path = None
+
+    binding: dict[str, Any] = {
+        "schema": "r142-stage-s-pai-registry-binding-v1",
+        "substrate": substrate,
+        "controller_run_id": controller_run_id,
+        "application_run_id": application_run_id,
+        "job_id": job_id,
+        "terminal_getjob_status": observed_status,
+        "registry_run": _external_file_binding(registry_root / "result.json", label="registry result"),
+        "submission_state": _external_file_binding(
+            registry_root / "submission-state.json",
+            label="registry submission state",
+        ),
+        "resolved": _external_file_binding(
+            registry_root / "resolved.json",
+            label="registry resolved payload",
+        ),
+        "jobs_ledger": _external_file_binding(ledger_path, label="jobs ledger"),
+        "terminal_getjob": {
+            "path": str(getjob_path),
+            "sha256": getjob_sha,
+            "sha_sidecar": _external_file_binding(
+                getjob_sha_path,
+                label="terminal GetJob SHA sidecar",
+            ),
+        },
+    }
+    if incarnation_path is not None:
+        binding["controller_incarnation"] = _external_file_binding(
+            incarnation_path,
+            label="controller incarnation",
+        )
+    else:
+        binding["controller_incarnation"] = {
+            "identity": "controller_run_id_equals_application_run_id"
+        }
+    return binding
+
+
+def _verify_external_binding_from_report(
+    binding: Mapping[str, Any],
+    *,
+    artifact_dir: Path,
+    application_run_id: object,
+    substrate: str,
+) -> dict[str, Any]:
+    """Re-read and hash-check the evidence referenced by a frozen report."""
+
+    if binding.get("schema") != "r142-stage-s-pai-registry-binding-v1":
+        raise CalibrationFreezeError(f"{substrate} external PAI binding schema mismatch")
+    if binding.get("substrate") != substrate:
+        raise CalibrationFreezeError(f"{substrate} external PAI binding substrate mismatch")
+    controller_run_id = binding.get("controller_run_id")
+    job_id = binding.get("job_id")
+    if binding.get("application_run_id") != application_run_id:
+        raise CalibrationFreezeError(f"{substrate} external application run binding mismatch")
+    if not isinstance(controller_run_id, str) or not isinstance(job_id, str):
+        raise CalibrationFreezeError(f"{substrate} external PAI binding ids are missing")
+    expected_files = {
+        "registry_run": "result.json",
+        "submission_state": "submission-state.json",
+        "resolved": "resolved.json",
+        "jobs_ledger": "jobs.jsonl",
+    }
+    bound_paths: dict[str, Path] = {}
+    for key, expected_name in expected_files.items():
+        entry = binding.get(key)
+        if not isinstance(entry, Mapping):
+            raise CalibrationFreezeError(f"{substrate} external PAI binding lacks {key}")
+        file_path = _path(entry.get("path", ""), label=f"{substrate} binding {key}", directory=False)
+        if file_path.name != expected_name:
+            raise CalibrationFreezeError(f"{substrate} external binding {key} names the wrong evidence file")
+        if entry.get("sha256") != _sha256(file_path):
+            raise CalibrationFreezeError(f"{substrate} external binding {key} SHA mismatch")
+        bound_paths[key] = file_path
+    getjob = binding.get("terminal_getjob")
+    if not isinstance(getjob, Mapping):
+        raise CalibrationFreezeError(f"{substrate} external PAI binding lacks terminal GetJob")
+    getjob_path = _path(
+        getjob.get("path", ""),
+        label=f"{substrate} bound terminal GetJob",
+        directory=False,
+    )
+    getjob_sha_path = _path(
+        getjob.get("sha_sidecar", {}).get("path", "")
+        if isinstance(getjob.get("sha_sidecar"), Mapping)
+        else "",
+        label=f"{substrate} bound terminal GetJob SHA sidecar",
+        directory=False,
+    )
+    getjob_sha_sidecar = getjob.get("sha_sidecar")
+    if not isinstance(getjob_sha_sidecar, Mapping):
+        raise CalibrationFreezeError(f"{substrate} bound terminal GetJob SHA sidecar is missing")
+    if getjob.get("sha256") != _sha256(getjob_path):
+        raise CalibrationFreezeError(f"{substrate} bound terminal GetJob SHA mismatch")
+    if getjob_sha_sidecar.get("sha256") != _sha256(getjob_sha_path):
+        raise CalibrationFreezeError(f"{substrate} bound GetJob SHA sidecar binding mismatch")
+    _sha256_sidecar(getjob_path, getjob_sha_path, label=f"{substrate} bound terminal GetJob")
+    _, getjob_payload = _read_json(getjob_path, label=f"{substrate} bound terminal GetJob")
+    observed_job_id = getjob_payload.get("JobId", getjob_payload.get("job_id"))
+    observed_status = getjob_payload.get("Status", getjob_payload.get("status"))
+    reason_code = getjob_payload.get("ReasonCode", getjob_payload.get("reason_code"))
+    if observed_job_id != job_id:
+        raise CalibrationFreezeError(f"{substrate} bound terminal GetJob JobId mismatch")
+    if observed_status not in _TERMINAL_PAI_STATUSES:
+        raise CalibrationFreezeError(f"{substrate} bound terminal GetJob status mismatch")
+    if reason_code is not None and reason_code not in {"JobSucceeded", "Succeeded", "Success"}:
+        raise CalibrationFreezeError(f"{substrate} bound terminal GetJob reason mismatch")
+
+    result_path, result = _read_json(
+        bound_paths["registry_run"],
+        label=f"{substrate} bound registry result",
+    )
+    state_path, state = _read_json(
+        bound_paths["submission_state"],
+        label=f"{substrate} bound registry submission state",
+    )
+    resolved_path, resolved = _read_json(
+        bound_paths["resolved"],
+        label=f"{substrate} bound registry resolved payload",
+    )
+    if (
+        result.get("run_id") != controller_run_id
+        or result.get("job_id") != job_id
+        or result.get("submission_state") != "submitted_verified"
+    ):
+        raise CalibrationFreezeError(f"{substrate} bound registry result ids/state drifted")
+    if state.get("job_id") != job_id or state.get("state") != "submitted_verified":
+        raise CalibrationFreezeError(f"{substrate} bound submission state drifted")
+    if resolved.get("run_id") != controller_run_id:
+        raise CalibrationFreezeError(f"{substrate} bound resolved run id drifted")
+    ledger_path = bound_paths["jobs_ledger"]
+    matching = []
+    for number, raw in enumerate(ledger_path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not raw.strip():
+            continue
+        try:
+            entry = json.loads(raw)
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise CalibrationFreezeError(
+                f"{substrate} bound jobs ledger line {number} is invalid JSON"
+            ) from exc
+        if not isinstance(entry, Mapping):
+            raise CalibrationFreezeError(f"{substrate} bound jobs ledger line {number} is not an object")
+        if entry.get("run_id") == controller_run_id:
+            matching.append(entry)
+    if len(matching) != 1 or matching[0].get("job_id") != job_id:
+        raise CalibrationFreezeError(f"{substrate} bound jobs ledger is not unique")
+    runtime = resolved.get("runtime")
+    write_paths = runtime.get("write_paths") if isinstance(runtime, Mapping) else None
+    if not isinstance(write_paths, list) or not any(
+        isinstance(value, str) and Path(value).expanduser().resolve() == artifact_dir.resolve()
+        for value in write_paths
+    ):
+        raise CalibrationFreezeError(f"{substrate} bound resolved payload lost artifact binding")
+    incarnation_binding = binding.get("controller_incarnation")
+    if not isinstance(incarnation_binding, Mapping):
+        raise CalibrationFreezeError(f"{substrate} bound controller incarnation is missing")
+    if incarnation_binding.get("identity") != "controller_run_id_equals_application_run_id":
+        incarnation = incarnation_binding
+        incarnation_path = _path(
+            incarnation.get("path", ""),
+            label=f"{substrate} bound controller incarnation",
+            directory=False,
+        )
+        if incarnation.get("sha256") != _sha256(incarnation_path):
+            raise CalibrationFreezeError(f"{substrate} bound controller incarnation SHA mismatch")
+        _, incarnation_payload = _read_json(
+            incarnation_path,
+            label=f"{substrate} bound controller incarnation",
+        )
+        if (
+            incarnation_payload.get("controller_run_id") != controller_run_id
+            or incarnation_payload.get("application_run_id") != application_run_id
+        ):
+            raise CalibrationFreezeError(f"{substrate} bound controller incarnation drifted")
+    elif controller_run_id != application_run_id:
+        raise CalibrationFreezeError(f"{substrate} same-run controller identity is false")
+    return dict(binding)
+
+
+def _validate_c_calibration_config(
+    config_path: str | Path,
+    *,
+    expected_source: Mapping[str, str],
+) -> tuple[Path, dict[str, str]]:
+    path, payload = _read_json(config_path, label="C calibration config")
+    evidence = payload.get("evidence")
+    if not isinstance(evidence, Mapping):
+        raise CalibrationFreezeError("C calibration config lacks evidence source binding")
+    source = _validate_source_commits(
+        {key: evidence.get(key) for key in _SOURCE_COMMIT_KEYS},
+        where="C calibration config source",
+    )
+    if source != dict(expected_source):
+        raise CalibrationFreezeError(
+            "C calibration config source does not match accepted training source"
+        )
+    return path, source
+
+
+def _validate_rows(payload: Mapping[str, Any], *, settings: Sequence[str], substrate: str) -> list[dict[str, Any]]:
     _reject_result_leakage(payload)
     allowed_payload = {
         "schema",
@@ -395,7 +792,7 @@ def _validate_rows(payload: Mapping[str, Any], *, settings: Sequence[str]) -> li
                 "pooled_success": float(pooled),
             }
         )
-    selected = min(validated, key=lambda row: (abs(row["pooled_success"] - CALIBRATION_TARGET), row["setting"]))
+    selected = _select_calibration_row(validated, substrate=substrate)
     if payload.get("selected_setting") != selected["setting"]:
         raise CalibrationFreezeError("calibration result selected_setting is not the deterministic choice")
     return validated
@@ -410,6 +807,44 @@ def _completion_bundle_manifest(marker: Path, payload: Mapping[str, Any], *, sub
     return marker.parent / name
 
 
+def _validate_rank_markers(marker: Path, payload: Mapping[str, Any], *, substrate: str) -> None:
+    """Require and hash-bind all eight terminal worker completion markers."""
+
+    ranks = payload.get("rank_markers")
+    if (
+        not isinstance(ranks, list)
+        or len(ranks) != CALIBRATION_WORLD_SIZE
+        or len(set(ranks)) != CALIBRATION_WORLD_SIZE
+    ):
+        raise CalibrationFreezeError(
+            f"{substrate} completion marker does not enumerate all eight rank markers"
+        )
+    rank_digests = payload.get("rank_marker_sha256")
+    if not isinstance(rank_digests, Mapping) or set(rank_digests) != set(ranks):
+        raise CalibrationFreezeError(
+            f"{substrate} completion marker rank SHA bindings are incomplete"
+        )
+    for relative in ranks:
+        if not isinstance(relative, str):
+            raise CalibrationFreezeError(f"{substrate} rank marker path is not a string")
+        relative_path = PurePosixPath(relative)
+        if (
+            relative_path.is_absolute()
+            or ".." in relative_path.parts
+            or relative != relative_path.as_posix()
+        ):
+            raise CalibrationFreezeError(f"unsafe {substrate} rank marker path: {relative}")
+        expected = _full_sha(
+            rank_digests[relative],
+            where=f"{substrate} rank marker {relative}",
+            length=64,
+        )
+        rank_path = marker.parent.joinpath(*relative_path.parts)
+        rank_path = _path(rank_path, label=f"{substrate} rank marker {relative}", directory=False)
+        if _sha256(rank_path) != expected:
+            raise CalibrationFreezeError(f"{substrate} rank marker SHA mismatch: {rank_path}")
+
+
 def _validate_completion(marker: Path, *, result: Path, result_sha: str, substrate: str) -> dict[str, Any]:
     payload = _read_json(marker, label=f"{substrate} completion marker")[1]
     expected_schema = (
@@ -417,16 +852,15 @@ def _validate_completion(marker: Path, *, result: Path, result_sha: str, substra
         if substrate == "B"
         else "r142-stage-s-c-calibration-completion-v1"
     )
-    # C calibration was not present in the original Stage-R tree; accepting
-    # the generic spelling preserves compatibility with an equivalent pinned
-    # C launcher while still checking every security-relevant field.
-    schemas = {expected_schema}
-    if substrate == "C":
-        schemas.add("r142-stage-s-calibration-completion-v1")
-    if payload.get("schema") not in schemas or payload.get("status") != "COMPLETED":
+    if payload.get("schema") != expected_schema or payload.get("status") != "COMPLETED":
         raise CalibrationFreezeError(f"{substrate} completion marker is not a supported terminal marker")
     if payload.get("protocol_id") != STAGE_S_PROTOCOL_ID or payload.get("substrate") != substrate:
         raise CalibrationFreezeError(f"{substrate} completion marker protocol/substrate mismatch")
+    failure_marker = marker.parent / f"FAILED_{substrate}_CALIBRATION.json"
+    if failure_marker.exists() or failure_marker.is_symlink():
+        raise CalibrationFreezeError(
+            f"residual FAILED_{substrate}_CALIBRATION.json is present beside the terminal marker"
+        )
     result_name = str(payload.get("calibration_result", payload.get("result_file", "")))
     if Path(result_name).name != result.name:
         raise CalibrationFreezeError(f"{substrate} completion marker result filename mismatch")
@@ -439,23 +873,10 @@ def _validate_completion(marker: Path, *, result: Path, result_sha: str, substra
         raise CalibrationFreezeError(f"{substrate} completion marker seed/world-size mismatch")
     bundle = _completion_bundle_manifest(marker, payload, substrate=substrate)
     _verify_manifest(bundle, root=marker.parent)
+    _validate_rank_markers(marker, payload, substrate=substrate)
     if substrate == "B":
         if payload.get("input_bundle_run_id") != B_VARIANT_RUN_ID:
             raise CalibrationFreezeError("B completion marker is not the frozen r7 variant bundle")
-        ranks = payload.get("rank_markers")
-        if not isinstance(ranks, list) or len(ranks) != CALIBRATION_WORLD_SIZE or len(set(map(str, ranks))) != CALIBRATION_WORLD_SIZE:
-            raise CalibrationFreezeError("B completion marker does not enumerate all eight rank markers")
-        rank_digests = payload.get("rank_marker_sha256")
-        if not isinstance(rank_digests, Mapping):
-            raise CalibrationFreezeError("B completion marker lacks rank marker SHA bindings")
-        for relative in ranks:
-            if not isinstance(relative, str) or relative not in rank_digests:
-                raise CalibrationFreezeError("B completion marker rank SHA bindings are incomplete")
-            expected = _full_sha(rank_digests[relative], where=f"B rank marker {relative}")
-            rank_path = marker.parent / relative
-            rank_path = _path(rank_path, label=f"B rank marker {relative}", directory=False)
-            if _sha256(rank_path) != expected:
-                raise CalibrationFreezeError(f"B rank marker SHA mismatch: {rank_path}")
         provenance = payload.get("provenance")
         if not isinstance(provenance, Mapping) or not provenance.get("variant_root"):
             raise CalibrationFreezeError("B completion marker lacks the frozen variant_root provenance")
@@ -482,8 +903,12 @@ def _read_calibration_source(
 ) -> tuple[Path, Path, dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     result, payload = _read_json(result_path, label=f"{substrate} CALIBRATION_RESULT.json")
     marker, _ = _read_json(marker_path, label=f"{substrate} completion marker")
+    if result.parent != marker.parent:
+        raise CalibrationFreezeError(
+            f"{substrate} result and completion marker must be in the same directory"
+        )
     settings = B_SETTINGS if substrate == "B" else C_SETTINGS
-    rows = _validate_rows(payload, settings=settings)
+    rows = _validate_rows(payload, settings=settings, substrate=substrate)
     _verify_result_manifest(result)
     result_sha = _sha256(result)
     marker_payload = _validate_completion(marker, result=result, result_sha=result_sha, substrate=substrate)
@@ -510,7 +935,7 @@ def _lineage_reference(
 def _validate_c_training_acceptance(
     lineage_file: Path,
     payload: Mapping[str, Any],
-) -> tuple[Path, dict[str, Any], list[Mapping[str, Any]]]:
+) -> tuple[Path, dict[str, Any], list[Mapping[str, Any]], dict[str, str]]:
     """Normalize the current C ``ACCEPTED_C_TRAINING.json`` contract.
 
     The training launcher publishes one acceptance object, rather than the
@@ -540,9 +965,10 @@ def _validate_c_training_acceptance(
     if not isinstance(job_id, str) or re.fullmatch(r"dlc[0-9a-z]+", job_id) is None:
         raise CalibrationFreezeError("C accepted training lineage job id mismatch")
 
-    source = payload.get("source")
-    if source != C_TRAINING_SOURCE:
-        raise CalibrationFreezeError("C accepted training lineage source commits mismatch")
+    source = _validate_source_commits(
+        payload.get("source"),
+        where="C accepted training lineage source",
+    )
 
     checkpoint_steps = payload.get("checkpoint_steps")
     if checkpoint_steps != list(C_STEPS):
@@ -668,8 +1094,8 @@ def _validate_c_training_acceptance(
     completion_path, completion = _read_json(completion_path, label="C training completion marker")
     if completion.get("schema") != C_TRAINING_COMPLETION_SCHEMA or completion.get("status") != "COMPLETED":
         raise CalibrationFreezeError("C accepted training completion is not COMPLETED")
-    if completion.get("openpi_commit") != C_TRAINING_OPENPI_COMMIT:
-        raise CalibrationFreezeError("C accepted training completion OpenPI commit mismatch")
+    if completion.get("openpi_commit") != source["openpi_commit"]:
+        raise CalibrationFreezeError("C training completion OpenPI commit does not match accepted source")
     if completion.get("config_name") != "pi05_libero" or completion.get("seed") != 42:
         raise CalibrationFreezeError("C accepted training completion config/seed mismatch")
     if completion.get("terminal_global_step") != 10001 or completion.get("checkpoint_steps") != list(C_STEPS):
@@ -695,56 +1121,36 @@ def _validate_c_training_acceptance(
     if pipeline.get("evidence_sha256") != _sha256(completion_path):
         raise CalibrationFreezeError("C training pipeline evidence SHA mismatch")
 
-    return completion_path, completion, by_step
+    return completion_path, completion, by_step, source
 
 
-def _lineage_completion(path: Path, payload: Mapping[str, Any]) -> tuple[Path, dict[str, Any], list[Mapping[str, Any]]]:
-    """Normalize either a direct C completion marker or an explicit wrapper."""
+def _lineage_completion(
+    path: Path,
+    payload: Mapping[str, Any],
+) -> tuple[Path, dict[str, Any], list[Mapping[str, Any]], dict[str, str]]:
+    """Normalize only the current accepted C training contract.
 
-    if payload.get("schema") == C_TRAINING_ACCEPTANCE_SCHEMA:
-        return _validate_c_training_acceptance(path, payload)
-    if payload.get("schema") == "r142-stage-s-c-training-completion-v1":
-        completion_path, completion = path, payload
-        audit = completion.get("checkpoint_audit")
-        entries = audit.get("checkpoints") if isinstance(audit, Mapping) else None
-        if not isinstance(entries, list):
-            raise CalibrationFreezeError("C training completion lacks checkpoint_audit.checkpoints")
-        return completion_path, completion, [entry for entry in entries if isinstance(entry, Mapping)]
-    completion_ref = (
-        payload.get("training_completion")
-        or payload.get("training_completion_path")
-        or payload.get("completion_marker")
-    )
-    if isinstance(completion_ref, Mapping):
-        completion_value = completion_ref.get("path") or completion_ref.get("file")
-        expected_sha = completion_ref.get("sha256")
-    else:
-        completion_value = completion_ref
-        expected_sha = payload.get("training_completion_sha256")
-    if not isinstance(completion_value, str) or not completion_value:
-        raise CalibrationFreezeError("C lineage must name an accepted training completion marker")
-    completion_candidate = Path(completion_value).expanduser()
-    if not completion_candidate.is_absolute():
-        completion_candidate = path.parent / completion_candidate
-    completion_path, completion = _read_json(completion_candidate, label="C training completion marker")
-    observed = _sha256(completion_path)
-    if expected_sha is not None and expected_sha != observed:
-        raise CalibrationFreezeError("C training completion marker SHA mismatch")
-    if payload.get("accepted") is False or payload.get("status") not in (None, "ACCEPTED", "COMPLETED"):
-        raise CalibrationFreezeError("C training lineage wrapper is not accepted")
-    entries = payload.get("checkpoints") or payload.get("checkpoint_artifacts")
-    if not isinstance(entries, list):
-        raise CalibrationFreezeError("C lineage wrapper must enumerate checkpoints")
-    return completion_path, completion, [entry for entry in entries if isinstance(entry, Mapping)]
+    Older direct-completion and wrapper-shaped inputs did not bind source
+    provenance to the accepted training manifest.  They are intentionally
+    rejected rather than silently upgraded.
+    """
+
+    if payload.get("schema") != C_TRAINING_ACCEPTANCE_SCHEMA:
+        raise CalibrationFreezeError(
+            "C lineage must use the current accepted training manifest schema"
+        )
+    return _validate_c_training_acceptance(path, payload)
 
 
-def _checkpoint_lineage(lineage_path: str | Path) -> tuple[Path, str, dict[int, tuple[Path, str]]]:
+def _checkpoint_lineage(
+    lineage_path: str | Path,
+) -> tuple[Path, str, dict[int, tuple[Path, str]], dict[str, str]]:
     lineage_file, lineage = _read_json(lineage_path, label="C accepted training lineage")
-    completion_path, completion, entries = _lineage_completion(lineage_file, lineage)
+    completion_path, completion, entries, source = _lineage_completion(lineage_file, lineage)
     if completion.get("status") != "COMPLETED" or completion.get("schema") != C_TRAINING_COMPLETION_SCHEMA:
         raise CalibrationFreezeError("C lineage completion is not accepted terminal training")
-    if completion.get("openpi_commit") != C_TRAINING_OPENPI_COMMIT:
-        raise CalibrationFreezeError("C lineage OpenPI commit mismatch")
+    if completion.get("openpi_commit") != source["openpi_commit"]:
+        raise CalibrationFreezeError("C lineage OpenPI commit does not match accepted source")
     if completion.get("config_name") != "pi05_libero" or completion.get("seed") != 42:
         raise CalibrationFreezeError("C lineage config/seed mismatch")
     if completion.get("terminal_global_step") != 10001 or completion.get("checkpoint_steps") != list(C_STEPS):
@@ -782,7 +1188,7 @@ def _checkpoint_lineage(lineage_path: str | Path) -> tuple[Path, str, dict[int, 
         by_step[raw_step] = (checkpoint, observed_sha)
     if tuple(sorted(by_step)) != C_STEPS:
         raise CalibrationFreezeError("C lineage must enumerate all four exact checkpoints")
-    return completion_path, _sha256(lineage_file), by_step
+    return completion_path, _sha256(lineage_file), by_step, source
 
 
 def freeze_calibration_reports(
@@ -792,6 +1198,15 @@ def freeze_calibration_reports(
     c_result: str | Path,
     c_completion_marker: str | Path,
     c_lineage: str | Path,
+    c_config: str | Path,
+    b_registry_run: str | Path,
+    b_jobs_ledger: str | Path,
+    b_getjob_terminal: str | Path,
+    b_getjob_terminal_sha: str | Path,
+    c_registry_run: str | Path,
+    c_jobs_ledger: str | Path,
+    c_getjob_terminal: str | Path,
+    c_getjob_terminal_sha: str | Path,
     b_report: str | Path,
     c_report: str | Path,
 ) -> dict[str, dict[str, Any]]:
@@ -803,11 +1218,37 @@ def freeze_calibration_reports(
     c_result_path, c_marker_path, c_payload, c_marker, c_rows = _read_calibration_source(
         c_result, c_completion_marker, substrate="C"
     )
-    b_selected = min(b_rows, key=lambda row: (abs(row["pooled_success"] - CALIBRATION_TARGET), row["setting"]))
-    c_selected = min(c_rows, key=lambda row: (abs(row["pooled_success"] - CALIBRATION_TARGET), int(str(row["setting"]).split("_", 1)[1])))
+    b_selected = _select_calibration_row(b_rows, substrate="B")
+    c_selected = _select_calibration_row(c_rows, substrate="C")
     selected_variant, selected_variant_sha = _validate_b_variant(b_marker, selected=str(b_selected["setting"]))
-    completion_path, lineage_sha, checkpoints = _checkpoint_lineage(c_lineage)
+    completion_path, lineage_sha, checkpoints, training_source = _checkpoint_lineage(c_lineage)
+    if c_marker.get("source") != training_source:
+        raise CalibrationFreezeError(
+            "C calibration completion source does not match accepted training source"
+        )
+    c_config_path, c_config_source = _validate_c_calibration_config(
+        c_config,
+        expected_source=training_source,
+    )
     selected_step = int(str(c_selected["setting"]).split("_", 1)[1])
+    b_external = _validate_external_pai_binding(
+        registry_run=b_registry_run,
+        jobs_ledger=b_jobs_ledger,
+        getjob_terminal=b_getjob_terminal,
+        getjob_terminal_sha=b_getjob_terminal_sha,
+        artifact_dir=b_marker_path.parent,
+        application_run_id=b_marker.get("run_id"),
+        substrate="B",
+    )
+    c_external = _validate_external_pai_binding(
+        registry_run=c_registry_run,
+        jobs_ledger=c_jobs_ledger,
+        getjob_terminal=c_getjob_terminal,
+        getjob_terminal_sha=c_getjob_terminal_sha,
+        artifact_dir=c_marker_path.parent,
+        application_run_id=c_marker.get("run_id"),
+        substrate="C",
+    )
     selected_checkpoint, selected_checkpoint_sha = checkpoints[selected_step]
 
     common = {
@@ -830,6 +1271,7 @@ def freeze_calibration_reports(
         "source_result_sha256": _sha256(b_result_path),
         "source_completion_marker_sha256": _sha256(b_marker_path),
         "calibration_rows": b_rows,
+        "external_pai_binding": b_external,
         "selection_tie_break": "lexicographic_setting",
         "selected_setting": b_selected["setting"],
         "selected_pooled_success": b_selected["pooled_success"],
@@ -855,6 +1297,11 @@ def freeze_calibration_reports(
         "accepted_training_completion": str(completion_path),
         "accepted_training_lineage_path": str(Path(c_lineage).expanduser().resolve()),
         "accepted_training_lineage_sha256": lineage_sha,
+        "training_source": training_source,
+        "c_calibration_config_path": str(c_config_path),
+        "c_calibration_config_sha256": _sha256(c_config_path),
+        "c_calibration_config_source": c_config_source,
+        "external_pai_binding": c_external,
     }
 
     # Validate all selected artifacts before touching either destination.
@@ -955,7 +1402,7 @@ def _validate_report_for_protocol(path: Path, *, substrate: str) -> dict[str, An
     )
     if report.get("source_result_sha256") != _sha256(source_result) or report.get("source_completion_marker_sha256") != _sha256(source_marker):
         raise CalibrationFreezeError(f"{substrate} report source SHA mismatch")
-    expected = min(rows, key=lambda row: (abs(row["pooled_success"] - CALIBRATION_TARGET), row["setting"] if substrate == "B" else int(str(row["setting"]).split("_", 1)[1])))
+    expected = _select_calibration_row(rows, substrate=substrate)
     if report.get("selected_setting") != expected["setting"]:
         raise CalibrationFreezeError(f"{substrate} report selection is not reproducible")
     if substrate == "B":
@@ -966,9 +1413,22 @@ def _validate_report_for_protocol(path: Path, *, substrate: str) -> dict[str, An
             raise CalibrationFreezeError("B report selected variant binding mismatch")
     else:
         lineage_reference = report.get("accepted_training_lineage_path", report["accepted_training_completion"])
-        _, lineage_sha, checkpoints = _checkpoint_lineage(lineage_reference)
+        _, lineage_sha, checkpoints, training_source = _checkpoint_lineage(lineage_reference)
         if report.get("accepted_training_lineage_sha256") != lineage_sha:
             raise CalibrationFreezeError("C report accepted training lineage SHA mismatch")
+        if report.get("training_source") != training_source:
+            raise CalibrationFreezeError("C report training source binding mismatch")
+        config_path, config_source = _validate_c_calibration_config(
+            report.get("c_calibration_config_path", ""),
+            expected_source=training_source,
+        )
+        if (
+            report.get("c_calibration_config_sha256") != _sha256(config_path)
+            or report.get("c_calibration_config_source") != config_source
+        ):
+            raise CalibrationFreezeError("C report calibration config binding mismatch")
+        if marker.get("source") != training_source:
+            raise CalibrationFreezeError("C marker source does not match accepted training source")
         step = int(str(expected["setting"]).split("_", 1)[1])
         selected, digest = checkpoints[step]
         if report.get("selected_checkpoint") != str(selected) or report.get("selected_checkpoint_sha256") != digest:
@@ -1008,10 +1468,26 @@ def freeze_protocol(
     c_path = _path(c_report, label="C calibration report", directory=False)
     b_payload = _validate_report_for_protocol(b_path, substrate="B")
     c_payload = _validate_report_for_protocol(c_path, substrate="C")
+    source_provenance = c_payload.get("training_source")
+    _validate_source_commits(source_provenance, where="C report training source")
+    missing_source = [
+        f"C {key}={value}"
+        for key, value in source_provenance.items()
+        if value not in protocol_text
+    ]
+    if missing_source:
+        raise CalibrationFreezeError(
+            "PROTOCOL.md does not bind the accepted C source commits: "
+            + ", ".join(missing_source)
+        )
 
     destination = Path(output_path).expanduser().resolve()
     if destination.name != "FROZEN_PROTOCOL.json":
         raise CalibrationFreezeError("protocol acceptance filename must be FROZEN_PROTOCOL.json")
+    if destination.exists() or destination.is_symlink():
+        raise CalibrationFreezeError(
+            f"refusing to overwrite existing frozen protocol acceptance: {destination}"
+        )
     destination.parent.mkdir(parents=True, exist_ok=True)
     if materialize_protocol_md:
         # The main loader requires a non-symlink PROTOCOL.md beside the stable
@@ -1045,6 +1521,13 @@ def freeze_protocol(
                 "selected_checkpoint_sha256": c_payload["selected_checkpoint_sha256"],
             },
         },
+        "source_provenance": {
+            "C": c_payload["training_source"],
+            "C_calibration_config": {
+                "path": c_payload["c_calibration_config_path"],
+                "sha256": c_payload["c_calibration_config_sha256"],
+            },
+        },
     }
     payload = {
         "schema": PROTOCOL_ACCEPTANCE_SCHEMA,
@@ -1056,6 +1539,13 @@ def freeze_protocol(
         "frozen_summary": FROZEN_SUMMARY,
         "s4": S4_PROTOCOL,
         "s5": S5_PROTOCOL,
+        "source_provenance": {
+            "C": c_payload["training_source"],
+            "C_calibration_config": {
+                "path": c_payload["c_calibration_config_path"],
+                "sha256": c_payload["c_calibration_config_sha256"],
+            },
+        },
         "files": {
             "PROTOCOL.md": {"path": str(adjacent_md), "sha256": md_sha},
             "B_CALIBRATION_REPORT": {"path": str(b_path), "sha256": _sha256(b_path)},
@@ -1097,6 +1587,19 @@ def read_frozen_protocol(
     if report_entry.get("report_path") != str(report_path) or report_entry.get("report_sha256") != _sha256(report_path):
         raise CalibrationFreezeError(f"{substrate} report acceptance binding mismatch")
     report = _validate_report_for_protocol(report_path, substrate=substrate)
+    if substrate == "C":
+        expected_provenance = {
+            "C": report["training_source"],
+            "C_calibration_config": {
+                "path": report["c_calibration_config_path"],
+                "sha256": report["c_calibration_config_sha256"],
+            },
+        }
+        if (
+            payload.get("source_provenance") != expected_provenance
+            or acceptance.get("source_provenance") != expected_provenance
+        ):
+            raise CalibrationFreezeError("frozen protocol C source provenance drifted")
     if substrate == "B":
         if report_entry.get("selected_setting") != report.get("selected_setting") or report_entry.get("variant_run_id") != report.get("variant_run_id"):
             raise CalibrationFreezeError("B report selection acceptance mismatch")
@@ -1136,8 +1639,6 @@ __all__ = [
     "CalibrationFreezeError",
     "C_TRAINING_ACCEPTANCE_SCHEMA",
     "C_TRAINING_COMPLETION_SCHEMA",
-    "C_TRAINING_OPENPI_COMMIT",
-    "C_TRAINING_SOURCE",
     "FROZEN_SUMMARY",
     "PROTOCOL_ACCEPTANCE_SCHEMA",
     "SEED_PLAN",
