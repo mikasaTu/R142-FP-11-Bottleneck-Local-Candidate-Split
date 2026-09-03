@@ -19,7 +19,7 @@ readonly WORLD_SIZE=8
 # Pinned real Stage-R/LIBERO source trees. A dirty tree or commit drift is
 # refused before the first simulator import.
 readonly STAGE_S_REPO="$ROOT/code/r142-stage-s-bcal-runtime-20260903"
-readonly STAGE_S_SOURCE_COMMIT=24cb128c808dbc6561c00ed77136be450c5f53b1
+readonly STAGE_S_SOURCE_COMMIT=cb1281d43151e9436ae400fbbfa42b264fdfda29
 readonly QPILOTS="$ROOT/code/QPILOTS-r16p15-stage1-task64-20260812"
 readonly QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
 readonly OPENPI="$QPILOTS/third_party/openpi"

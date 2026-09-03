@@ -46,8 +46,8 @@
   },
   "runtime": {
     "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_libero_b_calibration_pai.sh",
-    "command_file_sha256": "6cc8e58bbf2d33a0579344b72d650963db9a96a21f6fb6eb5fb7104f49bd9314",
-    "payload_sha256": "6cc8e58bbf2d33a0579344b72d650963db9a96a21f6fb6eb5fb7104f49bd9314",
+    "command_file_sha256": "c987ffb68230b8fc53616bf9dcb671e0414572c26eb54d771c06f8fafc71ebc4",
+    "payload_sha256": "c987ffb68230b8fc53616bf9dcb671e0414572c26eb54d771c06f8fafc71ebc4",
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
     "uid": 2254,
     "gid": 2254,
@@ -79,7 +79,7 @@
     "contract_ready": true,
     "validation_method": "static",
     "validation_status": "passed",
-    "validated_payload_sha256": "6cc8e58bbf2d33a0579344b72d650963db9a96a21f6fb6eb5fb7104f49bd9314",
+    "validated_payload_sha256": "c987ffb68230b8fc53616bf9dcb671e0414572c26eb54d771c06f8fafc71ebc4",
     "pai_probe_created": false,
     "explicit_user_resource_authorization": {
       "resource_id": "quota1ssrabud0bh",
@@ -93,7 +93,7 @@
     "expected_first_work_gid": 2254,
     "first_work_evidence_path": "{{ARTIFACT_DIR}}/FIRST_WORK.json",
     "completed_evidence_path": "{{ARTIFACT_DIR}}/COMPLETED_B_CALIBRATION.json",
-    "stage_s_source_commit": "24cb128c808dbc6561c00ed77136be450c5f53b1",
+    "stage_s_source_commit": "cb1281d43151e9436ae400fbbfa42b264fdfda29",
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
     "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
     "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
