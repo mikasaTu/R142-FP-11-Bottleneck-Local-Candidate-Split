@@ -44,6 +44,7 @@ from .s45_runtime import (
     _candidate_success,
     canonical_json,
 )
+from .replay_integrity import ReplayIntegrityError, compare_replay_components
 
 
 class S45AdapterError(S45CapabilityError):
@@ -477,19 +478,118 @@ class _LiberoS45Base(S45Adapter):
 
     def _same_action_check(self, env: Any, policy: Any, snapshot: _LiberoSnapshot, action: Any) -> dict[str, Any]:
         action_array = np.asarray(action, dtype=np.float32)
-        self._restore(env, policy, snapshot)
+        if action_array.ndim == 0 or not np.all(np.isfinite(action_array)):
+            raise S45AdapterError("LIBERO same-action replay received a non-finite action")
+        if snapshot.environment_rng is None or snapshot.policy_rng is None:
+            raise S45AdapterError("LIBERO full replay requires non-empty environment and policy owner RNG states")
+        if snapshot.policy_history is None and snapshot.stage_r.observation_history is None:
+            raise S45AdapterError("LIBERO full replay requires a captured policy observation history")
+        if not isinstance(snapshot.stage_r.action_queue, list):
+            raise S45AdapterError("LIBERO full replay requires a captured queued action chunk")
+        if self.require_torch:
+            torch_state = snapshot.stage_r.torch_rng_state
+            if not isinstance(torch_state, Mapping) or "cpu" not in torch_state or "cuda" not in torch_state:
+                raise S45AdapterError("LIBERO full replay requires Torch CPU and CUDA RNG states")
+
+        queue_a = self._restore(env, policy, snapshot)
         libero_runtime._execute_one(env, action_array)
-        first = self._state_vector(env)
-        self._restore(env, policy, snapshot)
+        first_visible = self._state_vector(env)
+        first_snapshot = self._capture(
+            env,
+            policy,
+            queue_a,
+            snapshot.stage_r.baseline_noise_seed,
+            snapshot.stage_r.baseline_noise_counter,
+            snapshot.stage_r.step + 1,
+        )
+
+        queue_b = self._restore(env, policy, snapshot)
         libero_runtime._execute_one(env, action_array)
-        second = self._state_vector(env)
-        if first.shape != second.shape:
-            error = float("inf")
+        second_visible = self._state_vector(env)
+        second_snapshot = self._capture(
+            env,
+            policy,
+            queue_b,
+            snapshot.stage_r.baseline_noise_seed,
+            snapshot.stage_r.baseline_noise_counter,
+            snapshot.stage_r.step + 1,
+        )
+
+        if first_visible.shape != second_visible.shape:
+            visible_error = float("inf")
         else:
-            error = float(np.max(np.abs(first - second))) if first.size else 0.0
+            visible_error = float(np.max(np.abs(first_visible - second_visible))) if first_visible.size else 0.0
+
+        def replay_components(value: _LiberoSnapshot) -> dict[str, Any]:
+            stage = value.stage_r
+            return {
+                "simulator_snapshot": stage.environment,
+                # Keep both snapshot paths: the Stage-R environment history
+                # and the adapter's policy-side view must agree across the
+                # replay. This catches a stale observation cache even when
+                # the visible state vector is unchanged.
+                "observation_history": {
+                    "stage_r": stage.observation_history,
+                    "policy": value.policy_history,
+                },
+                # The runner-owned queue is always present. The policy-owned
+                # queue is included when the official wrapper exposes it.
+                "action_queue": {
+                    "runner": stage.action_queue,
+                    "policy": value.policy_queue,
+                },
+                "python_rng": stage.python_rng_state,
+                "numpy_rng": stage.numpy_rng_state,
+                "torch_rng": stage.torch_rng_state,
+                "environment_owner_rng": value.environment_rng,
+                "policy_owner_rng": {
+                    "owner": value.policy_rng,
+                    "stage_policy": stage.policy_rng_state,
+                },
+            }
+
+        try:
+            evidence = compare_replay_components(
+                replay_components(first_snapshot),
+                replay_components(second_snapshot),
+                tolerance=SNAPSHOT_REPLAY_TOLERANCE,
+            )
+        except ReplayIntegrityError as exc:
+            raise S45AdapterError(f"LIBERO full replay integrity check failed: {exc}") from exc
+
+        error = max(float(evidence["max_abs_error"]), visible_error)
         if error > SNAPSHOT_REPLAY_TOLERANCE:
             raise S45AdapterError(f"LIBERO restore same-action next-state error {error} > 1e-9")
-        return {"passed": True, "same_action": True, "max_abs_error": error, "tolerance": SNAPSHOT_REPLAY_TOLERANCE}
+        component_errors = {
+            key: float(value["max_abs_error"])
+            for key, value in evidence.items()
+            if isinstance(value, Mapping) and "max_abs_error" in value
+        }
+        return {
+            "passed": True,
+            "same_action": True,
+            "max_abs_error": error,
+            "visible_state_max_abs_error": visible_error,
+            "simulator_snapshot_max_abs_error": component_errors["simulator_snapshot"],
+            "tolerance": SNAPSHOT_REPLAY_TOLERANCE,
+            "full_snapshot": True,
+            "full_state": True,
+            "observation_history_validated": True,
+            "action_queue_validated": True,
+            "rng_streams_validated": {
+                "python": True,
+                "numpy": True,
+                "torch_cpu": snapshot.stage_r.torch_rng_state is not None,
+                "torch_cuda": bool(
+                    isinstance(snapshot.stage_r.torch_rng_state, Mapping)
+                    and isinstance(snapshot.stage_r.torch_rng_state.get("cuda"), list)
+                ),
+                "environment_owner": True,
+                "policy_owner": True,
+            },
+            "component_max_abs_errors": component_errors,
+            "component_evidence": evidence,
+        }
 
     def _next_chunk(self, policy: Any, observation: Any, seed: int, counter: int) -> np.ndarray:
         try:
