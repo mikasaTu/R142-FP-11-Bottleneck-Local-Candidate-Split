@@ -13,6 +13,8 @@ weights-only tree cannot be silently presented as a resumable C run.
 from __future__ import annotations
 
 import importlib.util
+import hashlib
+import json
 import os
 import random
 import sys
@@ -63,6 +65,70 @@ def _atomic_torch_save(torch: Any, value: Any, path: Path) -> None:
         os.fsync(directory_fd)
     finally:
         os.close(directory_fd)
+
+
+def _atomic_text(text: str, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}")
+    with temporary.open("w", encoding="utf-8") as handle:
+        handle.write(text)
+        handle.flush()
+        os.fsync(handle.fileno())
+    temporary.replace(path)
+    directory_fd = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+
+
+def _write_rng_completion(step_dir: Path, *, global_step: int, world_size: int) -> None:
+    sidecars = [step_dir / f"rng_state.rank{rank}.pt" for rank in range(int(world_size))]
+    missing = [path.name for path in sidecars if not path.is_file()]
+    if missing:
+        raise RuntimeError(f"full-state checkpoint is missing RNG sidecars: {missing}")
+    lines = [f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}" for path in sidecars]
+    sums = step_dir / "RNG_SHA256SUMS"
+    _atomic_text("\n".join(lines) + "\n", sums)
+    marker = {
+        "schema": "r142-stage-s-c-complete-rng-state-v1",
+        "status": "COMPLETED",
+        "global_step": int(global_step),
+        "world_size": int(world_size),
+        "sidecars": [path.name for path in sidecars],
+        "rng_sha256sums": sums.name,
+        "rng_sha256sums_sha256": hashlib.sha256(sums.read_bytes()).hexdigest(),
+    }
+    _atomic_text(json.dumps(marker, sort_keys=True, indent=2) + "\n", step_dir / "COMPLETE_RNG_STATE.json")
+
+
+def _verify_rng_completion(step_dir: Path, *, global_step: int, world_size: int) -> None:
+    marker_path = step_dir / "COMPLETE_RNG_STATE.json"
+    sums_path = step_dir / "RNG_SHA256SUMS"
+    if not marker_path.is_file() or not sums_path.is_file():
+        raise RuntimeError(f"full-state resume refused; incomplete RNG checkpoint {step_dir}")
+    marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    expected_names = [f"rng_state.rank{rank}.pt" for rank in range(int(world_size))]
+    if (
+        marker.get("schema") != "r142-stage-s-c-complete-rng-state-v1"
+        or marker.get("status") != "COMPLETED"
+        or int(marker.get("global_step", -1)) != int(global_step)
+        or int(marker.get("world_size", -1)) != int(world_size)
+        or marker.get("sidecars") != expected_names
+        or marker.get("rng_sha256sums") != sums_path.name
+        or marker.get("rng_sha256sums_sha256") != hashlib.sha256(sums_path.read_bytes()).hexdigest()
+    ):
+        raise RuntimeError(f"full-state resume refused; RNG completion marker drifted at {step_dir}")
+    expected_lines = sums_path.read_text(encoding="utf-8").splitlines()
+    if len(expected_lines) != int(world_size):
+        raise RuntimeError(f"full-state resume refused; RNG SHA manifest width drifted at {step_dir}")
+    for name, line in zip(expected_names, expected_lines, strict=True):
+        path = step_dir / name
+        if not path.is_file():
+            raise RuntimeError(f"full-state resume refused; missing RNG sidecar {path}")
+        expected = f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {name}"
+        if line != expected:
+            raise RuntimeError(f"full-state resume refused; RNG sidecar SHA mismatch {path}")
 
 
 def _capture_rng(torch: Any) -> dict[str, Any]:
@@ -236,21 +302,50 @@ def _patch_checkpoint_io(trainer: Any, torch: Any) -> None:
     original_load = trainer.load_checkpoint
 
     def save_checkpoint(model: Any, optimizer: Any, global_step: int, config: Any, is_main: bool, data_config: Any) -> None:
-        original_save(model, optimizer, global_step, config, is_main, data_config)
         should_save = (global_step % int(config.save_interval) == 0 and global_step > 0) or global_step == int(config.num_train_steps) - 1
         if not should_save:
+            original_save(model, optimizer, global_step, config, is_main, data_config)
             return
         distributed = torch.distributed.is_initialized()
+        rank = _rank(torch)
+        world_size = int(torch.distributed.get_world_size()) if distributed else 1
+        checkpoint_root = Path(config.checkpoint_dir)
+        staging_dir = checkpoint_root / f".rng_stage_{global_step}"
+        _atomic_torch_save(torch, _capture_rng(torch), staging_dir / f"rng_state.rank{rank}.pt")
         if distributed:
             torch.distributed.barrier()
-        final_dir = Path(config.checkpoint_dir) / str(global_step)
-        if final_dir.is_dir():
-            _atomic_torch_save(torch, _capture_rng(torch), final_dir / f"rng_state.rank{_rank(torch)}.pt")
+        # Rank zero may atomically replace the final checkpoint directory;
+        # keep every rank's RNG bytes outside tmp_<step> until that completes.
+        original_save(model, optimizer, global_step, config, is_main, data_config)
+        if distributed:
+            torch.distributed.barrier()
+        final_dir = checkpoint_root / str(global_step)
+        if not final_dir.is_dir():
+            raise RuntimeError(f"native checkpoint directory is absent after save: {final_dir}")
+        staged = staging_dir / f"rng_state.rank{rank}.pt"
+        destination = final_dir / staged.name
+        os.replace(staged, destination)
+        if distributed:
+            torch.distributed.barrier()
+        if rank == 0:
+            _write_rng_completion(final_dir, global_step=global_step, world_size=world_size)
+            try:
+                staging_dir.rmdir()
+            except OSError:
+                pass
         if distributed:
             torch.distributed.barrier()
 
     def load_checkpoint(model: Any, optimizer: Any, checkpoint_dir: Any, device: Any) -> int:
+        checkpoint_root = Path(checkpoint_dir)
+        expected_step = _latest_checkpoint_step(checkpoint_root)
+        world_size = int(torch.distributed.get_world_size()) if torch.distributed.is_initialized() else 1
+        _verify_rng_completion(checkpoint_root / str(expected_step), global_step=expected_step, world_size=world_size)
         global_step = original_load(model, optimizer, checkpoint_dir, device)
+        if int(global_step) != int(expected_step):
+            raise RuntimeError(
+                f"full-state resume refused; loaded step {global_step} differs from verified step {expected_step}"
+            )
         target = Path(checkpoint_dir) / str(global_step)
         sidecar = target / f"rng_state.rank{_rank(torch)}.pt"
         if not sidecar.is_file():

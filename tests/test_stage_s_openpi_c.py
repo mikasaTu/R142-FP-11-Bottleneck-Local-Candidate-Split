@@ -320,6 +320,23 @@ def test_exact_cursor_loader_skips_resume_offset_and_sets_sampler_epoch() -> Non
     assert sampler.epochs == [1]
 
 
+def test_rng_checkpoint_completion_requires_all_rank_sidecars_and_hashes(tmp_path: Path) -> None:
+    worker = _load_worker_module()
+    step_dir = tmp_path / "1000"
+    step_dir.mkdir()
+    for rank in range(8):
+        (step_dir / f"rng_state.rank{rank}.pt").write_bytes(f"rank-{rank}".encode())
+
+    worker._write_rng_completion(step_dir, global_step=1000, world_size=8)
+    worker._verify_rng_completion(step_dir, global_step=1000, world_size=8)
+    marker = json.loads((step_dir / "COMPLETE_RNG_STATE.json").read_text(encoding="utf-8"))
+    assert marker["sidecars"] == [f"rng_state.rank{rank}.pt" for rank in range(8)]
+
+    (step_dir / "rng_state.rank7.pt").write_bytes(b"drift")
+    with pytest.raises(RuntimeError, match="SHA mismatch"):
+        worker._verify_rng_completion(step_dir, global_step=1000, world_size=8)
+
+
 def test_registry_v2_payload_binds_pinned_runtime_and_stages() -> None:
     root = Path(__file__).resolve().parents[1]
     payload = json.loads((root / "configs/pai/stage_s_c_undertrained.json").read_text(encoding="utf-8"))
