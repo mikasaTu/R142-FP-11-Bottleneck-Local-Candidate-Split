@@ -41,6 +41,7 @@ from .s45_runtime import (
     S45CapabilityError,
     S45ProvenanceError,
     SNAPSHOT_REPLAY_TOLERANCE,
+    _candidate_success,
     canonical_json,
 )
 
@@ -497,20 +498,24 @@ class _LiberoS45Base(S45Adapter):
             raise S45AdapterError(f"LIBERO official policy action-chunk inference failed: {exc}") from exc
 
     def select_anchor(self, family: Mapping[str, Any], *, protocol: ProtocolAuthority) -> Mapping[str, Any]:
-        # Anchor identity is supplied by the frozen protocol rule. The generic
-        # runtime invokes this method only after reading the authority. This
-        # adapter supports the explicit rule `candidate_index=0`; any other
-        # rule must be implemented by the caller, not inferred from outcomes.
+        # Anchor identity is supplied by the frozen protocol rule. Do not infer
+        # it from a convenient source ordering when the authority asks for the
+        # unsuccessful candidate rule.
         rule = str(protocol.s4["anchor_rule"]).strip()
-        if rule not in {"candidate_index=0", "candidate_id=0", "first_candidate_in_source_order"}:
+        if rule not in {"candidate_index=0", "candidate_id=0", "first_candidate_in_source_order", "lowest numeric candidate index among unsuccessful base-N32 candidates"}:
             raise S45AdapterError(f"LIBERO adapter does not implement frozen anchor_rule: {rule}")
         candidates = family.get("candidates")
         if not isinstance(candidates, Sequence) or len(candidates) != 32:
             raise S45ProvenanceError("LIBERO family anchor selection requires all 32 source candidates")
-        for row in candidates:
-            if str(row.get("candidate_id")) == str(candidates[0].get("candidate_id")):
-                return row
-        raise S45ProvenanceError("LIBERO source candidate order is not stable")
+        if rule == "lowest numeric candidate index among unsuccessful base-N32 candidates":
+            unsuccessful = [row for row in candidates if not _candidate_success(row)]
+            if not unsuccessful:
+                raise S45ProvenanceError("LIBERO family has no unsuccessful N32 candidate for the frozen anchor rule")
+            try:
+                return min(unsuccessful, key=lambda row: int(row.get("candidate_index", -1)))
+            except (TypeError, ValueError) as exc:
+                raise S45ProvenanceError("LIBERO unsuccessful anchor candidate index is invalid") from exc
+        return candidates[0]
 
     def replay_prefix(self, family: Mapping[str, Any], anchor: Mapping[str, Any], split_step: int, *, protocol: ProtocolAuthority) -> Mapping[str, Any]:
         split = _require_finite_int(split_step, "split_step")
@@ -618,6 +623,11 @@ class _LiberoS45Base(S45Adapter):
             "branch_index": int(branch_index),
             "mode": str(mode),
         }
+        key_options = (
+            f"{family_id}|{mode}|{int(split_step)}|{int(branch_index)}",
+            f"{family_id}|{int(split_step)}|{mode}|{int(branch_index)}",
+            *key_options,
+        )
         return _frozen_seed(protocol.s4["branch_seed_formula"], protocol.s4.get("branch_seeds"), context, label="branch seed", explicit_keys=key_options)
 
     def run_branch(self, family: Mapping[str, Any], anchor: Mapping[str, Any], prefix: Mapping[str, Any], split_step: int, branch_seed: int, branch_index: int, mode: str, *, protocol: ProtocolAuthority) -> Mapping[str, Any]:
@@ -811,11 +821,19 @@ class RoboTwinS45Adapter(S45Adapter):
 
     def select_anchor(self, family: Mapping[str, Any], *, protocol: ProtocolAuthority) -> Mapping[str, Any]:
         rule = str(protocol.s4["anchor_rule"]).strip()
-        if rule not in {"candidate_index=0", "candidate_id=0", "first_candidate_in_source_order"}:
+        if rule not in {"candidate_index=0", "candidate_id=0", "first_candidate_in_source_order", "lowest numeric candidate index among unsuccessful base-N32 candidates"}:
             raise S45AdapterError(f"RoboTwin adapter does not implement frozen anchor_rule: {rule}")
         candidates = family.get("candidates")
         if not isinstance(candidates, Sequence) or len(candidates) != 32:
             raise S45ProvenanceError("RoboTwin family anchor selection requires all 32 source candidates")
+        if rule == "lowest numeric candidate index among unsuccessful base-N32 candidates":
+            unsuccessful = [row for row in candidates if not _candidate_success(row)]
+            if not unsuccessful:
+                raise S45ProvenanceError("RoboTwin family has no unsuccessful N32 candidate for the frozen anchor rule")
+            try:
+                return min(unsuccessful, key=lambda row: int(row.get("candidate_index", -1)))
+            except (TypeError, ValueError) as exc:
+                raise S45ProvenanceError("RoboTwin unsuccessful anchor candidate index is invalid") from exc
         return candidates[0]
 
     def replay_prefix(self, family: Mapping[str, Any], anchor: Mapping[str, Any], split_step: int, *, protocol: ProtocolAuthority) -> Mapping[str, Any]:
@@ -871,9 +889,16 @@ class RoboTwinS45Adapter(S45Adapter):
             "branch_index": int(branch_index),
             "mode": str(mode),
         }
-        return _frozen_seed(protocol.s4["branch_seed_formula"], protocol.s4.get("branch_seeds"), context, label="branch seed", explicit_keys=(f"{family_id}|{mode}|{int(branch_index)}", f"{mode}:{int(branch_index)}", str(int(branch_index))))
+        key_options = (
+            f"{family_id}|{mode}|{int(split_step)}|{int(branch_index)}",
+            f"{family_id}|{int(split_step)}|{mode}|{int(branch_index)}",
+            f"{family_id}|{mode}|{int(branch_index)}",
+            f"{mode}:{int(branch_index)}",
+            str(int(branch_index)),
+        )
+        return _frozen_seed(protocol.s4["branch_seed_formula"], protocol.s4.get("branch_seeds"), context, label="branch seed", explicit_keys=key_options)
 
-    def _run_rollout(self, handle: _RoboTwinHandle, *, seed: int, prefix_actions: Sequence[Any], prefix_trajectory: Sequence[Any], snapshot: Any, max_steps: int, branch: bool) -> Mapping[str, Any]:
+    def _run_rollout(self, handle: _RoboTwinHandle, *, seed: int, prefix_actions: Sequence[Any], prefix_trajectory: Sequence[Any], snapshot: Any, max_steps: int, branch: bool, forwards: int = 0) -> Mapping[str, Any]:
         handle.runtime.restore_snapshot(snapshot)
         if branch:
             # The restored queue is retained in the snapshot evidence, then
@@ -890,7 +915,12 @@ class RoboTwinS45Adapter(S45Adapter):
         trajectory = [copy.deepcopy(value) for value in prefix_trajectory]
         success = False
         done = bool(getattr(handle.task_env, "eval_success", False))
-        forwards = 0
+        try:
+            forwards = int(forwards)
+        except (TypeError, ValueError) as exc:
+            raise S45ProvenanceError("RoboTwin policy forward count is invalid") from exc
+        if forwards < 0:
+            raise S45ProvenanceError("RoboTwin policy forward count is negative")
         first_action: Any = None
         for _ in range(int(max_steps)):
             if done:
@@ -941,6 +971,7 @@ class RoboTwinS45Adapter(S45Adapter):
             snapshot=snapshot,
             max_steps=self.max_steps,
             branch=True,
+            forwards=int(prefix.get("policy_forwards", split)),
         )
 
     def extension_seed(self, family: Mapping[str, Any], candidate_index: int, *, protocol: ProtocolAuthority) -> int:
@@ -962,8 +993,8 @@ class RoboTwinS45Adapter(S45Adapter):
         if not 32 <= index <= 63:
             raise S45ProvenanceError("RoboTwin S5 fresh candidate index must be 32..63")
         handle = self._new(family, index, int(candidate_seed))
-        snapshot = handle.runtime.capture_snapshot()
         self._set_policy_seed(handle.policy, int(candidate_seed))
+        snapshot = handle.runtime.capture_snapshot()
         observation = handle.task_env.get_obs()
         first_action = self._policy_action(handle.policy, observation)
         replay = self._same_action_check(handle, snapshot, first_action)

@@ -353,3 +353,32 @@ def test_robotwin_requires_explicit_reset_factory(tmp_path: Path) -> None:
             max_steps=8,
             require_torch=False,
         )
+def test_adapters_select_lowest_unsuccessful_anchor_from_frozen_rule(tmp_path: Path) -> None:
+    protocol_path = _protocol(tmp_path).path
+    payload = json.loads(protocol_path.read_text())
+    payload["s4"]["anchor_rule"] = "lowest numeric candidate index among unsuccessful base-N32 candidates"
+    protocol_path.write_text(json.dumps(payload, sort_keys=True))
+    protocol = ProtocolAuthority.load(protocol_path)
+    family = _family()
+    family["candidates"][0]["success"] = True
+    family["candidates"][1]["success"] = False
+    libero = make_libero_s45_adapter(
+        lambda **kwargs: FakeLiberoEnv(**kwargs),
+        lambda **kwargs: FakeLiberoPolicy(**kwargs),
+        protocol=protocol,
+        substrate="B",
+        max_steps=8,
+        require_torch=False,
+    )
+    assert libero.select_anchor(family, protocol=protocol)["candidate_index"] == 1
+    libero.close()
+    robotwin = make_robotwin_s45_adapter(
+        lambda **kwargs: FakeRoboTwinEnv(**kwargs),
+        lambda **kwargs: FakeRoboTwinPolicy(**kwargs),
+        lambda environment, **kwargs: None,
+        protocol=protocol,
+        max_steps=8,
+        require_torch=False,
+    )
+    assert robotwin.select_anchor(family, protocol=protocol)["candidate_index"] == 1
+    robotwin.close()

@@ -42,6 +42,10 @@ policy observation-history buffer only because it is the state consumed by the
 Stage-R policy; if that buffer or either restore hook is absent, execution
 stops. The adapter replays the persisted anchor actions and rejects the family
 if official inference diverges at any prefix step.
+For the frozen Stage-S authority, the anchor is the lowest numeric
+`candidate_index` among the unsuccessful persisted base-N32 candidates. The
+adapter filters the accepted source rows by their terminal success label and
+does not substitute candidate zero when that rule selects another row.
 
 LIBERO workspace poses are required to be finite six-dimensional vectors
 (`eef_xyz(3)+eef_axis_angle(3)`). The suffix is always re-generated after a
@@ -77,6 +81,10 @@ RoboTwin workspace observations must decode to the canonical fourteen
 dimensions (`left_xyz+left_quaternion+right_xyz+right_quaternion`). A direct
 numpy wrapper with another dimensionality is rejected before a result marker
 can be written.
+For each fresh S5 row, the runtime binds the canonical candidate id and
+source N32 digests, requires a root genealogy record (`parent_id=null`,
+`generation_step=0`), and records both policy-forward and environment-step
+compute counts. A missing or non-passing restore replay is a hard failure.
 
 The released Evo proxy alone is insufficient: it has no policy `act` contract
 or complete server-side RNG restore unless the exact-replay control patch is
