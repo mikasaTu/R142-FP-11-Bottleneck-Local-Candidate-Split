@@ -1,0 +1,10 @@
+{
+  "calibration_seed": 142042,
+  "checkpoint": "CALIBRATION_SHARD_COMPLETE",
+  "protocol_id": "r142-stage-s-v1",
+  "rank": 4,
+  "result_file": "RESULT.json",
+  "result_sha256": "64f777d785d82d7c4add44b784bd97a14b65ac44aa832c57e146cfabe50a8202",
+  "schema": "r142-stage-s-calibration-shard-v1",
+  "world_size": 8
+}

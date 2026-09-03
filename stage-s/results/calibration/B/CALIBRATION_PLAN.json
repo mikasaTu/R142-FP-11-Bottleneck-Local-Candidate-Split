@@ -1,0 +1,64 @@
+{
+  "calibration_seed": 142042,
+  "candidate_count": 8,
+  "forbidden_persisted_fields": [
+    "action_prefix",
+    "actions",
+    "all_fail",
+    "divergence",
+    "environment_steps",
+    "family",
+    "final_success",
+    "forwards",
+    "genealogy",
+    "mode_discovery",
+    "overdispersion",
+    "poses",
+    "s2",
+    "s3",
+    "s4",
+    "s5",
+    "success",
+    "trajectory"
+  ],
+  "initial_states": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "persisted_row_fields": [
+    "pooled_success",
+    "setting",
+    "successes",
+    "total"
+  ],
+  "protocol_id": "r142-stage-s-v1",
+  "schema": "r142-stage-s-calibration-plan-v1",
+  "setting_sources": [
+    "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/b_variants/r142-stage-s-b-variants-20260903-r7/variants/proximity_0.06m",
+    "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/b_variants/r142-stage-s-b-variants-20260903-r7/variants/proximity_0.08m",
+    "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/b_variants/r142-stage-s-b-variants-20260903-r7/variants/proximity_0.10m",
+    "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/b_variants/r142-stage-s-b-variants-20260903-r7/variants/proximity_0.12m"
+  ],
+  "settings": [
+    "proximity_0.06m",
+    "proximity_0.08m",
+    "proximity_0.10m",
+    "proximity_0.12m"
+  ],
+  "substrate": "B",
+  "task_ids": [
+    0,
+    3,
+    6,
+    9
+  ],
+  "total_trials": 1024,
+  "trials_per_setting": 256,
+  "world_size": 8
+}

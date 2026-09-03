@@ -1,0 +1,63 @@
+{
+  "calibration_result": "CALIBRATION_RESULT.json",
+  "calibration_result_schema": "r142-stage-s-calibration-result-v1",
+  "calibration_result_sha256": "ba4a5d80e64cfd9ce675fe69eb0ad2bd25e4c9bef3f380ae35e6990a9f9410e4",
+  "calibration_seed": 142042,
+  "compute": {
+    "cpu_cores": 88,
+    "gpu_count": 8,
+    "memory_gib": 1400,
+    "resource_alias": "idle-a800-robot-stage-s-graphics-8gpu",
+    "resource_id": "quota1ssrabud0bh",
+    "resource_pool": "exp-robot",
+    "shared_memory_gib": 1400,
+    "worker_count": 1
+  },
+  "input_bundle_run_id": "r142-stage-s-b-variants-20260903-r7",
+  "persistence": {
+    "aggregate_sha_file": "SHA256SUMS",
+    "artifact_dir": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration/r142-stage-s-b-calibration-20260903-r14",
+    "bundle_sha_file": "B_SHA256SUMS",
+    "rank_shards_required": 8,
+    "resume_same_run_id": true
+  },
+  "protocol_id": "r142-stage-s-v1",
+  "provenance": {
+    "old_init_reused": false,
+    "source_init_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi/third_party/libero/libero/libero/init_files/libero_10",
+    "state_format": "torch.save(sim.get_state().flatten())",
+    "variant_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/b_variants/r142-stage-s-b-variants-20260903-r7/variants"
+  },
+  "rank_marker_sha256": {
+    "shards/rank-00000/COMPLETED_SHARD.json": "84d5d84b554f5785ec7991e1491acc737a047feb71042713d5ba2a106573c598",
+    "shards/rank-00001/COMPLETED_SHARD.json": "275b7e0a178cd524f0a55b653c8cb557edde1ec70cb00bf15bbd4fcb8483d98b",
+    "shards/rank-00002/COMPLETED_SHARD.json": "f2f412a0bd00f9265b922476cf7685714019e0d380c3b0916e580b3d6618ab7b",
+    "shards/rank-00003/COMPLETED_SHARD.json": "167cfb689b4dbb9d4a3aecc66ff54cbe69ccf53ae9d6fc1fec63a8285e69fd64",
+    "shards/rank-00004/COMPLETED_SHARD.json": "c86af50925ad163eaded16f5ae62da5a9adf6c7c7466026d6ce043498cadaa6c",
+    "shards/rank-00005/COMPLETED_SHARD.json": "9af98d4002d921af5be2823dc9b35fba6bf44caa1645c1f8f8e83e4482ce0ae5",
+    "shards/rank-00006/COMPLETED_SHARD.json": "0b402b93ea7455ebf20eeaefd0b0633c1b7e25e52343ea59ba4ef079dcfd940d",
+    "shards/rank-00007/COMPLETED_SHARD.json": "8d1958d1a53609e1de783c7dd011ab1487290e1e70c2dee834a025424d115f44"
+  },
+  "rank_markers": [
+    "shards/rank-00000/COMPLETED_SHARD.json",
+    "shards/rank-00001/COMPLETED_SHARD.json",
+    "shards/rank-00002/COMPLETED_SHARD.json",
+    "shards/rank-00003/COMPLETED_SHARD.json",
+    "shards/rank-00004/COMPLETED_SHARD.json",
+    "shards/rank-00005/COMPLETED_SHARD.json",
+    "shards/rank-00006/COMPLETED_SHARD.json",
+    "shards/rank-00007/COMPLETED_SHARD.json"
+  ],
+  "run_id": "r142-stage-s-b-calibration-20260903-r14",
+  "schema": "r142-stage-s-b-calibration-completion-v1",
+  "source": {
+    "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
+    "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+    "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
+    "stage_s_commit": "cb1281d43151e9436ae400fbbfa42b264fdfda29",
+    "variant_bundle": "r142-stage-s-b-variants-20260903-r7"
+  },
+  "status": "COMPLETED",
+  "substrate": "B",
+  "world_size": 8
+}

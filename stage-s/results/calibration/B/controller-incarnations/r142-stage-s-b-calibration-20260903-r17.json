@@ -1,0 +1,9 @@
+{
+  "application_run_id": "r142-stage-s-b-calibration-20260903-r14",
+  "controller_run_id": "r142-stage-s-b-calibration-20260903-r17",
+  "pai_job_id": "",
+  "runtime_change_scope": "aggregate_only_trial_resume_sidecars",
+  "runtime_source_commit": "cfba9f13dfedde304e88961c7db12ab98c762c07",
+  "schema": "r142-stage-s-pai-controller-incarnation-v1",
+  "scientific_source_commit": "cb1281d43151e9436ae400fbbfa42b264fdfda29"
+}

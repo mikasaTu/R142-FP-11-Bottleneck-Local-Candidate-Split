@@ -1,0 +1,33 @@
+{
+  "calibration_seed": 142042,
+  "protocol_id": "r142-stage-s-v1",
+  "rank": 1,
+  "rows": [
+    {
+      "pooled_success": 0.28125,
+      "setting": "proximity_0.06m",
+      "successes": 9,
+      "total": 32
+    },
+    {
+      "pooled_success": 0.40625,
+      "setting": "proximity_0.08m",
+      "successes": 13,
+      "total": 32
+    },
+    {
+      "pooled_success": 0.53125,
+      "setting": "proximity_0.10m",
+      "successes": 17,
+      "total": 32
+    },
+    {
+      "pooled_success": 0.65625,
+      "setting": "proximity_0.12m",
+      "successes": 21,
+      "total": 32
+    }
+  ],
+  "schema": "r142-stage-s-calibration-shard-v1",
+  "world_size": 8
+}

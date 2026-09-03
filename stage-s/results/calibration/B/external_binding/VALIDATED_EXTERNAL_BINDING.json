@@ -1,0 +1,36 @@
+{
+  "application_run_id": "r142-stage-s-b-calibration-20260903-r14",
+  "controller_incarnation": {
+    "path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration/r142-stage-s-b-calibration-20260903-r14/controller-incarnations/r142-stage-s-b-calibration-20260903-r17.json",
+    "sha256": "1e34c390e11c50d39cd715748e5f6db5adcea30e76e0bde0ee841dae097bd9df"
+  },
+  "controller_run_id": "r142-stage-s-b-calibration-20260903-r17",
+  "job_id": "dlc443ua241e5kkh",
+  "jobs_ledger": {
+    "path": "/mnt/cpfs/zbl-cpfs-new/share/leon/codex-archives/Explore-claude-local-worktrees/r142-stage-s-pai-registry-clean-20260902/jobs.jsonl",
+    "sha256": "a40cc96cde56c6c35dd246ef385a3fcff4573d87957780fb794aad5585b399ea"
+  },
+  "registry_run": {
+    "path": "/mnt/cpfs/zbl-cpfs-new/share/leon/codex-archives/Explore-claude-local-worktrees/r142-stage-s-pai-registry-clean-20260902/runs/r142-stage-s-b-calibration-20260903-r17/result.json",
+    "sha256": "5ec7de04a40422e8685bbce6ace90855b50a010e89c07fd09869b28e83d5daa7"
+  },
+  "resolved": {
+    "path": "/mnt/cpfs/zbl-cpfs-new/share/leon/codex-archives/Explore-claude-local-worktrees/r142-stage-s-pai-registry-clean-20260902/runs/r142-stage-s-b-calibration-20260903-r17/resolved.json",
+    "sha256": "803f6bac4fd5c24ef97445008aa95d2fe8be8a2e647ed79ee29ec2877737b84c"
+  },
+  "schema": "r142-stage-s-pai-registry-binding-v1",
+  "submission_state": {
+    "path": "/mnt/cpfs/zbl-cpfs-new/share/leon/codex-archives/Explore-claude-local-worktrees/r142-stage-s-pai-registry-clean-20260902/runs/r142-stage-s-b-calibration-20260903-r17/submission-state.json",
+    "sha256": "4d1c3894d99e526c959b18ec79c636993c8862bd1a6598f7a5c80cc54aa83e83"
+  },
+  "substrate": "B",
+  "terminal_getjob": {
+    "path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/external_bindings/b_calibration_r17/terminal-getjob.json",
+    "sha256": "d5dae941e5bc134092398c39856dd8ffd3a5e29ba819c3950ab350efb86c1b95",
+    "sha_sidecar": {
+      "path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/external_bindings/b_calibration_r17/terminal-getjob.sha256",
+      "sha256": "f6a90cf0bbf931eb844204659447634fbc6011f97219283630dabbdc440757a4"
+    }
+  },
+  "terminal_getjob_status": "Succeeded"
+}

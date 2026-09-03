@@ -1,0 +1,18 @@
+{
+  "JobId": "dlc443ua241e5kkh",
+  "Status": "Succeeded",
+  "ReasonCode": "JobSucceeded",
+  "ResourceId": "quota1ssrabud0bh",
+  "Pods": [
+    {
+      "PodId": "dlc443ua241e5kkh-aimaster-0",
+      "Type": "aimaster",
+      "Status": "Stopped"
+    },
+    {
+      "PodId": "dlc443ua241e5kkh-master-0",
+      "Type": "master",
+      "Status": "Succeeded"
+    }
+  ]
+}
