@@ -95,8 +95,10 @@ def test_config_binds_launcher_hash_and_registry_contract() -> None:
     )
     assert evidence["source_provenance"]["stage_s_repo"] == (
         "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/"
-        "r142-stage-s-bcal-runtime-20260903"
+        "r142-stage-s-bcal-resume-runtime-20260903"
     )
+    assert evidence["stage_s_runtime_commit"] == "cfba9f13dfedde304e88961c7db12ab98c762c07"
+    assert evidence["runtime_change_scope"] == "aggregate_only_trial_resume_sidecars"
     assert config["worker"] == {
         "count": 1,
         "gpu": 8,
@@ -171,7 +173,8 @@ def test_r7_completion_sha_and_flattened_state_input_are_mandatory() -> None:
         assert required in text
     assert "B variant completion marker is not completed" in text
     assert "r7 consumed artifact escapes variant root" in text
-    assert "r142-stage-s-bcal-runtime-20260903" in text
+    assert "r142-stage-s-bcal-resume-runtime-20260903" in text
+    assert "STAGE_S_RUNTIME_COMMIT=cfba9f13dfedde304e88961c7db12ab98c762c07" in text
     assert "r142-stage-s-runtime-20260902" not in text
 
 

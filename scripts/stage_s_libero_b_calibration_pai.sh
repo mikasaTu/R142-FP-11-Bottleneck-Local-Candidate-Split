@@ -24,8 +24,12 @@ readonly WORLD_SIZE=8
 
 # Pinned real Stage-R/LIBERO source trees. A dirty tree or commit drift is
 # refused before the first simulator import.
-readonly STAGE_S_REPO="$ROOT/code/r142-stage-s-bcal-runtime-20260903"
+# Scientific generation code remains bound to the r14 FIRST_WORK commit.
+# The newer detached runtime changes only aggregate-only trial checkpointing
+# so spot eviction cannot erase an entire calibration rank.
+readonly STAGE_S_REPO="$ROOT/code/r142-stage-s-bcal-resume-runtime-20260903"
 readonly STAGE_S_SOURCE_COMMIT=cb1281d43151e9436ae400fbbfa42b264fdfda29
+readonly STAGE_S_RUNTIME_COMMIT=cfba9f13dfedde304e88961c7db12ab98c762c07
 readonly QPILOTS="$ROOT/code/QPILOTS-r16p15-stage1-task64-20260812"
 readonly QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
 readonly OPENPI="$QPILOTS/third_party/openpi"
@@ -153,7 +157,7 @@ guard_daily_no_job_window
 
 PHASE=controller_lineage
 mkdir -p "$OUT/controller-incarnations"
-"$PYTHON" - "$OUT/controller-incarnations/$CONTROLLER_RUN_ID.json" "$CONTROLLER_RUN_ID" "$RUN_ID" <<'PY'
+"$PYTHON" - "$OUT/controller-incarnations/$CONTROLLER_RUN_ID.json" "$CONTROLLER_RUN_ID" "$RUN_ID" "$STAGE_S_SOURCE_COMMIT" "$STAGE_S_RUNTIME_COMMIT" <<'PY'
 import json
 import os
 import pathlib
@@ -164,6 +168,9 @@ payload = {
     "schema": "r142-stage-s-pai-controller-incarnation-v1",
     "controller_run_id": sys.argv[2],
     "application_run_id": sys.argv[3],
+    "scientific_source_commit": sys.argv[4],
+    "runtime_source_commit": sys.argv[5],
+    "runtime_change_scope": "aggregate_only_trial_resume_sidecars",
     "pai_job_id": os.environ.get("PAI_JOB_ID", ""),
 }
 if path.exists():
@@ -199,7 +206,7 @@ for source_repo in "$STAGE_S_REPO" "$QPILOTS" "$OPENPI" "$LIBERO"; do
     exit 66
   }
 done
-[[ "$(git -C "$STAGE_S_REPO" rev-parse HEAD)" == "$STAGE_S_SOURCE_COMMIT" ]]
+[[ "$(git -C "$STAGE_S_REPO" rev-parse HEAD)" == "$STAGE_S_RUNTIME_COMMIT" ]]
 [[ "$(git -C "$QPILOTS" rev-parse HEAD)" == "$QPILOTS_COMMIT" ]]
 [[ "$(git -C "$OPENPI" rev-parse HEAD)" == "$OPENPI_COMMIT" ]]
 [[ "$(git -C "$LIBERO" rev-parse HEAD)" == "$LIBERO_COMMIT" ]]

@@ -46,8 +46,8 @@
   },
   "runtime": {
     "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_libero_b_calibration_pai.sh",
-    "command_file_sha256": "b2ae4b6a590fc39697a0a8cf068c78594fe2fff9df3762ce944c8d7ef6254bdc",
-    "payload_sha256": "b2ae4b6a590fc39697a0a8cf068c78594fe2fff9df3762ce944c8d7ef6254bdc",
+    "command_file_sha256": "d5fbcaf3a9940053402cdd064162801bf608b6d6b8295acbb984cb4027e75779",
+    "payload_sha256": "d5fbcaf3a9940053402cdd064162801bf608b6d6b8295acbb984cb4027e75779",
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
     "uid": 2254,
     "gid": 2254,
@@ -80,7 +80,7 @@
     "contract_ready": true,
     "validation_method": "static",
     "validation_status": "passed",
-    "validated_payload_sha256": "b2ae4b6a590fc39697a0a8cf068c78594fe2fff9df3762ce944c8d7ef6254bdc",
+    "validated_payload_sha256": "d5fbcaf3a9940053402cdd064162801bf608b6d6b8295acbb984cb4027e75779",
     "pai_probe_created": false,
     "explicit_user_resource_authorization": {
       "resource_id": "quota1ssrabud0bh",
@@ -95,6 +95,8 @@
     "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration/r142-stage-s-b-calibration-20260903-r14/FIRST_WORK.json",
     "completed_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration/r142-stage-s-b-calibration-20260903-r14/COMPLETED_B_CALIBRATION.json",
     "stage_s_source_commit": "cb1281d43151e9436ae400fbbfa42b264fdfda29",
+    "stage_s_runtime_commit": "cfba9f13dfedde304e88961c7db12ab98c762c07",
+    "runtime_change_scope": "aggregate_only_trial_resume_sidecars",
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
     "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
     "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
@@ -131,7 +133,7 @@
       "completion_and_sha_required": true
     },
     "source_provenance": {
-      "stage_s_repo": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-bcal-runtime-20260903",
+      "stage_s_repo": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-bcal-resume-runtime-20260903",
       "qpilots_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812",
       "openpi_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi",
       "libero_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi/third_party/libero"
