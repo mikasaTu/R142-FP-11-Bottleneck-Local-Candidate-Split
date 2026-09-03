@@ -10,7 +10,11 @@ umask 077
 readonly LEON_UID=2254
 readonly LEON_GID=2254
 readonly ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon
-readonly RUN_ID="${PAI_CANARY_RUN_ID:?controller must inject PAI_CANARY_RUN_ID}"
+readonly CONTROLLER_RUN_ID="${PAI_CANARY_RUN_ID:?controller must inject PAI_CANARY_RUN_ID}"
+# A resumed PAI incarnation gets a fresh controller run id, while the
+# scientific application keeps one immutable CPFS directory.  The registry
+# bootstrap explicitly forwards PAI_TASK_* variables through env -i.
+readonly RUN_ID="${PAI_TASK_STAGE_S_APPLICATION_RUN_ID:-$CONTROLLER_RUN_ID}"
 readonly OUT_ROOT="$ROOT/logs/pai_registry/r142_stage_s/b_calibration"
 readonly ARTIFACT_DIR="$OUT_ROOT/$RUN_ID"
 readonly EXPECTED_GPUS=8
@@ -129,6 +133,7 @@ require_command() {
 
 PHASE=bootstrap
 [[ "$RUN_ID" =~ ^r142-stage-s-b-calibration-20260903-r[0-9]+$ ]]
+[[ "$CONTROLLER_RUN_ID" =~ ^r142-stage-s-b-calibration-20260903-r[0-9]+$ ]]
 [[ "$ARTIFACT_DIR" == "$EXPECTED_ARTIFACT_DIR" ]]
 [[ -d "$OUT" && ! -L "$OUT" ]]
 [[ "$(realpath -e "$OUT")" == "$EXPECTED_ARTIFACT_DIR" ]]
@@ -143,6 +148,31 @@ for command_name in bash date find git nvidia-smi realpath sha256sum stat "$PYTH
   fi
 done
 guard_daily_no_job_window
+
+PHASE=controller_lineage
+mkdir -p "$OUT/controller-incarnations"
+"$PYTHON" - "$OUT/controller-incarnations/$CONTROLLER_RUN_ID.json" "$CONTROLLER_RUN_ID" "$RUN_ID" <<'PY'
+import json
+import os
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+payload = {
+    "schema": "r142-stage-s-pai-controller-incarnation-v1",
+    "controller_run_id": sys.argv[2],
+    "application_run_id": sys.argv[3],
+    "pai_job_id": os.environ.get("PAI_JOB_ID", ""),
+}
+if path.exists():
+    if json.loads(path.read_text(encoding="utf-8")) != payload:
+        raise SystemExit("controller incarnation identity drifted")
+else:
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, path)
+PY
 
 # PAI's GPU device plugin does not always export CUDA_VISIBLE_DEVICES even
 # though nvidia-smi exposes the allocated devices.  Enumerate the exact eight

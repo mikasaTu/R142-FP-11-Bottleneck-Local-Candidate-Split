@@ -46,8 +46,8 @@
   },
   "runtime": {
     "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_libero_b_calibration_pai.sh",
-    "command_file_sha256": "c987ffb68230b8fc53616bf9dcb671e0414572c26eb54d771c06f8fafc71ebc4",
-    "payload_sha256": "c987ffb68230b8fc53616bf9dcb671e0414572c26eb54d771c06f8fafc71ebc4",
+    "command_file_sha256": "35a950af9d1d08fa54fbc1bc6fa870e4bace46eeebfc662fab4a3542c424ba39",
+    "payload_sha256": "35a950af9d1d08fa54fbc1bc6fa870e4bace46eeebfc662fab4a3542c424ba39",
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
     "uid": 2254,
     "gid": 2254,
@@ -56,10 +56,12 @@
     "recursive_repair": false,
     "secret_env_names": [],
     "pod_env": {
-      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
+      "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics",
+      "PAI_TASK_STAGE_S_APPLICATION_RUN_ID": "r142-stage-s-b-calibration-20260903-r14"
     },
     "write_paths": [
-      "{{ARTIFACT_DIR}}"
+      "{{ARTIFACT_DIR}}",
+      "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration/r142-stage-s-b-calibration-20260903-r14"
     ]
   },
   "fault_tolerance": {
@@ -79,7 +81,7 @@
     "contract_ready": true,
     "validation_method": "static",
     "validation_status": "passed",
-    "validated_payload_sha256": "c987ffb68230b8fc53616bf9dcb671e0414572c26eb54d771c06f8fafc71ebc4",
+    "validated_payload_sha256": "35a950af9d1d08fa54fbc1bc6fa870e4bace46eeebfc662fab4a3542c424ba39",
     "pai_probe_created": false,
     "explicit_user_resource_authorization": {
       "resource_id": "quota1ssrabud0bh",
@@ -91,8 +93,8 @@
     "idle_8gpu_contract": "generic_formal_idle_8gpu_v1",
     "expected_first_work_uid": 2254,
     "expected_first_work_gid": 2254,
-    "first_work_evidence_path": "{{ARTIFACT_DIR}}/FIRST_WORK.json",
-    "completed_evidence_path": "{{ARTIFACT_DIR}}/COMPLETED_B_CALIBRATION.json",
+    "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration/r142-stage-s-b-calibration-20260903-r14/FIRST_WORK.json",
+    "completed_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration/r142-stage-s-b-calibration-20260903-r14/COMPLETED_B_CALIBRATION.json",
     "stage_s_source_commit": "cb1281d43151e9436ae400fbbfa42b264fdfda29",
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
     "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
@@ -148,7 +150,8 @@
     },
     "resume_contract": {
       "same_artifact_dir": true,
-      "same_run_id": true,
+      "same_application_run_id": true,
+      "fresh_controller_run_id": true,
       "idempotent_rank_markers": true,
       "aggregate_requires_all_ranks": true,
       "fail_closed_on_preemption": true

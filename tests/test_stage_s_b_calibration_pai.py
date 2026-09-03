@@ -40,6 +40,8 @@ def test_b_launcher_is_shell_valid_and_non_submitting() -> None:
     assert "COMPLETED_B_CALIBRATION.json" in text
     assert "B_SHA256SUMS" in text
     assert 'ARTIFACT_DIR="$OUT_ROOT/$RUN_ID"' in text
+    assert 'RUN_ID="${PAI_TASK_STAGE_S_APPLICATION_RUN_ID:-$CONTROLLER_RUN_ID}"' in text
+    assert "controller-incarnations" in text
     assert "controller must inject ARTIFACT_DIR" not in text
     assert "rev-parse --is-inside-work-tree" in text
     assert '[[ -d "$source_repo/.git" ]]' not in text
@@ -85,7 +87,8 @@ def test_config_binds_launcher_hash_and_registry_contract() -> None:
     assert evidence["validated_payload_sha256"] == digest
     assert config["resource_alias"] == "idle-a800-robot-stage-s-graphics-8gpu"
     assert runtime["pod_env"] == {
-        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"
+        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics",
+        "PAI_TASK_STAGE_S_APPLICATION_RUN_ID": "r142-stage-s-b-calibration-20260903-r14",
     }
     assert runtime["command_file"] == (
         "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/"
@@ -106,7 +109,11 @@ def test_config_binds_launcher_hash_and_registry_contract() -> None:
     assert runtime["output_mode"] == "resume"
     assert runtime["create_artifact_dir"] is True
     assert runtime["recursive_repair"] is False
-    assert runtime["write_paths"] == ["{{ARTIFACT_DIR}}"]
+    assert runtime["write_paths"] == [
+        "{{ARTIFACT_DIR}}",
+        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration/"
+        "r142-stage-s-b-calibration-20260903-r14",
+    ]
     assert runtime["uid"] == runtime["gid"] == 2254
     assert config["storage"]["output_root"] == (
         "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/"
@@ -196,7 +203,8 @@ def test_source_provenance_compute_and_daily_resume_contract() -> None:
     }
     assert evidence["resume_contract"] == {
         "same_artifact_dir": True,
-        "same_run_id": True,
+        "same_application_run_id": True,
+        "fresh_controller_run_id": True,
         "idempotent_rank_markers": True,
         "aggregate_requires_all_ranks": True,
         "fail_closed_on_preemption": True,
