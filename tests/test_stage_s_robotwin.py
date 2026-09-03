@@ -647,13 +647,44 @@ def test_runner_requires_gate_and_persists_seed_eef_object_genealogy(tmp_path):
     for candidate in payload["candidates"]:
         assert candidate["seed_sequence"]
         assert candidate["seed_genealogy"]["root_seed"] == 14211
+        assert candidate["root_family_id"] == "family-1"
+        assert candidate["candidate_seed"] == candidate["seed"]
         assert candidate["eef_trajectory"]
         assert candidate["object_trajectories"]["object"]
         assert isinstance(candidate["object_trajectories"]["object"][0][0], (int, float))
         assert candidate["policy_history"] is not None
         assert candidate["action_queue"] is not None
         assert set(candidate["rng_state"]) == {"environment", "policy"}
+        assert candidate["snapshot"]["simulator"] is not None
+        assert candidate["snapshot"]["policy_history"] is not None
+        assert candidate["snapshot"]["action_queue"] is not None
+        assert candidate["snapshot"]["rng_streams"]["environment"] is not None
+        assert candidate["snapshot"]["rng_streams"]["policy"] is not None
+        assert candidate["snapshot_restore_check"]["same_action"] is True
+        assert candidate["snapshot_restore_check"]["passed"] is True
+        assert candidate["snapshot_restore_check"] == candidate["snapshot"]["snapshot_restore_check"]
         assert candidate["final_success"] is True
+
+
+def test_atomic_writer_rejects_mismatched_candidate_seed_and_root(tmp_path):
+    writer = AtomicFamilyWriter(tmp_path)
+    record = CandidateRecord(
+        candidate_id="family-0/candidate-0000",
+        parent_id=None,
+        generation_step=0,
+        candidate_index=0,
+        final_success=False,
+        terminated=True,
+        termination_reason="official_step_limit",
+        terminal_step=0,
+        termination="official_step_limit",
+        family_id="family-0",
+        root_family_id="other-family",
+        seed=7,
+        candidate_seed=8,
+    )
+    with pytest.raises(CapabilityError, match="root_family_id"):
+        writer.write("family-0", [record])
 
 
 def test_completed_family_is_idempotent_and_corruption_fails_closed(tmp_path):

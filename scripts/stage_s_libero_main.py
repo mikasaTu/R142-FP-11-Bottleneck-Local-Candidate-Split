@@ -373,7 +373,14 @@ def main(argv: list[str] | None = None) -> int:
         for task, state in pairs
     ]
     for path in result["family_paths"]:
-        if not family_is_complete(path, expected_candidates=args.candidate_count):
+        if not family_is_complete(
+            path,
+            expected_candidates=args.candidate_count,
+            # A production B/C run enables --validate-snapshots; do not emit
+            # a rank summary while any family still lacks strict candidate
+            # genealogy/replay evidence.
+            strict=bool(args.validate_snapshots),
+        ):
             raise SystemExit(f"rank completed without a complete family: {path}")
     summary_path = args.output / f"{args.substrate}_MAIN_SUMMARY_RANK-{rank:04d}.json"
     atomic_json(summary_path, result)

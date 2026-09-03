@@ -719,11 +719,16 @@ class ExactReplayVerifier:
                 f"tolerance={self.tolerance:.3g}"
             )
         return {
+            "same_action": True,
             "passed": True,
             "tolerance": self.tolerance,
             "action_error": action_error,
             "simulator_state_error": simulator_state_error,
             "next_state_error": next_state_error,
+            # Keep the canonical Stage-S name alongside the historical
+            # ``next_state_error`` field.  Finalizers and total analysis bind
+            # this value to the frozen <=1e-9 contract.
+            "same_action_next_state_max_abs_error": next_state_error,
         }
 
 
@@ -1184,11 +1189,13 @@ class ConcreteRoboTwinRuntime:
                 f", simulator_state_error={simulator_state_error:.3g}"
             )
         return {
+            "same_action": True,
             "passed": True,
             "tolerance": 1e-9,
             "action_error": action_error,
             "next_state_error": next_state_error,
             "simulator_state_error": simulator_state_error,
+            "same_action_next_state_max_abs_error": next_state_error,
         }
 
 
@@ -1323,8 +1330,13 @@ class CandidateRecord:
     termination: Optional[str] = None
     task_name: str = ""
     family_id: str = ""
+    # Explicit root binding is persisted in addition to ``family_id`` so a
+    # genealogy row cannot accidentally inherit its root from a directory
+    # path during downstream analysis.
+    root_family_id: str = ""
     initial_state_id: str = ""
     seed: int = 0
+    candidate_seed: Optional[int] = None
     policy_forwards: int = 0
     env_steps: int = 0
     seed_sequence: list = field(default_factory=list)
@@ -1334,6 +1346,11 @@ class CandidateRecord:
     policy_history: Any = None
     action_queue: Any = None
     rng_state: Any = None
+    # The snapshot/check are candidate-local evidence.  The family-level
+    # SNAPSHOT.json is retained for compatibility, but total analysis must
+    # also be able to audit the exact state from which each candidate began.
+    snapshot: Any = None
+    snapshot_restore_check: Any = None
 
     def as_dict(self) -> Dict[str, Any]:
         payload = {}
@@ -1344,9 +1361,18 @@ class CandidateRecord:
             "object_trajectories",
         }
         for key, value in self.__dict__.items():
-            payload[key] = (
-                _numeric_jsonable(value) if key in numeric_fields else _jsonable(value)
-            )
+            if key == "snapshot":
+                encoded = _snapshot_jsonable(value)
+                if isinstance(encoded, Mapping) and self.snapshot_restore_check is not None:
+                    encoded = dict(encoded)
+                    encoded["snapshot_restore_check"] = _jsonable(
+                        self.snapshot_restore_check
+                    )
+                payload[key] = encoded
+            else:
+                payload[key] = (
+                    _numeric_jsonable(value) if key in numeric_fields else _jsonable(value)
+                )
         return payload
 
 
@@ -1461,6 +1487,18 @@ class AtomicFamilyWriter:
                     "(terminated, termination_reason, terminal_step == env_steps)"
                 )
         logical_id = str(logical_family_id or family_id)
+        for record in records:
+            # Older call sites supplied only ``family_id``/``seed``.  Resolve
+            # those aliases at the immutable persistence boundary so every
+            # accepted row carries an explicit root and candidate seed.
+            if not record.root_family_id:
+                record.root_family_id = logical_id
+            if record.root_family_id != logical_id:
+                raise CapabilityError("candidate root_family_id disagrees with the family root")
+            if record.candidate_seed is None:
+                record.candidate_seed = int(record.seed)
+            if int(record.candidate_seed) != int(record.seed):
+                raise CapabilityError("candidate_seed disagrees with seed")
         metadata_payload = dict(metadata or {})
         metadata_payload.setdefault("family_id", logical_id)
         metadata_payload.setdefault("source_family_id", str(family_id))
@@ -1680,7 +1718,12 @@ class FamilyRolloutRunner:
         # Mandatory fail-closed preflight.  It runs before candidate 0 and
         # before any completion marker can be written.  The original initial
         # state is restored after the two replay probes.
-        replay_gate = replay.verify_restore()
+        replay_gate = dict(replay.verify_restore())
+        replay_gate.setdefault("same_action", True)
+        replay_gate.setdefault(
+            "same_action_next_state_max_abs_error",
+            replay_gate.get("next_state_error"),
+        )
         replay.restore(base)
         records = []
         for index in range(candidate_count):
@@ -1689,8 +1732,17 @@ class FamilyRolloutRunner:
                 seed_sequence.generate_state(1)[0]
             )
             policy = first if index == 0 else self.policy_factory(seed)
-            ExactReplayVerifier(env, policy).restore(base)
+            # ``base`` contains the initial simulator and first-policy state.
+            # Restore it through the candidate's verifier as well: restoring
+            # only through ``replay`` would leave a newly-created candidate
+            # with factory-default history/queue/RNG rather than the actual
+            # family initial state.
+            candidate_replay = ExactReplayVerifier(env, policy)
+            candidate_replay.restore(base)
             self._seed_policy(policy, seed)
+            # Capture after the candidate seed is installed so the persisted
+            # snapshot binds its independent policy RNG to this genealogy row.
+            candidate_snapshot = candidate_replay.capture()
             record = CandidateRecord(
                 candidate_id=f"{family_id}/candidate-{index:04d}",
                 candidate_index=index,
@@ -1698,8 +1750,10 @@ class FamilyRolloutRunner:
                 generation_step=0,
                 task_name=task_name,
                 family_id=family_id,
+                root_family_id=family_id,
                 initial_state_id=initial_state_id,
                 seed=seed,
+                candidate_seed=seed,
                 seed_sequence=[int(initial_seed), int(index)],
                 seed_genealogy={
                     "root_seed": int(initial_seed),
@@ -1708,6 +1762,23 @@ class FamilyRolloutRunner:
                 },
             )
             self._rollout(env, policy, record)
+            if not record.action_prefix:
+                raise CapabilityError("candidate produced no action for snapshot replay evidence")
+            # Replay the exact first action from the candidate's actual
+            # trajectory.  The snapshot is restored before this check, so the
+            # check is attached to the same simulator/history/action queue/RNG
+            # state that produced the persisted prefix.
+            candidate_replay.restore(candidate_snapshot)
+            replay_check = dict(
+                candidate_replay.verify_restore(action=record.action_prefix[0])
+            )
+            replay_check.setdefault("same_action", True)
+            replay_check.setdefault(
+                "same_action_next_state_max_abs_error",
+                replay_check.get("next_state_error"),
+            )
+            record.snapshot = candidate_snapshot
+            record.snapshot_restore_check = replay_check
             records.append(record)
         family_metadata = {
             "task_name": task_name,
@@ -1717,6 +1788,8 @@ class FamilyRolloutRunner:
             "candidate_rng": "SeedSequence([initial_seed, candidate_index])",
             "termination": "official eval_success or step_lim",
             "replay_capability_gate": replay_gate,
+            "genealogy_root": family_id,
+            "candidate_snapshot_contract": "per-candidate simulator/history/action_queue/python_numpy_torch_cpu_cuda/environment_policy_rng",
         }
         if metadata is not None:
             for key, value in metadata.items():

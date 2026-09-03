@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import pickle
 import types
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import numpy as np
 import pytest
 
 import r142_stage_s.libero as libero
+from scripts.stage_s_libero_main_finalize import MainEvaluationError, _verify_snapshot
 from r142_stage_s.libero import (
     B_INIT_STATE_COUNT,
     C_RETAIN_STEPS,
@@ -95,6 +97,19 @@ class FakePolicy:
         del observation
         del seed, counter
         return np.tile(np.asarray([1.0, 0.0], dtype=np.float32), (5, 1))
+
+
+class ReplayFakePolicy(FakePolicy):
+    """Small policy exposing a real mutable RNG owner for strict snapshots."""
+
+    def __init__(self) -> None:
+        self._rng_state = {"seed": 17}
+
+    def get_rng_state(self) -> dict[str, int]:
+        return dict(self._rng_state)
+
+    def set_rng_state(self, value: dict[str, int]) -> None:
+        self._rng_state = dict(value)
 
 
 def test_task64_pose_vector_uses_only_eef_workspace_state():
@@ -539,6 +554,52 @@ def test_family_artifacts_are_atomic_and_resumable(tmp_path: Path) -> None:
     assert family_is_complete(target, expected_candidates=4)
     (target / "rollouts.npz").write_bytes((target / "rollouts.npz").read_bytes() + b"corrupt")
     assert family_is_complete(target, expected_candidates=4) is False
+
+
+def test_strict_bc_family_persists_candidate_replay_and_rejects_missing_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def factory(**kwargs: object) -> FakeSnapshotEnvironment:
+        del kwargs
+        return FakeSnapshotEnvironment()
+
+    # The dev14 test interpreter is intentionally CPU/minimal and may not
+    # ship Torch.  Keep the producer contract test deterministic by supplying
+    # a shape-faithful stand-in; the production path still fails closed when
+    # these streams cannot be captured.
+    monkeypatch.setattr(
+        libero,
+        "_torch_rng_state",
+        lambda: {"cpu": [1], "cuda": []},
+    )
+    monkeypatch.setattr(libero, "_require_full_torch_rng", lambda state: None)
+    monkeypatch.setattr(libero, "_restore_torch_rng", lambda state: None)
+    family = collect_family(
+        factory,
+        ReplayFakePolicy(),
+        variant=types.SimpleNamespace(substrate="C"),
+        task_id=0,
+        init_state=0,
+        candidate_count=4,
+        max_steps=4,
+        validate_snapshots=True,
+    )
+    family["metadata_extra"] = {
+        "substrate_annotation": "WEAK_SUBSTRATE",
+        "rank": 0,
+        "world_size": 8,
+    }
+    target = tmp_path / "C" / "task00" / "init000"
+    write_family_atomic(target, family)
+    assert family_is_complete(target, expected_candidates=4, strict=True)
+    with (target / "snapshots.pkl").open("rb") as stream:
+        payload = pickle.load(stream)
+    payload["candidates"]["0"].pop("snapshot_restore_check")
+    bad = tmp_path / "bad-snapshots.pkl"
+    with bad.open("wb") as stream:
+        pickle.dump(payload, stream, protocol=5)
+    with pytest.raises(MainEvaluationError, match="replay check"):
+        _verify_snapshot(bad, expected_candidates=4)
 
 
 def test_c_requires_four_exact_real_undertrained_checkpoints(tmp_path: Path) -> None:

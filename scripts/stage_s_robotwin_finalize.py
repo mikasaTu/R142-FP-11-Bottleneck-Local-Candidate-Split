@@ -86,7 +86,13 @@ def _read_json(path: Path) -> Mapping[str, Any]:
     return value
 
 
-def _verify_manifest_file(root: Path, manifest: Path, *, allow_self: bool = False) -> None:
+def _verify_manifest_file(
+    root: Path,
+    manifest: Path,
+    *,
+    allow_self: bool = False,
+    expected_paths: set[str] | None = None,
+) -> None:
     if not manifest.is_file() or manifest.is_symlink():
         raise EvaluationBundleError(f"SHA256SUMS is missing or symlinked: {manifest}")
     seen: set[str] = set()
@@ -112,6 +118,13 @@ def _verify_manifest_file(root: Path, manifest: Path, *, allow_self: bool = Fals
         raise EvaluationBundleError(f"empty checksum manifest: {manifest}")
     if not allow_self and manifest.name in seen:
         raise EvaluationBundleError(f"nested checksum manifest self-hash is forbidden: {manifest}")
+    if expected_paths is not None and seen != set(expected_paths):
+        missing = sorted(set(expected_paths) - seen)
+        extra = sorted(seen - set(expected_paths))
+        raise EvaluationBundleError(
+            f"checksum manifest does not exactly cover the completed root: "
+            f"missing={missing[:3]} extra={extra[:3]}"
+        )
 
 
 def _finite_vector(value: Any, width: int) -> bool:
@@ -183,6 +196,7 @@ def _verify_family(
     required = {
         "candidate_id", "parent_id", "generation_step", "action_prefix",
         "final_success", "task_name", "family_id", "initial_state_id", "seed",
+        "root_family_id", "candidate_seed", "snapshot", "snapshot_restore_check",
         "seed_sequence", "seed_genealogy", "policy_history", "action_queue", "rng_state",
         "candidate_index", "pose_trajectory", "eef_trajectory", "object_trajectories",
         "terminated", "termination_reason", "termination", "terminal_step",
@@ -198,6 +212,13 @@ def _verify_family(
             raise EvaluationBundleError(f"candidate id/order mismatch: {directory}")
         if candidate.get("family_id") != family_id or candidate.get("task_name") != task:
             raise EvaluationBundleError(f"candidate family/task mismatch: {directory}")
+        if (
+            candidate.get("root_family_id") != family_id
+            or candidate.get("parent_id") is not None
+            or int(candidate.get("generation_step", -1)) != 0
+            or int(candidate.get("candidate_seed", -1)) != int(candidate.get("seed", -2))
+        ):
+            raise EvaluationBundleError(f"candidate root genealogy binding drifted: {directory}")
         if not isinstance(candidate.get("final_success"), bool):
             raise EvaluationBundleError(f"candidate success is not a boolean: {directory}")
         if not isinstance(candidate.get("action_prefix"), list):
@@ -231,6 +252,35 @@ def _verify_family(
             raise EvaluationBundleError(f"candidate object trajectories drifted: {directory}")
         if not isinstance(candidate.get("seed_genealogy"), Mapping):
             raise EvaluationBundleError(f"candidate seed genealogy is not persisted: {directory}")
+        candidate_snapshot = candidate.get("snapshot")
+        if not isinstance(candidate_snapshot, Mapping):
+            raise EvaluationBundleError(f"candidate snapshot is not persisted: {directory}")
+        if (
+            candidate_snapshot.get("simulator") is None
+            or candidate_snapshot.get("policy_history") is None
+            or "action_queue" not in candidate_snapshot
+            or candidate_snapshot.get("action_queue") is None
+        ):
+            raise EvaluationBundleError(f"candidate snapshot lacks simulator/history/queue: {directory}")
+        rng_streams = candidate_snapshot.get("rng_streams")
+        if not isinstance(rng_streams, Mapping) or not isinstance(rng_streams.get("runtime"), Mapping) or not isinstance(rng_streams.get("policy"), Mapping):
+            raise EvaluationBundleError(f"candidate snapshot lacks runtime/policy RNG streams: {directory}")
+        for stream_name in ("runtime", "policy"):
+            stream = rng_streams[stream_name]
+            if any(stream.get(key) is None for key in ("python", "numpy", "torch", "torch_cuda")):
+                raise EvaluationBundleError(f"candidate snapshot {stream_name} RNG streams are incomplete: {directory}")
+        replay = candidate.get("snapshot_restore_check")
+        snapshot_replay = candidate_snapshot.get("snapshot_restore_check")
+        if not isinstance(replay, Mapping) or replay.get("same_action") is not True or replay.get("passed") is not True:
+            raise EvaluationBundleError(f"candidate snapshot replay check is absent: {directory}")
+        if replay != snapshot_replay:
+            raise EvaluationBundleError(f"candidate snapshot replay check is not bound to snapshot: {directory}")
+        try:
+            replay_error = float(replay.get("same_action_next_state_max_abs_error", replay.get("next_state_error")))
+        except (TypeError, ValueError):
+            raise EvaluationBundleError(f"candidate snapshot replay error is not numeric: {directory}") from None
+        if not math.isfinite(replay_error) or replay_error > 1e-9:
+            raise EvaluationBundleError(f"candidate snapshot replay error exceeds 1e-9: {directory}")
         if candidate.get("candidate_id") in ids:
             raise EvaluationBundleError(f"duplicate candidate id: {directory}")
         ids.add(str(candidate.get("candidate_id")))
@@ -248,6 +298,17 @@ def _verify_family(
             raise EvaluationBundleError(f"invalid genealogy JSON: {genealogy}") from exc
         if not isinstance(genealogy_record, Mapping) or genealogy_record.get("candidate_id") != f"{family_id}/candidate-{index:04d}":
             raise EvaluationBundleError(f"genealogy candidate order mismatch: {genealogy}")
+        if (
+            genealogy_record.get("root_family_id") != family_id
+            or genealogy_record.get("parent_id") is not None
+            or int(genealogy_record.get("generation_step", -1)) != 0
+            or genealogy_record.get("candidate_id") != candidates[index].get("candidate_id")
+            or int(genealogy_record.get("candidate_seed", -1)) != int(candidates[index].get("candidate_seed", -2))
+            or int(genealogy_record.get("seed", -1)) != int(candidates[index].get("seed", -2))
+            or genealogy_record.get("action_prefix") != candidates[index].get("action_prefix")
+            or bool(genealogy_record.get("final_success")) != bool(candidates[index].get("final_success"))
+        ):
+            raise EvaluationBundleError(f"genealogy payload is not bound to candidate record: {genealogy}")
     snapshot = _read_json(directory / "SNAPSHOT.json")
     if set(snapshot) != {"simulator", "policy_history", "action_queue", "rng_streams"}:
         raise EvaluationBundleError(f"snapshot does not contain full replay state: {directory}")
@@ -442,7 +503,15 @@ def verify_completed_bundle(
     }
     if result.get("calibration_report_sha256") != expected_report_shas:
         raise EvaluationBundleError("top-level completion calibration report hashes drifted")
-    _verify_manifest_file(root, root / "SHA256SUMS")
+    expected_paths = {
+        path.relative_to(root).as_posix()
+        for path in _all_files(root)
+    }
+    _verify_manifest_file(
+        root,
+        root / "SHA256SUMS",
+        expected_paths=expected_paths,
+    )
     return result
 
 

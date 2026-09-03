@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import pickle
 import tempfile
@@ -65,7 +66,13 @@ def _read_json(path: Path) -> Mapping[str, Any]:
     return value
 
 
-def _verify_manifest(root: Path, manifest: Path, *, allow_self: bool = False) -> None:
+def _verify_manifest(
+    root: Path,
+    manifest: Path,
+    *,
+    allow_self: bool = False,
+    expected_paths: set[str] | None = None,
+) -> None:
     if manifest.is_symlink() or not manifest.is_file():
         raise MainEvaluationError(f"checksum manifest is missing or symlinked: {manifest}")
     seen: set[str] = set()
@@ -90,6 +97,24 @@ def _verify_manifest(root: Path, manifest: Path, *, allow_self: bool = False) ->
         raise MainEvaluationError(f"empty checksum manifest: {manifest}")
     if not allow_self and manifest.name in seen:
         raise MainEvaluationError(f"manifest self-hash is forbidden: {manifest}")
+    if expected_paths is not None and seen != set(expected_paths):
+        missing = sorted(set(expected_paths) - seen)
+        extra = sorted(seen - set(expected_paths))
+        raise MainEvaluationError(
+            "checksum manifest does not exactly cover the completed root: "
+            f"missing={missing[:3]} extra={extra[:3]}"
+        )
+
+
+def _completed_root_files(root: Path, manifest: Path) -> set[str]:
+    files: set[str] = set()
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.is_symlink() or path == manifest:
+            continue
+        if path.name.endswith(".tmp") or path.name.startswith("."):
+            raise MainEvaluationError(f"temporary file remains in completed output: {path}")
+        files.add(path.relative_to(root).as_posix())
+    return files
 
 
 def _write_atomic(path: Path, data: bytes) -> None:
@@ -111,7 +136,7 @@ def _expected_pairs(rank: int) -> tuple[tuple[int, int], ...]:
     return pairs[rank::WORLD_SIZE]
 
 
-def _verify_snapshot(path: Path, *, expected_candidates: int) -> None:
+def _verify_snapshot(path: Path, *, expected_candidates: int) -> Mapping[str, Any]:
     if path.is_symlink() or not path.is_file():
         raise MainEvaluationError(f"snapshot bundle is missing or symlinked: {path}")
     try:
@@ -136,6 +161,16 @@ def _verify_snapshot(path: Path, *, expected_candidates: int) -> None:
         torch_state = snapshot.get("torch_rng_state")
         if not isinstance(torch_state, Mapping) or "cpu" not in torch_state or "cuda" not in torch_state:
             raise MainEvaluationError(f"snapshot lacks Torch CPU/CUDA RNG state: {path} candidate={candidate_id}")
+        replay = snapshot.get("snapshot_restore_check")
+        if not isinstance(replay, Mapping) or replay.get("same_action") is not True or replay.get("passed") is not True:
+            raise MainEvaluationError(f"snapshot lacks a passing candidate replay check: {path} candidate={candidate_id}")
+        try:
+            error = float(replay.get("same_action_next_state_max_abs_error", replay.get("max_abs_error")))
+        except (TypeError, ValueError):
+            raise MainEvaluationError(f"snapshot replay error is not numeric: {path} candidate={candidate_id}") from None
+        if not math.isfinite(error) or error > 1e-9:
+            raise MainEvaluationError(f"snapshot replay error exceeds 1e-9: {path} candidate={candidate_id}")
+    return candidates
 
 
 def _verify_family(
@@ -150,7 +185,11 @@ def _verify_family(
     protocol: Mapping[str, Any],
 ) -> Mapping[str, Any]:
     directory = root / substrate / f"task{task:02d}" / f"init{state:03d}"
-    if not family_is_complete(directory, expected_candidates=MAIN_CANDIDATE_COUNT):
+    if not family_is_complete(
+        directory,
+        expected_candidates=MAIN_CANDIDATE_COUNT,
+        strict=True,
+    ):
         raise MainEvaluationError(f"family is incomplete or hash-invalid: {directory}")
     metadata = _read_json(directory / "metadata.json")
     expected = {
@@ -158,6 +197,7 @@ def _verify_family(
         "substrate": substrate,
         "task_id": task,
         "init_state": state,
+        "root_family_id": f"task{task:02d}_init{state:03d}",
         "candidate_count": MAIN_CANDIDATE_COUNT,
         "rank": rank,
         "world_size": WORLD_SIZE,
@@ -179,6 +219,17 @@ def _verify_family(
         raise MainEvaluationError(f"B family has an unexpected substrate annotation: {directory}")
 
     marker = _read_json(directory / "COMPLETED_FAMILY.json")
+    marker_identity = {
+        "family_id": metadata.get("family_id"),
+        "root_family_id": metadata.get("root_family_id"),
+        "task_id": metadata.get("task_id"),
+        "init_state": metadata.get("init_state"),
+        "rank": rank,
+        "world_size": WORLD_SIZE,
+    }
+    for key, value in marker_identity.items():
+        if marker.get(key) != value:
+            raise MainEvaluationError(f"family completion {key} drifted at {directory}")
     for key in PROTOCOL_IDENTITY_KEYS:
         if marker.get(key) != protocol.get(key):
             raise MainEvaluationError(f"family completion protocol identity drifted at {directory}: {key}")
@@ -190,6 +241,12 @@ def _verify_family(
         successes = int(success.astype("int64").sum())
         policy_forwards = int(data["policy_forwards"].astype("int64").sum())
         environment_steps = int(data["environment_steps"].astype("int64").sum())
+        candidate_ids = data["candidate_id"].copy()
+        candidate_seeds = data["candidate_seed"].copy()
+        candidate_indices = data["candidate_index"].copy()
+        lengths = data["lengths"].copy()
+        offsets = data["offsets"].copy()
+        actions = data["actions"].copy()
     try:
         genealogy = json.loads((directory / "genealogy.json").read_text(encoding="utf-8"))
     except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
@@ -199,7 +256,33 @@ def _verify_family(
     for index, item in enumerate(genealogy):
         if not isinstance(item, Mapping) or item.get("candidate_id") != index or "action_prefix" not in item or "final_success" not in item:
             raise MainEvaluationError(f"genealogy schema drifted: {directory} candidate={index}")
-    _verify_snapshot(directory / "snapshots.pkl", expected_candidates=MAIN_CANDIDATE_COUNT)
+        if (
+            item.get("candidate_index") != index
+            or item.get("parent_id") is not None
+            or item.get("generation_step") != 0
+            or item.get("root_family_id") != metadata.get("family_id")
+            or item.get("family_id") != metadata.get("family_id")
+            or int(item.get("candidate_seed", -1)) != int(candidate_seeds[index])
+            or int(item.get("seed", -1)) != int(candidate_seeds[index])
+            or int(candidate_ids[index]) != index
+            or int(candidate_indices[index]) != index
+            or bool(item.get("final_success")) != bool(success[index])
+            or item.get("terminated") is not True
+            or item.get("termination") != item.get("termination_reason")
+            or not isinstance(item.get("termination"), str)
+            or int(item.get("terminal_step", -1)) != int(lengths[index])
+            or bool(item.get("final_success")) != (item.get("termination") == "official_eval_success")
+        ):
+            raise MainEvaluationError(f"genealogy root/id/seed binding drifted: {directory} candidate={index}")
+        start, stop = int(offsets[index]), int(offsets[index + 1])
+        expected_actions = actions[start:stop].astype(float).tolist()
+        if item.get("action_prefix") != expected_actions:
+            raise MainEvaluationError(f"genealogy action_prefix is not bound to rollouts: {directory} candidate={index}")
+    snapshots = _verify_snapshot(directory / "snapshots.pkl", expected_candidates=MAIN_CANDIDATE_COUNT)
+    for index in range(MAIN_CANDIDATE_COUNT):
+        snapshot = snapshots.get(str(int(candidate_ids[index])))
+        if not isinstance(snapshot, Mapping):
+            raise MainEvaluationError(f"snapshot candidate id is missing: {directory} candidate={index}")
     return {
         "task": task,
         "init_state": state,
@@ -249,7 +332,12 @@ def verify_completed_bundle(
                 raise MainEvaluationError(f"top-level protocol identity drifted: {key}")
         if result.get("protocol_acceptance") != protocol:
             raise MainEvaluationError("top-level frozen protocol acceptance drifted")
-    _verify_manifest(root, root / "SHA256SUMS")
+    manifest = root / "SHA256SUMS"
+    _verify_manifest(
+        root,
+        manifest,
+        expected_paths=_completed_root_files(root, manifest),
+    )
     return result
 
 

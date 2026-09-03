@@ -46,7 +46,9 @@ from r142_stage_s.robotwin import (
     FamilyRolloutRunner,
     RoboTwinPins,
     STAGE_S_PROTOCOL_ID,
+    _capture_rng_state,
     _jsonable,
+    _restore_rng_state,
     select_published_tasks,
 )
 
@@ -398,10 +400,23 @@ class OfficialEvoPolicy:
         self.stateful.restore_action_queue(value)
 
     def capture_rng_state(self) -> Any:
-        return self.stateful.capture_rng_state()
+        # Persist process-level Python/NumPy/Torch CPU/CUDA streams together
+        # with the server/local policy owner stream.  The latter alone is not
+        # sufficient to prove that a stochastic policy replayed identically.
+        return _capture_rng_state(
+            self.stateful,
+            "RoboTwin policy",
+            require_owner=True,
+            require_torch=True,
+        )
 
     def restore_rng_state(self, value: Any) -> None:
-        self.stateful.restore_rng_state(value)
+        _restore_rng_state(
+            self.stateful,
+            value,
+            "RoboTwin policy",
+            require_torch=True,
+        )
 
     def close(self) -> None:
         close = getattr(self.stateful.proxy, "close", None)

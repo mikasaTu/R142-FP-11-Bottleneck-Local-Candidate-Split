@@ -230,6 +230,31 @@ def test_finalizer_source_contains_no_synthetic_fallback() -> None:
 def test_finalizer_accepts_task_qualified_family_identity(tmp_path: Path) -> None:
     task = "blocks_ranking_size"
     logical_family = f"{task}/family-0000"
+    candidate_snapshot = {
+        "simulator": {"state": [0.0]},
+        "policy_history": {"frames": []},
+        "action_queue": {"actions": []},
+        "rng_streams": {
+            "runtime": {
+                "python": [1],
+                "numpy": [2],
+                "torch": [3],
+                "torch_cuda": [],
+            },
+            "policy": {
+                "python": [4],
+                "numpy": [5],
+                "torch": [6],
+                "torch_cuda": [],
+            },
+        },
+        "snapshot_restore_check": {
+            "passed": True,
+            "same_action": True,
+            "max_abs_error": 0.0,
+            "same_action_next_state_max_abs_error": 0.0,
+        },
+    }
     records = []
     for index in range(32):
         success = index == 0
@@ -260,6 +285,8 @@ def test_finalizer_accepts_task_qualified_family_identity(tmp_path: Path) -> Non
                 policy_history={"frames": []},
                 action_queue={"actions": []},
                 rng_state={"environment": {"state": index}, "policy": {"state": index}},
+                snapshot=candidate_snapshot,
+                snapshot_restore_check=candidate_snapshot["snapshot_restore_check"],
             )
         )
     protocol = {
