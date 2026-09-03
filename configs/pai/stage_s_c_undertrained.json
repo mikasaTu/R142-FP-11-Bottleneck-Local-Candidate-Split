@@ -18,8 +18,8 @@
     "workers": 1,
     "gpu": 8,
     "cpu": 88,
-    "memory": "1525Gi",
-    "shared_memory": "1525Gi"
+    "memory": "1400Gi",
+    "shared_memory": "1400Gi"
   },
   "provenance": {
     "contract_source_job_id": "dlckjz66iwcv38gw",
@@ -52,8 +52,8 @@
     "count": 1,
     "gpu": 8,
     "cpu": 88,
-    "memory": "1525Gi",
-    "shared_memory": "1525Gi",
+    "memory": "1400Gi",
+    "shared_memory": "1400Gi",
     "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04"
   },
   "storage": {

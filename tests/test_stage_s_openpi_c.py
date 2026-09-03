@@ -335,7 +335,8 @@ def test_registry_v2_payload_binds_pinned_runtime_and_stages() -> None:
     assert payload["quota_name"] == "exp-robot"
     assert payload["worker"]["gpu"] == 8
     assert payload["worker"]["cpu"] == 88
-    assert payload["worker"]["memory"] == "1525Gi"
+    assert payload["worker"]["memory"] == "1400Gi"
+    assert payload["worker"]["shared_memory"] == "1400Gi"
     assert payload["runtime"]["python"] == DEFAULT_OPENPI_PYTHON
     assert payload["runtime"]["uid"] == payload["runtime"]["gid"] == 2254
     assert payload["runtime"]["project_dir"] == \
