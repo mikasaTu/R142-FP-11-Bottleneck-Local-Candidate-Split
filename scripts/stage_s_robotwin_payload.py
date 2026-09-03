@@ -101,7 +101,7 @@ def build_payload(
             "gpu_type": "A800",
             "gpu_count": 8,
             "cpu_cores": 88,
-            "memory_gib": 1525,
+            "memory_gib": 1400,
         },
         "resume": {
             "policy": "same_directory_idempotent",

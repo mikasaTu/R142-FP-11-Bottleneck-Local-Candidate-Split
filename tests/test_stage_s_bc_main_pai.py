@@ -130,8 +130,8 @@ def test_main_config_binds_external_payload_and_idle_shape(substrate: str) -> No
         "count": 1,
         "gpu": 8,
         "cpu": 88,
-        "memory": "1525Gi",
-        "shared_memory": "1525Gi",
+        "memory": "1400Gi",
+        "shared_memory": "1400Gi",
         "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04",
     }
     assert runtime["pod_env"] == {"NVIDIA_DRIVER_CAPABILITIES": "compute,utility,graphics"}

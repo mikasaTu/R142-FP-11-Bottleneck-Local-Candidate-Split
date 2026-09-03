@@ -82,7 +82,7 @@ B_INIT_STATE_SEED_BASE = 142011
 
 PAI_MAX_GPU = 8
 PAI_MAX_CPU = 88
-PAI_MAX_MEMORY_GIB = 1525
+PAI_MAX_MEMORY_GIB = 1400
 PAI_ROBOT_IDLE_RESOURCE_ALIAS = "idle-a800-robot-stage-s-graphics-8gpu"
 PAI_ROBOT_IDLE_RESOURCE_ID = "quota1ssrabud0bh"
 PAI_ROBOT_IDLE_QUOTA_NAME = "exp-robot"
@@ -3152,7 +3152,7 @@ def build_pai_stage_s_payload(
         PAI_MAX_MEMORY_GIB,
         PAI_MAX_MEMORY_GIB,
     ):
-        raise ValueError("Stage-S production payload is frozen to 8 GPU / 88 CPU / 1525 GiB")
+        raise ValueError("Stage-S production payload is frozen to 8 GPU / 88 CPU / 1400 GiB")
     output = Path(output_root).resolve()
     logs = Path(log_root).resolve()
     for name, path in (("output_root", output), ("log_root", logs)):

@@ -702,7 +702,7 @@ def test_payload_builder_freezes_robot_idle_shard_and_guard(tmp_path):
         "gpu_type": "A800",
         "gpu_count": 8,
         "cpu_cores": 88,
-        "memory_gib": 1525,
+        "memory_gib": 1400,
     }
     assert payload["shard"]["assignment"].startswith("flat_task_family_index")
     assert payload["submission"]["submit"] is False
