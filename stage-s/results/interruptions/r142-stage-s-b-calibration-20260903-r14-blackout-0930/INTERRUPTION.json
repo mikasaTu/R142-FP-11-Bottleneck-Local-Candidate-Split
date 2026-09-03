@@ -1,0 +1,11 @@
+{
+  "schema": "r142-stage-s-planned-blackout-interruption-v1",
+  "reason": "mandatory user blackout 09:30-09:40 Asia/Shanghai",
+  "job_id": "dlc2njrbes3vyx3z",
+  "run_id": "r142-stage-s-b-calibration-20260903-r14",
+  "scientific_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/pai_registry/r142_stage_s/b_calibration/r142-stage-s-b-calibration-20260903-r14",
+  "stopped_at": "2026-09-03T09:28:24+08:00",
+  "terminal_status": "Stopped",
+  "completed_shards": 0,
+  "resume_policy": "new PAI controller, exact same scientific directory and frozen protocol after 09:40"
+}
