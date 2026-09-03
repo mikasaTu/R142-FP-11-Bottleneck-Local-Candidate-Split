@@ -26,6 +26,7 @@ from typing import Any, Iterable, Mapping
 SCHEMA = "r142-stage-s-runtime-identity-attestation-v1"
 HEX40 = re.compile(r"^[0-9a-fA-F]{40}$")
 HEX64 = re.compile(r"^[0-9a-fA-F]{64}$")
+PLACEHOLDER = re.compile(r"\{\{[^{}]+\}\}|<[A-Za-z][A-Za-z0-9_.-]*>")
 PATH_TOKENS = (
     "path",
     "root",
@@ -51,6 +52,70 @@ IGNORE_KEYS = {
     "aggregate_sha_file",
     "bundle_sha_file",
 }
+# These fields describe an authority; they are not local filesystem paths.
+# Keeping the classification explicit avoids interpreting identifiers such as
+# ``physical-intelligence/libero`` as a relative path merely because they
+# contain a slash.
+IDENTIFIER_KEYS = frozenset(
+    {
+        "dataset_repo_id",
+        "dataset_id",
+        "repo_id",
+        "dataset_revision",
+        "revision",
+        "resource_id",
+        "workspace_id",
+        "quota_name",
+        "commit",
+        "source_commit",
+        "scientific_source_commit",
+        "stage_s_source_commit",
+        "qpilots_commit",
+        "openpi_commit",
+        "libero_commit",
+    }
+)
+DESCRIPTION_KEYS = frozenset(
+    {
+        "description",
+        "dataset_manifest_sha256_source",
+        "dataset_snapshot_contract",
+        "dependency_compatibility_contract",
+        "stage_s_source_commit_policy",
+        "source_commit_policy",
+        "source_role",
+        "submission_method",
+        "code_source_role",
+        "registry_manifest_type",
+        "terminal_outcome",
+        "genealogy_contract",
+        "trajectory_contract",
+        "replay_gate",
+        "success_gate",
+        "validation_method",
+        "screen_protocol",
+    }
+)
+# A template is a future value, not an input authority.  In particular,
+# status_root is materialized after PAI injects RUN_ID.  A placeholder on an
+# actual input path (for example dataset_manifest_path) remains a refusal;
+# see _field_semantics below.
+TEMPLATE_KEYS = frozenset(
+    {
+        "status_root",
+        "log_root_template",
+        "log_sha_template",
+        "training_pipeline_completion_template",
+    }
+)
+WRITE_ONLY_KEYS = frozenset(
+    {
+        "write_paths",
+        "output_root",
+        "log_root",
+        "log_sha",
+    }
+)
 ARTIFACT_TOKENS = (
     "model",
     "checkpoint",
@@ -221,18 +286,73 @@ def _walk(value: Any, path: tuple[str, ...] = ()) -> Iterable[tuple[tuple[str, .
             yield from _walk(child, path + (str(index),))
 
 
-def _pathish(key: str, value: str) -> bool:
+def _is_authoritative_path_key(key: str) -> bool:
+    """Return whether a field is expected to contain an input path.
+
+    A placeholder in an input authority must remain a hard refusal.  This is
+    intentionally narrower than PATH_TOKENS: metadata fields such as
+    ``dataset_repo_id`` also contain ``repo`` but are identifiers, not paths.
+    """
+
     lower = key.lower()
-    if lower in IGNORE_KEYS or lower.endswith("_template"):
+    return lower in {
+        "path",
+        "root",
+        "repo",
+        "runtime_repo",
+        "project_dir",
+        "command_file",
+        "report",
+        "model",
+        "checkpoint",
+    } or lower.endswith(("_path", "_root"))
+
+
+def _field_semantics(full_path: tuple[str, ...], key: str, value: str) -> str:
+    """Classify a string field before applying filesystem path checks.
+
+    Only fields classified as ``path`` are allowed to reach _path_check.
+    This is a fail-closed distinction: a real input path remains a path even
+    when malformed with an unresolved placeholder, while identifier,
+    description, template, and write-only fields are recorded as skipped.
+    """
+
+    lower = key.lower()
+    if lower in TEMPLATE_KEYS:
+        return "template"
+    if lower in WRITE_ONLY_KEYS or "write_paths" in full_path:
+        return "write-only"
+    if lower in IDENTIFIER_KEYS or lower.endswith(("_repo_id", "_revision", "_commit", "_sha256")):
+        return "identifier"
+    if lower in DESCRIPTION_KEYS or lower.endswith(
+        ("_description", "_contract", "_policy", "_role", "_method", "_outcome")
+    ):
+        return "description"
+    if PLACEHOLDER.search(value) and not _is_authoritative_path_key(lower):
+        return "template"
+    return "path"
+
+
+def _potential_pathish(key: str, value: str) -> bool:
+    """Detect a value that would look path-like without semantic filtering."""
+
+    lower = key.lower()
+    if value.startswith(("http://", "https://")):
         return False
-    if "{{" in value or "}}" in value or value.startswith(("http://", "https://")):
+    if HEX40.fullmatch(value) or HEX64.fullmatch(value):
         return False
     if not any(token in lower for token in PATH_TOKENS):
         return False
-    # Avoid treating prose, commit ids, and SHA values as paths.
-    if HEX40.fullmatch(value) or HEX64.fullmatch(value):
-        return False
     return value.startswith("/") or "/" in value or value in (".", "..")
+
+
+def _pathish(key: str, value: str, full_path: tuple[str, ...] = ()) -> bool:
+    lower = key.lower()
+    if lower in IGNORE_KEYS or lower.endswith("_template"):
+        return False
+    if _field_semantics(full_path, key, value) != "path":
+        return False
+    return _potential_pathish(key, value)
 
 
 def _expected_sha(parent: Mapping[str, Any] | None, key: str) -> str | None:
@@ -294,7 +414,13 @@ def _path_check(
         errors.append(f"sha256_expected_for_directory:{key}:{path}")
 
     if _is_artifact_key(key):
-        manifest = _nearest_manifest(path)
+        # A field explicitly named ``*_manifest_path`` points at the
+        # checksum manifest itself (Stage-S uses DATASET_SHA256SUMS), whereas
+        # model/checkpoint directories carry a conventional adjacent
+        # SHA256SUMS.  Do not require a second manifest beside the manifest
+        # file; verify the declared manifest bytes and all of its entries
+        # directly instead.
+        manifest = path if path.is_file() and "manifest" in key.lower() else _nearest_manifest(path)
         item["manifest"] = str(manifest) if manifest else None
         if manifest is None:
             errors.append(f"artifact_manifest_missing:{key}:{path}")
@@ -363,20 +489,35 @@ def _config_expected_commit(config: Mapping[str, Any]) -> str | None:
     return values[0]
 
 
-def _dependency_bindings(config: Mapping[str, Any]) -> list[dict[str, str]]:
+def _dependency_bindings(config: Mapping[str, Any]) -> tuple[list[dict[str, str]], list[str]]:
     bindings: list[dict[str, str]] = []
+    errors: list[str] = []
+
+    def collect(scope: str, deps: Any) -> None:
+        if not isinstance(deps, Mapping):
+            errors.append(f"dependency_bindings_invalid:{scope}:not_object")
+            return
+        for name, item in deps.items():
+            label = f"{scope}:{name}"
+            if not isinstance(item, Mapping):
+                errors.append(f"dependency_binding_invalid:{label}:not_object")
+                continue
+            path = item.get("path") or item.get("root") or item.get("repo")
+            commit = item.get("commit") or item.get("source_commit")
+            if not isinstance(path, str) or not path:
+                errors.append(f"dependency_path_missing:{label}")
+            if not isinstance(commit, str) or not HEX40.fullmatch(commit):
+                errors.append(f"dependency_commit_invalid:{label}")
+                continue
+            if isinstance(path, str) and path:
+                bindings.append({"name": str(name), "path": path, "expected_commit": commit.lower()})
+
     # Preferred final-config form:
     # runtime.dependencies: {name: {path: ..., commit: ...}}
     runtime = config.get("runtime") if isinstance(config.get("runtime"), Mapping) else {}
     deps = runtime.get("dependencies") if isinstance(runtime, Mapping) else None
     if isinstance(deps, Mapping):
-        for name, item in deps.items():
-            if not isinstance(item, Mapping):
-                continue
-            path = item.get("path") or item.get("root") or item.get("repo")
-            commit = item.get("commit") or item.get("source_commit")
-            if isinstance(path, str) and isinstance(commit, str) and HEX40.fullmatch(commit):
-                bindings.append({"name": str(name), "path": path, "expected_commit": commit.lower()})
+        collect("runtime.dependencies", deps)
 
     # Existing Stage-S configs keep roots in evidence.source_provenance and
     # commit pins alongside them (qpilots_root/qpilots_commit, etc.).
@@ -393,25 +534,22 @@ def _dependency_bindings(config: Mapping[str, Any]) -> list[dict[str, str]]:
                 stem = stem[:-5]
             candidates = [f"{stem}_commit", f"{stem}_source_commit"]
             commit = next((evidence.get(c) for c in candidates if isinstance(evidence.get(c), str)), None)
-            if isinstance(commit, str) and HEX40.fullmatch(commit):
+            if not isinstance(commit, str) or not HEX40.fullmatch(commit):
+                errors.append(f"dependency_commit_invalid:evidence.source_provenance:{root_key}")
+            else:
                 bindings.append({"name": stem, "path": path, "expected_commit": commit.lower()})
 
     # A lightweight generic form also works when dependency pins are under a
     # top-level dependencies object.
     top_deps = config.get("dependencies")
     if isinstance(top_deps, Mapping):
-        for name, item in top_deps.items():
-            if isinstance(item, Mapping):
-                path = item.get("path") or item.get("root") or item.get("repo")
-                commit = item.get("commit") or item.get("source_commit")
-                if isinstance(path, str) and isinstance(commit, str) and HEX40.fullmatch(commit):
-                    bindings.append({"name": str(name), "path": path, "expected_commit": commit.lower()})
+        collect("dependencies", top_deps)
     # Stable ordering and de-duplication make the attestation deterministic.
     unique: dict[tuple[str, str, str], dict[str, str]] = {}
     for binding in bindings:
         key = (binding["name"], binding["path"], binding["expected_commit"])
         unique[key] = binding
-    return [unique[key] for key in sorted(unique)]
+    return [unique[key] for key in sorted(unique)], sorted(set(errors))
 
 
 def _source_commit_consistency(config: Mapping[str, Any], runtime_expected: str | None) -> list[str]:
@@ -501,6 +639,7 @@ def attest_config(config_path: str | Path) -> dict[str, Any]:
         "runtime": {},
         "dependencies": [],
         "artifacts": [],
+        "path_skips": [],
         "resource": {},
         "errors": [],
     }
@@ -569,6 +708,9 @@ def attest_config(config_path: str | Path) -> dict[str, Any]:
     if isinstance(runtime_repo_value, str):
         runtime_identity = _git_identity(Path(runtime_repo_value).expanduser())
         runtime_record["repository"] = runtime_identity
+        # ``dict.update`` above copied the scalar runtime fields; keep the
+        # observed checkout attached to the returned attestation as well.
+        result["runtime"]["repository"] = runtime_identity
         if not runtime_identity.get("git"):
             errors.append("runtime_git_missing")
         elif runtime_identity.get("head") != runtime_expected:
@@ -581,9 +723,21 @@ def attest_config(config_path: str | Path) -> dict[str, Any]:
 
     manifest_cache: dict[Path, dict[str, Any]] = {}
     path_checks: list[dict[str, Any]] = []
+    path_skips: list[dict[str, str]] = []
     seen_paths: set[tuple[str, str]] = set()
     for full_path, key, value, parent in _walk(config):
-        if not _pathish(key, value):
+        semantics = _field_semantics(full_path, key, value)
+        if semantics != "path":
+            if _potential_pathish(key, value):
+                path_skips.append(
+                    {
+                        "json_path": ".".join(full_path),
+                        "key": key,
+                        "semantic": semantics,
+                    }
+                )
+            continue
+        if not _pathish(key, value, full_path):
             continue
         # Write-only roots and ordinary storage mount paths are not input
         # identity authorities.  They are covered by the PAI resource config,
@@ -603,9 +757,15 @@ def attest_config(config_path: str | Path) -> dict[str, Any]:
         path_checks.append(item)
         errors.extend(item_errors)
     result["artifacts"] = sorted(path_checks, key=lambda row: (str(row.get("key")), str(row.get("path"))))
+    result["path_skips"] = sorted(
+        path_skips,
+        key=lambda row: (row["json_path"], row["key"], row["semantic"]),
+    )
 
     dependency_records: list[dict[str, Any]] = []
-    for binding in _dependency_bindings(config):
+    dependency_bindings, dependency_binding_errors = _dependency_bindings(config)
+    errors.extend(dependency_binding_errors)
+    for binding in dependency_bindings:
         identity = _git_identity(Path(binding["path"]).expanduser())
         row = dict(binding)
         row["observed"] = identity

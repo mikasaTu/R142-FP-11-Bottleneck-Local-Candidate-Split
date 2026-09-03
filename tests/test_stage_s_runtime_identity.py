@@ -175,8 +175,103 @@ def test_valid_fixture_passes_and_is_deterministic(fixture_config) -> None:
     assert first["status"] == "PASS"
     assert first == second
     assert first["runtime"]["deployed_launcher"]["observed_sha256"] == first["runtime"]["deployed_launcher"]["expected_sha256"]
+    assert first["runtime"]["repository"]["head"] == fixture_config[2]["runtime"]
+    assert first["runtime"]["repository"]["clean"]
     assert all(row["observed"]["clean"] for row in first["dependencies"])
     assert {row["manifest_check"]["valid"] for row in first["artifacts"] if "manifest_check" in row} == {True}
+
+
+def test_identifier_description_and_template_fields_skip_path_existence(fixture_config) -> None:
+    config, paths, _ = fixture_config
+    payload = json.loads(config.read_text(encoding="utf-8"))
+    payload["provenance"] = {
+        "dataset_repo_id": "physical-intelligence/libero",
+        "dataset_manifest_sha256_source": (
+            "pre-generated DATASET_SHA256SUMS; rechecked in DATA_PREFLIGHT.json/"
+            "RUNTIME_IDENTITY.json"
+        ),
+    }
+    payload["stage_pipeline"] = {
+        "status_root": "/mnt/cpfs/future/r142/c_status/<RUN_ID>",
+    }
+    payload["evidence"]["dataset_manifest_path"] = str(paths["model"] / "SHA256SUMS")
+    config.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
+    result = attest_config(config)
+    skips = {
+        (row["key"], row["semantic"])
+        for row in result["path_skips"]
+    }
+    assert ("dataset_repo_id", "identifier") in skips
+    assert ("dataset_manifest_sha256_source", "description") in skips
+    assert ("status_root", "template") in skips
+    assert not any(
+        error.startswith("path_missing_or_symlinked:dataset_repo_id")
+        or error.startswith("path_missing_or_symlinked:dataset_manifest_sha256_source")
+        or error.startswith("path_missing_or_symlinked:status_root")
+        for error in result["errors"]
+    )
+    # The real manifest path remains an artifact authority and is still
+    # checked, proving that semantic skips do not weaken dataset validation.
+    assert any(
+        row["key"] == "dataset_manifest_path" and row["path"] == str(paths["model"] / "SHA256SUMS")
+        for row in result["artifacts"]
+    )
+
+
+def test_placeholder_on_authoritative_path_is_refused(fixture_config) -> None:
+    config, _, _ = fixture_config
+    payload = json.loads(config.read_text(encoding="utf-8"))
+    payload["evidence"]["dataset_manifest_path"] = "/missing/dataset/<RUN_ID>/DATASET_SHA256SUMS"
+    config.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
+    result = attest_config(config)
+    assert any(
+        error.startswith("path_missing_or_symlinked:dataset_manifest_path")
+        for error in result["errors"]
+    )
+    assert not any(row["key"] == "dataset_manifest_path" for row in result["path_skips"])
+
+
+def test_declared_dataset_manifest_is_verified_without_adjacent_sha256sum(fixture_config, tmp_path: Path) -> None:
+    config, _, _ = fixture_config
+    dataset = tmp_path / "dataset"
+    dataset.mkdir()
+    data_file = dataset / "episode-000.bin"
+    data_file.write_bytes(b"official dataset fixture\n")
+    manifest = dataset / "DATASET_SHA256SUMS"
+    manifest.write_text(f"{sha256_file(data_file)}  {data_file.name}\n", encoding="utf-8")
+
+    payload = json.loads(config.read_text(encoding="utf-8"))
+    payload["evidence"]["dataset_manifest_path"] = str(manifest)
+    payload["evidence"]["dataset_manifest_sha256"] = sha256_file(manifest)
+    config.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
+    result = attest_config(config)
+    row = next(row for row in result["artifacts"] if row["key"] == "dataset_manifest_path")
+    assert row["manifest"] == str(manifest)
+    assert row["manifest_check"]["valid"]
+    assert row["sha256_match"]
+
+
+def test_c_undertrained_config_binds_runtime_and_official_dependencies() -> None:
+    config = Path(__file__).parents[1] / "configs" / "pai" / "stage_s_c_undertrained.json"
+    payload = json.loads(config.read_text(encoding="utf-8"))
+    runtime = payload["runtime"]
+    assert runtime["source_commit"] == "cd3bfb4f1d2e392f071140dc7b02ec4ea3c3d0bc"
+    assert payload["evidence"]["dataset_manifest_sha256"] == (
+        "02b5b3abfadb65b2f1c4823cfe7ed7b9351416934674fcf59aea1868826546bf"
+    )
+    dependencies = runtime["dependencies"]
+    assert dependencies["qpilots"] == {
+        "path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812",
+        "commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
+    }
+    assert dependencies["openpi"] == {
+        "path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi",
+        "commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+    }
+    assert "config_source_commit" not in payload
 
 
 def test_missing_explicit_output_does_not_write(tmp_path: Path) -> None:
@@ -257,6 +352,16 @@ def test_dependency_commit_mismatch_is_refused(fixture_config) -> None:
     config.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     result = attest_config(config)
     assert any("dependency_source_commit_mismatch" in error for error in result["errors"])
+
+
+def test_invalid_dependency_pin_is_refused(fixture_config) -> None:
+    config, _, _ = fixture_config
+    payload = json.loads(config.read_text(encoding="utf-8"))
+    payload["runtime"]["dependencies"]["dependency"]["commit"] = "not-a-git-commit"
+    config.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
+    result = attest_config(config)
+    assert "dependency_commit_invalid:runtime.dependencies:dependency" in result["errors"]
 
 
 def test_manifest_tamper_and_missing_manifest_are_refused(fixture_config) -> None:
