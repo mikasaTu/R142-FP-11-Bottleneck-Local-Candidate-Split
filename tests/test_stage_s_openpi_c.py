@@ -182,7 +182,15 @@ def test_conversion_and_training_contract_pin_official_flags(tmp_path: Path) -> 
     )
     assert direct[-1] == "--resume"
     assert "--assets_base_dir" in direct
-    assert chain["training"]["full_state_components"][-1] == "rng_state.rank{0..7}.pt"
+    assert chain["training"]["full_state_components"] == [
+        "model.safetensors",
+        "optimizer.pt",
+        "metadata.pt",
+        "CHECKPOINT_READY.json",
+        "rng_state.rank{0..7}.pt",
+        "RNG_SHA256SUMS",
+        "COMPLETE_RNG_STATE.json",
+    ]
     assert chain["training"]["num_workers"] == 0
     assert "global_step % epoch_length" in chain["training"]["exact_data_cursor"]
     assert chain["ready_for_pai_submission"] is False
@@ -320,10 +328,104 @@ def test_exact_cursor_loader_skips_resume_offset_and_sets_sampler_epoch() -> Non
     assert sampler.epochs == [1]
 
 
-def test_rng_checkpoint_completion_requires_all_rank_sidecars_and_hashes(tmp_path: Path) -> None:
+def _write_ready_core_fixture(
+    worker: object, tmp_path: Path, *, step: int = 1000, world_size: int = 8
+) -> Path:
+    step_dir = tmp_path / str(step)
+    step_dir.mkdir(parents=True)
+    for name in ("model.safetensors", "optimizer.pt", "metadata.pt"):
+        (step_dir / name).write_bytes((name + "-fixture").encode())
+    worker._write_checkpoint_ready(
+        step_dir, global_step=step, world_size=world_size, include_sha256=True
+    )
+    return step_dir
+
+
+def test_checkpoint_ready_waits_for_delayed_cpfs_marker_and_core_files(tmp_path: Path) -> None:
     worker = _load_worker_module()
     step_dir = tmp_path / "1000"
     step_dir.mkdir()
+    for name in ("model.safetensors", "optimizer.pt", "metadata.pt"):
+        (step_dir / name).write_bytes((name + "-fixture").encode())
+
+    clock = [0.0]
+    sleeps: list[float] = []
+
+    def monotonic() -> float:
+        return clock[0]
+
+    def sleep(delay: float) -> None:
+        sleeps.append(delay)
+        if len(sleeps) == 1:
+            worker._write_checkpoint_ready(step_dir, global_step=1000, world_size=8)
+        clock[0] += delay
+
+    marker = worker._wait_for_checkpoint_ready(
+        step_dir,
+        global_step=1000,
+        world_size=8,
+        timeout_s=2.0,
+        poll_interval_s=0.25,
+        monotonic=monotonic,
+        sleep=sleep,
+    )
+    assert marker["status"] == "READY"
+    assert marker["global_step"] == 1000
+    assert sleeps == [0.25]
+
+
+def test_checkpoint_ready_waits_for_delayed_core_visibility(tmp_path: Path) -> None:
+    worker = _load_worker_module()
+    step_dir = _write_ready_core_fixture(worker, tmp_path)
+    (step_dir / "optimizer.pt").unlink()
+    clock = [0.0]
+    sleeps: list[float] = []
+
+    def monotonic() -> float:
+        return clock[0]
+
+    def sleep(delay: float) -> None:
+        sleeps.append(delay)
+        (step_dir / "optimizer.pt").write_bytes(b"optimizer.pt-fixture")
+        clock[0] += delay
+
+    marker = worker._wait_for_checkpoint_ready(
+        step_dir,
+        global_step=1000,
+        world_size=8,
+        timeout_s=2.0,
+        poll_interval_s=0.25,
+        monotonic=monotonic,
+        sleep=sleep,
+    )
+    assert marker["status"] == "READY"
+    assert sleeps == [0.25]
+
+
+def test_checkpoint_ready_wait_fails_closed_on_timeout_and_missing_core(tmp_path: Path) -> None:
+    worker = _load_worker_module()
+    with pytest.raises(RuntimeError, match="READY visibility timeout"):
+        worker._wait_for_checkpoint_ready(
+            tmp_path / "missing",
+            global_step=1000,
+            world_size=8,
+            timeout_s=0.0,
+        )
+
+    step_dir = _write_ready_core_fixture(worker, tmp_path / "partial")
+    (step_dir / "metadata.pt").unlink()
+    with pytest.raises(RuntimeError, match="READY visibility timeout.*metadata.pt"):
+        worker._wait_for_checkpoint_ready(
+            step_dir,
+            global_step=1000,
+            world_size=8,
+            timeout_s=0.0,
+        )
+
+
+def test_rng_checkpoint_completion_requires_all_rank_sidecars_and_hashes(tmp_path: Path) -> None:
+    worker = _load_worker_module()
+    step_dir = _write_ready_core_fixture(worker, tmp_path)
     for rank in range(8):
         (step_dir / f"rng_state.rank{rank}.pt").write_bytes(f"rank-{rank}".encode())
 
@@ -335,6 +437,33 @@ def test_rng_checkpoint_completion_requires_all_rank_sidecars_and_hashes(tmp_pat
     (step_dir / "rng_state.rank7.pt").write_bytes(b"drift")
     with pytest.raises(RuntimeError, match="SHA mismatch"):
         worker._verify_rng_completion(step_dir, global_step=1000, world_size=8)
+
+
+def test_resume_refuses_rank_partial_checkpoint_without_ready_marker(tmp_path: Path) -> None:
+    worker = _load_worker_module()
+    step_dir = tmp_path / "1000"
+    step_dir.mkdir()
+    for name in ("model.safetensors", "optimizer.pt", "metadata.pt"):
+        (step_dir / name).write_bytes((name + "-fixture").encode())
+    for rank in range(8):
+        (step_dir / f"rng_state.rank{rank}.pt").write_bytes(f"rank-{rank}".encode())
+
+    with pytest.raises(RuntimeError, match="resume refused; checkpoint READY is incomplete"):
+        worker._verify_rng_completion(step_dir, global_step=1000, world_size=8)
+
+
+def test_resume_accepts_ready_and_all_rank_rng_sidecars(tmp_path: Path) -> None:
+    worker = _load_worker_module()
+    step_dir = _write_ready_core_fixture(worker, tmp_path)
+    for rank in range(8):
+        (step_dir / f"rng_state.rank{rank}.pt").write_bytes(f"rank-{rank}".encode())
+
+    worker._write_rng_completion(step_dir, global_step=1000, world_size=8)
+    worker._verify_rng_completion(step_dir, global_step=1000, world_size=8)
+    marker = json.loads((step_dir / "COMPLETE_RNG_STATE.json").read_text(encoding="utf-8"))
+    assert marker["status"] == "COMPLETED"
+    assert marker["global_step"] == 1000
+    assert marker["world_size"] == 8
 
 
 def test_registry_v2_payload_binds_pinned_runtime_and_stages() -> None:

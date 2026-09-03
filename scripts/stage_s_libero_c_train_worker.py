@@ -18,8 +18,20 @@ import json
 import os
 import random
 import sys
+import time
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
+
+
+# The native OpenPI saver writes the model/optimizer/metadata tree from rank 0
+# and returns before every rank necessarily observes that CPFS rename. Keep
+# this visibility contract explicit and bounded. These values affect only the
+# post-save visibility wait; they do not alter the frozen training schedule.
+CHECKPOINT_READY_NAME = "CHECKPOINT_READY.json"
+CHECKPOINT_READY_SCHEMA = "r142-stage-s-c-checkpoint-ready-v1"
+CHECKPOINT_READY_CORE_FILES = ("model.safetensors", "optimizer.pt", "metadata.pt")
+CHECKPOINT_READY_TIMEOUT_S = 300.0
+CHECKPOINT_READY_POLL_INTERVAL_S = 0.5
 
 
 def _parse_worker_args(argv: list[str]) -> tuple[Path, list[str]]:
@@ -82,9 +94,170 @@ def _atomic_text(text: str, path: Path) -> None:
         os.close(directory_fd)
 
 
+def _checkpoint_core_inventory(step_dir: Path, *, include_sha256: bool = False) -> list[dict[str, Any]]:
+    """Return the native checkpoint files that must be visible before sidecars.
+
+    The native trainer already writes these files into a temporary directory
+    and atomically renames that directory. This inventory is deliberately
+    small and size-based so the READY marker does not add a multi-gigabyte
+    hashing pass to every checkpoint. Tests and offline audits may request
+    optional SHA-256 values for the same files.
+    """
+
+    inventory: list[dict[str, Any]] = []
+    for name in CHECKPOINT_READY_CORE_FILES:
+        path = step_dir / name
+        if not path.is_file():
+            raise RuntimeError(f"native checkpoint core file is absent: {path}")
+        size = int(path.stat().st_size)
+        if size <= 0:
+            raise RuntimeError(f"native checkpoint core file is empty: {path}")
+        entry: dict[str, Any] = {"name": name, "exists": True, "size": size}
+        if include_sha256:
+            entry["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+        inventory.append(entry)
+    return inventory
+
+
+def _write_checkpoint_ready(
+    step_dir: Path,
+    *,
+    global_step: int,
+    world_size: int,
+    include_sha256: bool = False,
+) -> dict[str, Any]:
+    """Publish an atomic, content-bound READY marker after native save."""
+
+    step_dir = Path(step_dir)
+    core_files = _checkpoint_core_inventory(step_dir, include_sha256=include_sha256)
+    marker: dict[str, Any] = {
+        "schema": CHECKPOINT_READY_SCHEMA,
+        "status": "READY",
+        "global_step": int(global_step),
+        "world_size": int(world_size),
+        "checkpoint_dir": str(step_dir.resolve()),
+        "core_files": core_files,
+    }
+    _atomic_text(json.dumps(marker, sort_keys=True, indent=2) + "\n", step_dir / CHECKPOINT_READY_NAME)
+    return marker
+
+
+def _read_checkpoint_ready_once(
+    step_dir: Path,
+    *,
+    global_step: int,
+    world_size: int,
+) -> tuple[dict[str, Any] | None, str]:
+    """Read READY and verify its files, returning a transient reason if absent.
+
+    A marker that parses but binds to another step/world/checkpoint is a hard
+    failure (stale or corrupt evidence). Missing files, short reads and JSON
+    decode errors are treated as transient CPFS visibility failures by the
+    bounded polling caller.
+    """
+
+    step_dir = Path(step_dir)
+    marker_path = step_dir / CHECKPOINT_READY_NAME
+    if not marker_path.is_file():
+        return None, f"missing {marker_path.name}"
+    try:
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return None, f"READY marker is not yet readable: {exc}"
+    if not isinstance(marker, dict):
+        raise RuntimeError(f"checkpoint READY marker is not an object: {marker_path}")
+    if marker.get("schema") != CHECKPOINT_READY_SCHEMA or marker.get("status") != "READY":
+        raise RuntimeError(f"checkpoint READY marker schema/status mismatch: {marker_path}")
+    if int(marker.get("global_step", -1)) != int(global_step):
+        raise RuntimeError(f"checkpoint READY marker global_step mismatch: {marker_path}")
+    if int(marker.get("world_size", -1)) != int(world_size):
+        raise RuntimeError(f"checkpoint READY marker world_size mismatch: {marker_path}")
+    if marker.get("checkpoint_dir") != str(step_dir.resolve()):
+        raise RuntimeError(f"checkpoint READY marker checkpoint_dir mismatch: {marker_path}")
+
+    entries = marker.get("core_files")
+    expected_names = list(CHECKPOINT_READY_CORE_FILES)
+    observed_names = [entry.get("name") for entry in entries if isinstance(entry, dict)] if isinstance(entries, list) else []
+    if not isinstance(entries, list) or observed_names != expected_names:
+        raise RuntimeError(f"checkpoint READY marker core-file list mismatch: {marker_path}")
+    for entry in entries:
+        if not isinstance(entry, dict) or entry.get("exists") is not True:
+            raise RuntimeError(f"checkpoint READY marker core-file evidence is invalid: {marker_path}")
+        name = entry["name"]
+        path = step_dir / name
+        if not path.is_file():
+            return None, f"core file is not yet visible: {name}"
+        try:
+            observed_size = int(path.stat().st_size)
+        except OSError as exc:
+            return None, f"core file stat is not yet visible: {name}: {exc}"
+        if observed_size != int(entry.get("size", -1)) or observed_size <= 0:
+            return None, f"core file size is not stable: {name}"
+        expected_sha = entry.get("sha256")
+        if expected_sha is not None:
+            if not isinstance(expected_sha, str) or len(expected_sha) != 64:
+                raise RuntimeError(f"checkpoint READY marker SHA evidence is invalid: {name}")
+            if hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha:
+                return None, f"core file SHA is not stable: {name}"
+    return marker, "ready"
+
+
+def _wait_for_checkpoint_ready(
+    step_dir: Path,
+    *,
+    global_step: int,
+    world_size: int,
+    timeout_s: float = CHECKPOINT_READY_TIMEOUT_S,
+    poll_interval_s: float = CHECKPOINT_READY_POLL_INTERVAL_S,
+    monotonic: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+) -> dict[str, Any]:
+    """Wait for rank-0 READY plus stable core files, or fail closed."""
+
+    timeout_s = float(timeout_s)
+    poll_interval_s = float(poll_interval_s)
+    if timeout_s < 0:
+        raise ValueError("checkpoint READY timeout must be non-negative")
+    if timeout_s > 0 and poll_interval_s <= 0:
+        raise ValueError("checkpoint READY poll interval must be positive")
+    started = monotonic()
+    deadline = started + timeout_s
+    last_reason = "not checked"
+    while True:
+        marker, last_reason = _read_checkpoint_ready_once(
+            step_dir,
+            global_step=global_step,
+            world_size=world_size,
+        )
+        if marker is not None:
+            return marker
+        now = monotonic()
+        if now >= deadline:
+            raise RuntimeError(
+                f"checkpoint READY visibility timeout after {timeout_s:.1f}s at {Path(step_dir)}: {last_reason}"
+            )
+        sleep(min(poll_interval_s, max(0.0, deadline - now)))
+
+
+def _verify_checkpoint_ready(step_dir: Path, *, global_step: int, world_size: int) -> dict[str, Any]:
+    """Verify READY synchronously before any checkpoint can be resumed."""
+
+    marker, reason = _read_checkpoint_ready_once(
+        step_dir,
+        global_step=global_step,
+        world_size=world_size,
+    )
+    if marker is None:
+        raise RuntimeError(
+            f"full-state resume refused; checkpoint READY is incomplete at {step_dir}: {reason}"
+        )
+    return marker
+
+
 def _write_rng_completion(step_dir: Path, *, global_step: int, world_size: int) -> None:
+    _verify_checkpoint_ready(step_dir, global_step=global_step, world_size=world_size)
     sidecars = [step_dir / f"rng_state.rank{rank}.pt" for rank in range(int(world_size))]
-    missing = [path.name for path in sidecars if not path.is_file()]
+    missing = [path.name for path in sidecars if not path.is_file() or path.stat().st_size <= 0]
     if missing:
         raise RuntimeError(f"full-state checkpoint is missing RNG sidecars: {missing}")
     lines = [f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}" for path in sidecars]
@@ -103,6 +276,7 @@ def _write_rng_completion(step_dir: Path, *, global_step: int, world_size: int) 
 
 
 def _verify_rng_completion(step_dir: Path, *, global_step: int, world_size: int) -> None:
+    _verify_checkpoint_ready(step_dir, global_step=global_step, world_size=world_size)
     marker_path = step_dir / "COMPLETE_RNG_STATE.json"
     sums_path = step_dir / "RNG_SHA256SUMS"
     if not marker_path.is_file() or not sums_path.is_file():
@@ -201,6 +375,11 @@ def _resume_step(config: Any, torch: Any) -> int:
         raise RuntimeError(
             f"exact C resume refused; metadata global_step={observed} differs from directory step={step}"
         )
+    world_size = int(torch.distributed.get_world_size()) if torch.distributed.is_initialized() else 1
+    # Validate the complete marker before the loader is constructed. This
+    # prevents a weights-only or rank-partial checkpoint from influencing the
+    # data cursor even if the later native load would reject it.
+    _verify_rng_completion(checkpoint_dir / str(step), global_step=step, world_size=world_size)
     return step
 
 
@@ -317,13 +496,32 @@ def _patch_checkpoint_io(trainer: Any, torch: Any) -> None:
         # Rank zero may atomically replace the final checkpoint directory;
         # keep every rank's RNG bytes outside tmp_<step> until that completes.
         original_save(model, optimizer, global_step, config, is_main, data_config)
-        if distributed:
-            torch.distributed.barrier()
         final_dir = checkpoint_root / str(global_step)
-        if not final_dir.is_dir():
-            raise RuntimeError(f"native checkpoint directory is absent after save: {final_dir}")
+        if rank == 0:
+            # The native saver performs an atomic directory rename only on
+            # rank 0. Publish READY after the rename and after checking the
+            # native model/optimizer/metadata files. Other ranks may observe
+            # this marker before the CPFS directory contents, so every rank
+            # below re-checks marker-bound sizes with a bounded wait.
+            _write_checkpoint_ready(
+                final_dir,
+                global_step=global_step,
+                world_size=world_size,
+            )
+        if distributed:
+            # Synchronize after rank 0 publishes READY so a stale marker from
+            # an interrupted attempt cannot be consumed by another rank
+            # before this save attempt has finished its native rename.
+            torch.distributed.barrier()
+        _wait_for_checkpoint_ready(
+            final_dir,
+            global_step=global_step,
+            world_size=world_size,
+        )
         staged = staging_dir / f"rng_state.rank{rank}.pt"
         destination = final_dir / staged.name
+        if not staged.is_file():
+            raise RuntimeError(f"staged RNG sidecar is absent for rank {rank}: {staged}")
         os.replace(staged, destination)
         if distributed:
             torch.distributed.barrier()

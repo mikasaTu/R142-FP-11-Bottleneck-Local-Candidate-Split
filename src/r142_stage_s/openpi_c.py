@@ -1320,7 +1320,9 @@ def build_patched_training_command(
     state.  The worker imports that exact trainer and wraps only its
     ``save_checkpoint``/``load_checkpoint`` functions, preserving the model,
     data, optimizer, and loss semantics while making same-directory resume a
-    genuine full-state resume for all eight ranks.
+    genuine full-state resume for all eight ranks.  A rank-0 READY marker
+    binds the native core-file inventory before any rank installs its RNG
+    sidecar; resume rejects a checkpoint without that marker.
     """
 
     command = [
@@ -1465,7 +1467,15 @@ def build_c_chain_contract(
             "checkpoint_steps": list(C_RETAIN_STEPS),
             "full_training_reference_steps": C_FULL_REFERENCE_STEP,
             "checkpoint_layout": "<checkpoint_base_dir>/pi05_libero/r142_stage_s_c_undertrained_seed42/<step>/",
-            "full_state_components": ["model.safetensors", "optimizer.pt", "metadata.pt", "rng_state.rank{0..7}.pt"],
+            "full_state_components": [
+                "model.safetensors",
+                "optimizer.pt",
+                "metadata.pt",
+                "CHECKPOINT_READY.json",
+                "rng_state.rank{0..7}.pt",
+                "RNG_SHA256SUMS",
+                "COMPLETE_RNG_STATE.json",
+            ],
             "native_save_semantics": "pinned trainer saves 1000..10000; num_train_steps=10001 reaches terminal global_step 10001",
             "same_directory_resume": "--resume discovers newest numeric checkpoint and restores model+optimizer+metadata plus per-rank Python/NumPy/Torch/CUDA RNG sidecars",
             "num_workers": C_NUM_WORKERS,
@@ -1489,7 +1499,8 @@ def build_c_chain_contract(
             "blackout_windows": ["09:30-09:40", "19:30-19:40"],
             "missing_source_or_asset": True,
             "partial_checkpoint": True,
-            "marker_written_only_after_complete_sha": True,
+            "ready_marker_written_after_native_core_visibility": True,
+            "completion_marker_written_after_all_rank_sha": True,
         },
         "ready_for_pai_submission": bool(
             conversion["source_audit"].get("ready")
