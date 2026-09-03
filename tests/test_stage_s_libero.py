@@ -546,3 +546,24 @@ def test_c_schedule_and_idle_payload_are_fail_closed(tmp_path: Path) -> None:
     assert payload["resource"]["quota_name"] == "exp-robot"
     assert payload["daily_no_job_windows"][0]["timezone"] == "Asia/Shanghai"
     assert payload["checkpoint_contract"]["retain_and_audit_steps"] == list(C_RETAIN_STEPS)
+
+
+def test_task64_factory_maps_logical_seed_to_numpy_uint32(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    observed: dict[str, object] = {}
+
+    class FakeTask64Environment:
+        def __init__(self, config: dict[str, object], seed: int) -> None:
+            observed["config"] = config
+            observed["seed"] = seed
+
+    monkeypatch.setattr(libero, "_configure_stage_r_sources", lambda *_: (tmp_path, tmp_path))
+    monkeypatch.setattr(
+        libero.importlib,
+        "import_module",
+        lambda name: types.SimpleNamespace(Task64Environment=FakeTask64Environment),
+    )
+    factory = libero.make_stage_r_task64_factory(tmp_path, tmp_path)
+    logical_seed = (1 << 48) + 17
+    factory(task_id=0, init_state=0, candidate_id=0, seed=logical_seed)
+
+    assert observed["seed"] == 17

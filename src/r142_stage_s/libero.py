@@ -1272,7 +1272,13 @@ def make_stage_r_task64_factory(
                     "max_steps": int(max_steps),
                 }
             }
-            return environment_class(config, seed=int(seed))
+            # Task64Environment delegates its constructor seed directly to
+            # ``numpy.random.seed``.  The frozen Stage-S genealogy uses a
+            # wider deterministic integer, so adapt only the simulator-facing
+            # seed to NumPy's uint32 domain.  The full logical seed remains in
+            # the trial genealogy and still drives policy sampling.
+            constructor_seed = int(seed) & 0xFFFFFFFF
+            return environment_class(config, seed=constructor_seed)
         except Exception as exc:  # noqa: BLE001 - preserve the real adapter error
             raise StageSError(
                 f"cannot construct pinned Stage-R Task64Environment for task={task_id} from {qpilots} / {libero_site}: {exc}"
