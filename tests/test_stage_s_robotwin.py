@@ -10,6 +10,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from r142_stage_s.libero import STAGE_S_PROTOCOL_ID
+from r142_stage_s.s45_runtime import discover_n32_families
 from scripts.stage_s_robotwin_audit import audit
 from r142_stage_s.robotwin import (
     AtomicFamilyWriter,
@@ -404,6 +406,26 @@ def test_exact_replay_is_verified_at_one_e_minus_nine():
     assert result["next_state_error"] <= 1e-9
 
 
+def test_exact_replay_rejects_hidden_simulator_drift_with_same_observation():
+    class HiddenDriftEnv(FakeEnv):
+        def __init__(self):
+            super().__init__()
+            self.capture_count = 0
+
+        def capture_simulator_state(self):
+            self.capture_count += 1
+            return {
+                "state": self.state.copy(),
+                "hidden_integrator": np.asarray([self.capture_count], dtype=np.int64),
+            }
+
+        def restore_simulator_state(self, value):
+            self.state = np.asarray(value["state"], dtype=float).copy()
+
+    with pytest.raises(CapabilityError, match="simulator_state_error"):
+        ExactReplayVerifier(HiddenDriftEnv(), FakePolicy()).verify_restore()
+
+
 def test_missing_hook_fails_closed():
     env, policy = FakeEnv(), FakePolicy()
     del policy.history
@@ -414,28 +436,111 @@ def test_missing_hook_fails_closed():
 def test_atomic_outcome_genealogy_and_sha(tmp_path):
     writer = AtomicFamilyWriter(tmp_path)
     record = CandidateRecord(
-        candidate_id="family-0/candidate-0000",
+        candidate_id="blocks_ranking_size/family-0/candidate-0000",
         parent_id=None,
         generation_step=0,
-        action_prefix=[[1, 2]],
-        pose_trajectory=[[0.0, 0.1]],
+        action_prefix=[np.asarray([1.0, 2.0], dtype=np.float32)],
+        pose_trajectory=[np.arange(14, dtype=np.float64)],
+        candidate_index=0,
+        eef_trajectory=[np.arange(14, dtype=np.float64)],
         final_success=True,
+        terminated=True,
+        termination_reason="official_eval_success",
+        terminal_step=1,
+        termination="official_eval_success",
         task_name="blocks_ranking_size",
-        family_id="family-0",
+        family_id="blocks_ranking_size/family-0",
         initial_state_id="state-0",
         seed=123,
         policy_forwards=1,
         env_steps=1,
     )
-    manifest = writer.write("family-0", [record], metadata={"protocol_sha": "abc"})
+    metadata = {
+        "protocol_id": STAGE_S_PROTOCOL_ID,
+        "protocol_authority_path": "/cpfs/stage_s/protocol/FROZEN_PROTOCOL.json",
+        "protocol_authority_sha256": "a" * 64,
+        "protocol_git_commit": "b" * 40,
+        "substrate": "A",
+        "pose_dimension": 14,
+    }
+    manifest = writer.write(
+        "family-0", [record], metadata=metadata,
+        logical_family_id="blocks_ranking_size/family-0",
+    )
     directory = tmp_path / "family-0"
     assert (directory / "family.json").is_file()
     assert (directory / "genealogy.jsonl").is_file()
+    payload = json.loads((directory / "family.json").read_text())
+    candidate = payload["candidates"][0]
+    assert candidate["candidate_index"] == 0
+    assert candidate["terminated"] is True
+    assert candidate["termination_reason"] == "official_eval_success"
+    assert candidate["terminal_step"] == 1
+    assert isinstance(candidate["eef_trajectory"][0][0], (int, float))
     marker = json.loads((directory / "COMPLETED_FAMILY.json").read_text())
+    assert marker["protocol_id"] == STAGE_S_PROTOCOL_ID
+    assert marker["protocol_authority_path"] == metadata["protocol_authority_path"]
+    assert marker["protocol_authority_sha256"] == metadata["protocol_authority_sha256"]
+    assert marker["protocol_git_commit"] == metadata["protocol_git_commit"]
+    assert marker["pose_dimension"] == 14
+    assert marker["family_id"] == "blocks_ranking_size/family-0"
+    assert marker["source_family_id"] == "family-0"
     assert marker["files"]["family.json"] == hashlib.sha256(
         (directory / "family.json").read_bytes()
     ).hexdigest()
+    assert "SHA256SUMS" not in marker["files"]
+    assert marker["sha256sums_sha256"] == hashlib.sha256(
+        (directory / "SHA256SUMS").read_bytes()
+    ).hexdigest()
+    assert writer.completed("family-0")["skipped_existing"] is True
     assert manifest["candidate_count"] == 1
+
+
+def test_atomic_family_bundle_is_s45_discoverable(tmp_path):
+    writer = AtomicFamilyWriter(tmp_path)
+    records = [
+        CandidateRecord(
+            candidate_id=f"task/family-0/candidate-{index:04d}",
+            parent_id=None,
+            generation_step=0,
+            action_prefix=[[0.0]],
+            pose_trajectory=[[0.0] * 14],
+            candidate_index=index,
+            eef_trajectory=[[0.0] * 14],
+            final_success=index == 0,
+            terminated=True,
+            termination_reason=(
+                "official_eval_success" if index == 0 else "official_step_limit"
+            ),
+            terminal_step=1,
+            termination="official_eval_success" if index == 0 else "official_step_limit",
+            task_name="task",
+            family_id="task/family-0",
+            initial_state_id="state-0",
+            seed=100 + index,
+            policy_forwards=1,
+            env_steps=1,
+        )
+        for index in range(32)
+    ]
+    writer.write(
+        "family-0",
+        records,
+        logical_family_id="task/family-0",
+        metadata={
+            "protocol_id": STAGE_S_PROTOCOL_ID,
+            "protocol_authority_path": "/cpfs/stage_s/protocol/FROZEN_PROTOCOL.json",
+            "protocol_authority_sha256": "a" * 64,
+            "protocol_git_commit": "b" * 40,
+            "termination": "official eval_success or step_lim",
+            "substrate": "A",
+            "pose_dimension": 14,
+        },
+    )
+    families = discover_n32_families(tmp_path)
+    assert len(families) == 1
+    assert families[0].family_id == "task/family-0"
+    assert len(families[0].candidates) == 32
 
 
 class RolloutEnv(FakeEnv):
@@ -468,7 +573,8 @@ class RolloutEnv(FakeEnv):
         self.eval_success = bool(value["success"])
 
     def get_obs(self):
-        return {"endpose": self.state.copy(), "state": self.state.copy()}
+        endpose = np.concatenate((self.state, np.zeros(12, dtype=np.float64)))
+        return {"endpose": endpose, "state": self.state.copy()}
 
     def take_action(self, action):
         delta = np.asarray(action, dtype=float)
@@ -543,6 +649,7 @@ def test_runner_requires_gate_and_persists_seed_eef_object_genealogy(tmp_path):
         assert candidate["seed_genealogy"]["root_seed"] == 14211
         assert candidate["eef_trajectory"]
         assert candidate["object_trajectories"]["object"]
+        assert isinstance(candidate["object_trajectories"]["object"][0][0], (int, float))
         assert candidate["policy_history"] is not None
         assert candidate["action_queue"] is not None
         assert set(candidate["rng_state"]) == {"environment", "policy"}
@@ -555,7 +662,13 @@ def test_completed_family_is_idempotent_and_corruption_fails_closed(tmp_path):
         candidate_id="family-0/candidate-0000",
         parent_id=None,
         generation_step=0,
+        candidate_index=0,
         final_success=False,
+        terminated=True,
+        termination_reason="official_terminal",
+        terminal_step=0,
+        termination="official_terminal",
+        env_steps=0,
     )
     first = writer.write("family-0", [record])
     second = writer.write("family-0", [record])

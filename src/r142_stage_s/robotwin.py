@@ -9,6 +9,7 @@ policy observation history, action queue, and every RNG stream.
 from __future__ import annotations
 
 import copy
+import re
 import base64
 import hashlib
 import itertools
@@ -33,6 +34,7 @@ class CapabilityError(RuntimeError):
 # request id explicit prevents an unpatched/public server from being mistaken
 # for an exact-replay server.
 EVO_EXACT_REPLAY_PROTOCOL = "r142-evo-exact-replay/v1"
+STAGE_S_PROTOCOL_ID = "r142-stage-s-v1"
 EVO_CONTROL_KEY = "r142_control"
 ROBOTWIN_WORKSPACE_POSE_DIMENSION = 14
 ROBOTWIN_WORKSPACE_POSE_SCALE = (
@@ -498,6 +500,105 @@ def _max_error(a: Any, b: Any, path: str = "state") -> float:
     return 0.0 if a == b else float("inf")
 
 
+
+def _numeric_state_leaves(value: Any, path: str = "state") -> Dict[str, np.ndarray]:
+    """Extract all numeric leaves from an official simulator snapshot.
+
+    The replay gate must not reduce a simulator snapshot to an observation or
+    end-effector pose.  Process-local SAPIEN handles are deliberately skipped,
+    while dataclasses/mappings/sequences, poses, arrays, and scalar leaves are
+    traversed recursively.  The returned paths are part of the schema check,
+    so a missing hidden state also fails closed.
+    """
+    if value is None or isinstance(value, (str, bytes)):
+        return {}
+    if isinstance(value, Mapping):
+        result: Dict[str, np.ndarray] = {}
+        for key, item in value.items():
+            if str(key) in {"object", "scene"}:
+                continue
+            result.update(_numeric_state_leaves(item, f"{path}.{key}"))
+        return result
+    if hasattr(value, "__dataclass_fields__"):
+        result = {}
+        for key, item in vars(value).items():
+            result.update(_numeric_state_leaves(item, f"{path}.{key}"))
+        return result
+    if hasattr(value, "p") and hasattr(value, "q"):
+        result = {}
+        result.update(_numeric_state_leaves(value.p, f"{path}.p"))
+        result.update(_numeric_state_leaves(value.q, f"{path}.q"))
+        return result
+    if hasattr(value, "detach") and callable(value.detach):
+        try:
+            value = value.detach().cpu().numpy()
+        except Exception:
+            return {}
+    if isinstance(value, np.ndarray):
+        if np.issubdtype(value.dtype, np.number) or np.issubdtype(value.dtype, np.bool_):
+            return {path: np.array(value, copy=True)}
+        if value.dtype == object:
+            result = {}
+            for index, item in enumerate(value.tolist()):
+                result.update(_numeric_state_leaves(item, f"{path}[{index}]"))
+            return result
+        return {}
+    if isinstance(value, np.generic):
+        return _numeric_state_leaves(np.asarray(value), path)
+    if isinstance(value, (tuple, list)):
+        result = {}
+        for index, item in enumerate(value):
+            result.update(_numeric_state_leaves(item, f"{path}[{index}]"))
+        return result
+    if isinstance(value, (bool, int, float, complex, np.number)):
+        array = np.asarray(value)
+        if np.issubdtype(array.dtype, np.number) or np.issubdtype(array.dtype, np.bool_):
+            return {path: np.array(array, copy=True)}
+    return {}
+
+
+def _complete_numeric_state_error(first: Any, second: Any, *, tolerance: float = 1e-9) -> float:
+    """Compare complete simulator snapshots and reject missing/schema drift."""
+    first_leaves = _numeric_state_leaves(first)
+    second_leaves = _numeric_state_leaves(second)
+    del tolerance
+    if not first_leaves or not second_leaves:
+        raise CapabilityError(
+            "exact replay requires complete simulator snapshots with numeric leaves"
+        )
+    if set(first_leaves) != set(second_leaves):
+        raise CapabilityError(
+            "exact replay simulator snapshot schema changed between replays"
+        )
+    maximum = 0.0
+    for path in sorted(first_leaves):
+        left = first_leaves[path]
+        right = second_leaves[path]
+        if left.shape != right.shape:
+            raise CapabilityError(
+                f"exact replay simulator snapshot shape mismatch at {path}"
+            )
+        left_integer = np.issubdtype(left.dtype, np.integer) or np.issubdtype(
+            left.dtype, np.bool_
+        )
+        right_integer = np.issubdtype(right.dtype, np.integer) or np.issubdtype(
+            right.dtype, np.bool_
+        )
+        if left_integer or right_integer:
+            error = 0.0 if np.array_equal(left, right) else float("inf")
+        else:
+            if not np.all(np.isfinite(left)) or not np.all(np.isfinite(right)):
+                raise CapabilityError(
+                    f"exact replay simulator snapshot contains non-finite leaf at {path}"
+                )
+            error = (
+                float(np.max(np.abs(left.astype(np.float64) - right.astype(np.float64))))
+                if left.size
+                else 0.0
+            )
+        maximum = max(maximum, error)
+    return maximum
+
 @dataclass(frozen=True)
 class ReplaySnapshot:
     simulator: Any
@@ -599,16 +700,20 @@ class ExactReplayVerifier:
         act_a = _copy(action) if action is not None else act_fn(obs_a)
         self.env.take_action(act_a)
         state_a = observe()
+        sim_a = _invoke(self.env, ("capture_simulator_state", "snapshot_simulator", "get_simulator_state"), "simulator next-state")
         self.restore(snap)
         obs_b = observe()
         act_b = _copy(action) if action is not None else act_fn(obs_b)
         self.env.take_action(act_b)
         state_b = observe()
+        sim_b = _invoke(self.env, ("capture_simulator_state", "snapshot_simulator", "get_simulator_state"), "simulator next-state")
         action_error = _max_error(act_a, act_b, "action")
         next_state_error = _max_error(state_a, state_b, "next_state")
-        if max(action_error, next_state_error) > self.tolerance:
+        simulator_state_error = _complete_numeric_state_error(sim_a, sim_b)
+        if max(action_error, next_state_error, simulator_state_error) > self.tolerance:
             raise CapabilityError(
                 "exact replay verification failed: "
+                f"simulator_state_error={simulator_state_error:.3g}, "
                 f"action_error={action_error:.3g}, "
                 f"next_state_error={next_state_error:.3g}, "
                 f"tolerance={self.tolerance:.3g}"
@@ -617,6 +722,7 @@ class ExactReplayVerifier:
             "passed": True,
             "tolerance": self.tolerance,
             "action_error": action_error,
+            "simulator_state_error": simulator_state_error,
             "next_state_error": next_state_error,
         }
 
@@ -1061,23 +1167,28 @@ class ConcreteRoboTwinRuntime:
         action_a = _copy(action) if action is not None else act_fn(obs_a)
         self.task_env.take_action(action_a)
         state_a = observe()
+        sim_a = self.capture_simulator_state()
         self.restore_snapshot(snapshot)
         obs_b = observe()
         action_b = _copy(action) if action is not None else act_fn(obs_b)
         self.task_env.take_action(action_b)
         state_b = observe()
+        sim_b = self.capture_simulator_state()
         action_error = _max_error(action_a, action_b, "action")
         next_state_error = _max_error(state_a, state_b, "next_state")
-        if max(action_error, next_state_error) > 1e-9:
+        simulator_state_error = _complete_numeric_state_error(sim_a, sim_b)
+        if max(action_error, next_state_error, simulator_state_error) > 1e-9:
             raise CapabilityError(
                 "RoboTwin exact replay failed: "
                 f"action_error={action_error:.3g}, next_state_error={next_state_error:.3g}"
+                f", simulator_state_error={simulator_state_error:.3g}"
             )
         return {
             "passed": True,
             "tolerance": 1e-9,
             "action_error": action_error,
             "next_state_error": next_state_error,
+            "simulator_state_error": simulator_state_error,
         }
 
 
@@ -1110,6 +1221,68 @@ def _jsonable(value: Any) -> Any:
     return repr(value)
 
 
+def _numeric_jsonable(value: Any) -> Any:
+    """Encode action/pose arrays as ordinary numeric JSON arrays.
+
+    Replay snapshots intentionally retain dtype/shape wrappers in ``_jsonable``
+    because those fields carry exact RNG/tensor provenance.  Rollout actions
+    and trajectories are different: downstream S45 analysis consumes them as
+    numeric sequences, so a NumPy ``{dtype, shape, data}`` wrapper would be a
+    schema change rather than raw trajectory data.
+    """
+    if isinstance(value, np.ndarray):
+        return [_numeric_jsonable(item) for item in value.tolist()]
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, Mapping):
+        return {str(key): _numeric_jsonable(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_numeric_jsonable(item) for item in value]
+    return value
+
+
+def _numeric_trajectory_value(value: Any, label: str = "trajectory") -> Any:
+    """Convert a trajectory leaf into JSON-native numeric nested lists."""
+    if hasattr(value, "p") and hasattr(value, "q"):
+        value = {"p": getattr(value, "p"), "q": getattr(value, "q")}
+    if isinstance(value, Mapping):
+        if "p" in value and "q" in value:
+            try:
+                position = np.asarray(value["p"], dtype=np.float64).reshape(-1)
+                quaternion = np.asarray(value["q"], dtype=np.float64).reshape(-1)
+            except (TypeError, ValueError) as exc:
+                raise CapabilityError(f"{label} pose is not numeric") from exc
+            value = np.concatenate((position, quaternion))
+        elif "data" in value and set(value).issubset({"dtype", "shape", "data"}):
+            return _numeric_trajectory_value(value["data"], label)
+        else:
+            return {
+                str(key): _numeric_trajectory_value(item, f"{label}.{key}")
+                for key, item in value.items()
+            }
+    if hasattr(value, "detach") and callable(value.detach):
+        try:
+            value = value.detach().cpu().numpy()
+        except Exception as exc:
+            raise CapabilityError(f"{label} tensor cannot be converted to numeric data") from exc
+    if isinstance(value, np.ndarray):
+        if not np.issubdtype(value.dtype, np.number) or not np.all(np.isfinite(value)):
+            raise CapabilityError(f"{label} must be finite numeric data")
+        return _numeric_jsonable(value)
+    if isinstance(value, (tuple, list)):
+        return [_numeric_trajectory_value(item, f"{label}[{index}]") for index, item in enumerate(value)]
+    if isinstance(value, (bool, int, float, np.number)):
+        number = np.asarray(value)
+        if not np.issubdtype(number.dtype, np.number) or not np.all(np.isfinite(number)):
+            raise CapabilityError(f"{label} must be finite numeric data")
+        return _numeric_jsonable(number)
+    raise CapabilityError(f"{label} has no numeric trajectory representation")
+
+
 def _snapshot_jsonable(value: Any) -> Any:
     """Serialize a replay snapshot while dropping process-local handles."""
     if hasattr(value, "__dataclass_fields__"):
@@ -1135,12 +1308,19 @@ class CandidateRecord:
     generation_step: int
     action_prefix: list = field(default_factory=list)
     pose_trajectory: list = field(default_factory=list)
+    candidate_index: Optional[int] = None
     # ``pose_trajectory`` is retained for compatibility with the initial
     # audit.  These explicit fields make the Stage-S persisted contract
     # unambiguous for downstream analysis.
     eef_trajectory: list = field(default_factory=list)
     object_trajectories: Dict[str, list] = field(default_factory=dict)
     final_success: bool = False
+    terminated: bool = False
+    termination_reason: Optional[str] = None
+    terminal_step: Optional[int] = None
+    # ``termination`` is the S45 loader's canonical alias.  Keep
+    # ``termination_reason`` as the human-readable producer field too.
+    termination: Optional[str] = None
     task_name: str = ""
     family_id: str = ""
     initial_state_id: str = ""
@@ -1156,7 +1336,18 @@ class CandidateRecord:
     rng_state: Any = None
 
     def as_dict(self) -> Dict[str, Any]:
-        return _jsonable(self.__dict__)
+        payload = {}
+        numeric_fields = {
+            "action_prefix",
+            "pose_trajectory",
+            "eef_trajectory",
+            "object_trajectories",
+        }
+        for key, value in self.__dict__.items():
+            payload[key] = (
+                _numeric_jsonable(value) if key in numeric_fields else _jsonable(value)
+            )
+        return payload
 
 
 class AtomicFamilyWriter:
@@ -1199,6 +1390,27 @@ class AtomicFamilyWriter:
                 actual_sha = hashlib.sha256(file_path.read_bytes()).hexdigest()
                 if actual_sha != str(expected_sha):
                     raise ValueError(f"completion file hash mismatch: {name}")
+            # The manifest is an artifact, not a self-referential line in
+            # itself. New markers list payload files in ``files`` and bind
+            # the complete SHA256SUMS file separately.
+            if "SHA256SUMS" not in files:
+                manifest_path = directory / "SHA256SUMS"
+                if not manifest_path.is_file():
+                    raise ValueError("missing completion manifest: SHA256SUMS")
+                manifest_entries = {}
+                for line in manifest_path.read_text(encoding="utf-8").splitlines():
+                    digest, separator, name = line.partition("  ")
+                    if not separator or not name or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                        raise ValueError("invalid completion manifest entry")
+                    manifest_entries[name] = digest
+                expected_entries = {str(name): str(digest) for name, digest in files.items()}
+                if manifest_entries != expected_entries:
+                    raise ValueError("completion manifest does not match marker files")
+                declared_manifest_sha = existing.get("sha256sums_sha256")
+                if declared_manifest_sha is not None and hashlib.sha256(
+                    manifest_path.read_bytes()
+                ).hexdigest() != str(declared_manifest_sha):
+                    raise ValueError("completion manifest hash mismatch")
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
             raise CapabilityError(
                 f"immutable family completion marker is invalid: {marker_path}"
@@ -1221,15 +1433,45 @@ class AtomicFamilyWriter:
         *,
         metadata: Optional[Mapping[str, Any]] = None,
         snapshot: Optional[Any] = None,
+        logical_family_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         records = list(records)
+        for index, record in enumerate(records):
+            if record.candidate_index is None:
+                # Older local callers did not carry this field.  Materialise
+                # the index at the persistence boundary so every producer
+                # artifact has an explicit, auditable index.
+                record.candidate_index = index
+            if int(record.candidate_index) != index:
+                raise ValueError(
+                    "candidate_index must be contiguous in source order: "
+                    f"expected {index}, got {record.candidate_index}"
+                )
+            if record.termination is None and record.termination_reason:
+                record.termination = record.termination_reason
+            if (
+                not bool(record.terminated)
+                or not record.termination_reason
+                or record.terminal_step is None
+                or int(record.terminal_step) < 0
+                or int(record.terminal_step) != int(record.env_steps)
+            ):
+                raise CapabilityError(
+                    "candidate completion requires official termination evidence "
+                    "(terminated, termination_reason, terminal_step == env_steps)"
+                )
+        logical_id = str(logical_family_id or family_id)
+        metadata_payload = dict(metadata or {})
+        metadata_payload.setdefault("family_id", logical_id)
+        metadata_payload.setdefault("source_family_id", str(family_id))
         directory = self.root / family_id
         existing = self._read_completed(family_id)
         if existing is not None:
             return existing
         payload = {
-            "family_id": family_id,
-            "metadata": _jsonable(dict(metadata or {})),
+            "family_id": logical_id,
+            "source_family_id": str(family_id),
+            "metadata": _jsonable(metadata_payload),
             "candidates": [r.as_dict() for r in records],
         }
         result_data = (
@@ -1259,12 +1501,26 @@ class AtomicFamilyWriter:
             )
         sums_data = ("\n".join(f"{sha}  {name}" for name, sha in files.items()) + "\n").encode()
         sums_sha = self._atomic(directory / "SHA256SUMS", sums_data)
-        files["SHA256SUMS"] = sums_sha
         marker = {
-            "family_id": family_id,
+            "family_id": logical_id,
+            "source_family_id": str(family_id),
             "candidate_count": len(records),
             "files": files,
+            "sha256sums_sha256": sums_sha,
         }
+        # Protocol identity and producer shape are duplicated in the
+        # immutable marker so S45 can reject a mixed-protocol tree before
+        # trusting family.json.
+        for key in (
+            "protocol_id",
+            "protocol_authority_path",
+            "protocol_authority_sha256",
+            "protocol_git_commit",
+            "substrate",
+            "pose_dimension",
+        ):
+            if key in metadata_payload:
+                marker[key] = copy.deepcopy(metadata_payload[key])
         marker_data = (
             json.dumps(marker, sort_keys=True, ensure_ascii=False, indent=2) + "\n"
         ).encode()
@@ -1341,7 +1597,7 @@ def _object_poses(env: Any) -> Dict[str, Any]:
         value = hook()
         if not isinstance(value, Mapping):
             raise CapabilityError("get_object_poses() must return a mapping")
-        return {str(k): _jsonable(v) for k, v in value.items()}
+        return {str(k): _numeric_trajectory_value(v, f"object[{k}]") for k, v in value.items()}
     scene = getattr(source, "scene", None)
     actors_fn = getattr(scene, "get_all_actors", None)
     if not callable(actors_fn):
@@ -1357,8 +1613,23 @@ def _object_poses(env: Any) -> Dict[str, Any]:
         name = str(get_name()) if callable(get_name) else f"actor-{index:04d}"
         if name in result:
             name = f"{name}#{index:04d}"
-        result[name] = _jsonable(get_pose())
+        result[name] = _numeric_trajectory_value(get_pose(), f"object[{name}]")
     return result
+
+
+def _require_pose_dimension(value: Any, expected_dimension: int) -> np.ndarray:
+    """Validate the fixed A EEF pose width before persisting a trajectory."""
+    try:
+        pose = np.asarray(value, dtype=np.float64).reshape(-1)
+    except (TypeError, ValueError) as exc:
+        raise CapabilityError("RoboTwin EEF pose is not numeric") from exc
+    if pose.size != int(expected_dimension):
+        raise CapabilityError(
+            f"RoboTwin EEF pose must be {expected_dimension}D, got {pose.size}D"
+        )
+    if not np.all(np.isfinite(pose)):
+        raise CapabilityError("RoboTwin EEF pose contains non-finite values")
+    return pose
 
 
 class FamilyRolloutRunner:
@@ -1382,10 +1653,13 @@ class FamilyRolloutRunner:
         initial_state_id: str,
         initial_seed: int,
         candidate_count: int = 32,
+        local_family_id: Optional[str] = None,
+        metadata: Optional[Mapping[str, Any]] = None,
     ) -> Dict[str, Any]:
         if candidate_count <= 0:
             raise ValueError("candidate_count must be positive")
-        existing = self.writer.completed(family_id)
+        storage_family_id = str(local_family_id or family_id)
+        existing = self.writer.completed(storage_family_id)
         if existing is not None:
             return existing
         env = self.env_factory()
@@ -1419,6 +1693,7 @@ class FamilyRolloutRunner:
             self._seed_policy(policy, seed)
             record = CandidateRecord(
                 candidate_id=f"{family_id}/candidate-{index:04d}",
+                candidate_index=index,
                 parent_id=None,
                 generation_step=0,
                 task_name=task_name,
@@ -1434,19 +1709,26 @@ class FamilyRolloutRunner:
             )
             self._rollout(env, policy, record)
             records.append(record)
+        family_metadata = {
+            "task_name": task_name,
+            "initial_state_id": initial_state_id,
+            "initial_seed": int(initial_seed),
+            "candidate_count": candidate_count,
+            "candidate_rng": "SeedSequence([initial_seed, candidate_index])",
+            "termination": "official eval_success or step_lim",
+            "replay_capability_gate": replay_gate,
+        }
+        if metadata is not None:
+            for key, value in metadata.items():
+                if key in family_metadata and family_metadata[key] != value:
+                    raise ValueError(f"family metadata collision for {key!r}")
+                family_metadata[key] = copy.deepcopy(value)
         return self.writer.write(
-            family_id,
+            storage_family_id,
             records,
             snapshot=base,
-            metadata={
-                "task_name": task_name,
-                "initial_state_id": initial_state_id,
-                "initial_seed": int(initial_seed),
-                "candidate_count": candidate_count,
-                "candidate_rng": "SeedSequence([initial_seed, candidate_index])",
-                "termination": "official eval_success or step_lim",
-                "replay_capability_gate": replay_gate,
-            },
+            metadata=family_metadata,
+            logical_family_id=family_id,
         )
 
     @staticmethod
@@ -1492,7 +1774,7 @@ class FamilyRolloutRunner:
         initial_forward = getattr(policy, "forward_count", None)
 
         def record_observation(observation: Any) -> None:
-            eef_pose = _jsonable(_pose(observation))
+            eef_pose = _numeric_jsonable(_require_pose_dimension(_pose(observation), 14))
             record.pose_trajectory.append(eef_pose)
             record.eef_trajectory.append(eef_pose)
             for name, pose in _object_poses(env).items():
@@ -1505,7 +1787,7 @@ class FamilyRolloutRunner:
                 break
             observation = env.get_obs()
             action = self._act(policy, observation, rng)
-            record.action_prefix.append(_jsonable(action))
+            record.action_prefix.append(_numeric_jsonable(action))
             record_observation(observation)
             env.take_action(action)
             record.env_steps += 1
@@ -1524,6 +1806,17 @@ class FamilyRolloutRunner:
         check = getattr(env, "check_success", None)
         if not record.final_success and callable(check):
             record.final_success = bool(check())
+        if record.final_success:
+            record.termination_reason = "official_eval_success"
+        elif int(getattr(env, "take_action_cnt")) >= int(getattr(env, "step_lim")):
+            record.termination_reason = "official_step_limit"
+        else:
+            raise CapabilityError(
+                "RoboTwin rollout exited without official success or step-limit termination"
+            )
+        record.terminated = True
+        record.termination = record.termination_reason
+        record.terminal_step = int(record.env_steps)
         # Preserve the exact policy history, queued action suffix, and both
         # runtime/policy RNG streams after termination.  These are raw replay
         # evidence, not derived metrics.
