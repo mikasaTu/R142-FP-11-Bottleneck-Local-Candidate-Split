@@ -12,9 +12,9 @@ USER_ROOT=$NEW_ROOT/USERS/leon
 # The registry resource contract permits only its exact graphics pod env.
 # Keep the scientific/runtime identity in this immutable payload + companion
 # registry manifest instead of injecting custom pod environment variables.
-STAGE_S_C_PROJECT_DIR=$USER_ROOT/code/r142-stage-s-c-runtime-20260903
+STAGE_S_C_PROJECT_DIR=$USER_ROOT/code/r142-stage-s-c-runtime-racefix-20260903
 STAGE_S_C_REGISTRY_CONFIG=$USER_ROOT/code/r142-stage-s-pai-20260902/stage_s_c_undertrained.json
-STAGE_S_SOURCE_COMMIT=19867e93ca9d3c197ee3fc4b8db8ca8efa371af6
+STAGE_S_SOURCE_COMMIT=cd3bfb4f1d2e392f071140dc7b02ec4ea3c3d0bc
 PROJECT_DIR=$(realpath -e -- "$STAGE_S_C_PROJECT_DIR") || {
   echo "C runtime clone path does not exist: $STAGE_S_C_PROJECT_DIR" >&2
   exit 43

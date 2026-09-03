@@ -486,7 +486,7 @@ def test_registry_v2_payload_binds_pinned_runtime_and_stages() -> None:
     assert payload["runtime"]["python"] == DEFAULT_OPENPI_PYTHON
     assert payload["runtime"]["uid"] == payload["runtime"]["gid"] == 2254
     assert payload["runtime"]["project_dir"] == \
-        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-20260903"
+        "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-racefix-20260903"
     assert payload["runtime"]["project_dir_env"] == "STAGE_S_C_PROJECT_DIR"
     assert payload["runtime"]["command_file"] == \
         "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained_pai.sh"
