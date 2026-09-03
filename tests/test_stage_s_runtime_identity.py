@@ -3,10 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
 
+import r142_stage_s.runtime_identity as runtime_identity
 from r142_stage_s.runtime_identity import attest_config, sha256_file, verify_manifest, write_attestation
 
 
@@ -179,6 +181,54 @@ def test_valid_fixture_passes_and_is_deterministic(fixture_config) -> None:
     assert first["runtime"]["repository"]["clean"]
     assert all(row["observed"]["clean"] for row in first["dependencies"])
     assert {row["manifest_check"]["valid"] for row in first["artifacts"] if "manifest_check" in row} == {True}
+
+
+def test_slow_cpfs_git_status_is_clean_with_bounded_timeout(monkeypatch, fixture_config) -> None:
+    _, paths, _ = fixture_config
+    real_run = subprocess.run
+    observed_timeouts = []
+
+    def slow_run(command, *args, **kwargs):
+        if command[:1] == ["git"] and "status" in command:
+            observed_timeouts.append(kwargs["timeout"])
+            # A small deterministic delay models a cold CPFS metadata lookup
+            # without making the unit suite wait tens of seconds.
+            time.sleep(0.05)
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(runtime_identity.subprocess, "run", slow_run)
+    identity = runtime_identity._git_identity(paths["runtime"])
+
+    assert identity["git"]
+    assert identity["clean"]
+    assert identity["status_available"]
+    assert identity["status_reason"] == "ok"
+    assert observed_timeouts
+    assert min(observed_timeouts) >= 60
+    assert runtime_identity.GIT_STATUS_MAX_ATTEMPTS == 3
+
+
+def test_git_status_timeout_is_unavailable_not_dirty(monkeypatch, fixture_config) -> None:
+    config, paths, _ = fixture_config
+    real_run = subprocess.run
+    runtime_path = str(paths["runtime"])
+
+    def timeout_runtime_status(command, *args, **kwargs):
+        if command[:1] == ["git"] and "status" in command and runtime_path in command:
+            raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(runtime_identity.subprocess, "run", timeout_runtime_status)
+    identity = runtime_identity._git_identity(paths["runtime"])
+    assert identity["git"]
+    assert not identity["clean"]
+    assert not identity["status_available"]
+    assert identity["status_reason"] == "timeout"
+    assert identity["status_attempts"] == runtime_identity.GIT_STATUS_MAX_ATTEMPTS
+
+    result = attest_config(config)
+    assert "runtime_git_status_unavailable:timeout" in result["errors"]
+    assert "runtime_tree_dirty" not in result["errors"]
 
 
 def test_identifier_description_and_template_fields_skip_path_existence(fixture_config) -> None:

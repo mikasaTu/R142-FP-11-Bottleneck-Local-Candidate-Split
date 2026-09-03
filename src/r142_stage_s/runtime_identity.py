@@ -19,6 +19,7 @@ import hashlib
 import json
 import re
 import subprocess
+import time
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping
 
@@ -27,6 +28,12 @@ SCHEMA = "r142-stage-s-runtime-identity-attestation-v1"
 HEX40 = re.compile(r"^[0-9a-fA-F]{40}$")
 HEX64 = re.compile(r"^[0-9a-fA-F]{64}$")
 PLACEHOLDER = re.compile(r"\{\{[^{}]+\}\}|<[A-Za-z][A-Za-z0-9_.-]*>")
+# CPFS-backed Git status can take tens of seconds while the tree metadata is
+# cold. Keep every probe bounded, but allow a clean checkout to finish
+# without turning an I/O timeout into a false "dirty" result.
+GIT_COMMAND_TIMEOUT_SECONDS = 60
+GIT_STATUS_MAX_ATTEMPTS = 3
+GIT_STATUS_RETRY_DELAY_SECONDS = 0.25
 PATH_TOKENS = (
     "path",
     "root",
@@ -168,19 +175,42 @@ def _memory_gib(value: Any) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def _git(repo: Path, *args: str) -> tuple[bool, str]:
+def _git_detailed(
+    repo: Path,
+    *args: str,
+    timeout: float = GIT_COMMAND_TIMEOUT_SECONDS,
+) -> tuple[bool, str, str]:
+    """Run Git while retaining whether failure was command unavailability.
+
+    The old two-value helper collapsed a timeout into ``clean=False``. That
+    made a slow but clean CPFS checkout indistinguishable from a dirty one.
+    ``reason`` is deliberately coarse and deterministic; command stderr is
+    not part of the attestation.
+    """
+
     try:
         proc = subprocess.run(
             ["git", "-C", str(repo), *args],
             check=False,
             capture_output=True,
             text=True,
-            timeout=15,
+            timeout=timeout,
             env={"LC_ALL": "C", "LANG": "C"},
         )
-    except (OSError, subprocess.TimeoutExpired):
-        return False, ""
-    return proc.returncode == 0, proc.stdout.strip()
+    except subprocess.TimeoutExpired:
+        return False, "", "timeout"
+    except OSError as exc:
+        return False, "", f"oserror:{type(exc).__name__}"
+    if proc.returncode != 0:
+        return False, proc.stdout.strip(), f"exit:{proc.returncode}"
+    return True, proc.stdout.strip(), "ok"
+
+
+def _git(repo: Path, *args: str) -> tuple[bool, str]:
+    """Compatibility wrapper for callers that only need success and stdout."""
+
+    ok, output, _ = _git_detailed(repo, *args)
+    return ok, output
 
 
 def _git_identity(repo: Path) -> dict[str, Any]:
@@ -190,22 +220,47 @@ def _git_identity(repo: Path) -> dict[str, Any]:
         "git": False,
         "head": None,
         "clean": False,
+        "status_available": False,
+        "status_reason": "not_checked",
+        "status_attempts": 0,
     }
     if not record["exists"]:
+        record["status_reason"] = "repository_missing"
         return record
-    ok, top = _git(repo, "rev-parse", "--show-toplevel")
+    ok, top, reason = _git_detailed(repo, "rev-parse", "--show-toplevel")
     if not ok:
+        record["status_reason"] = f"metadata_unavailable:{reason}"
         return record
-    ok_head, head = _git(repo, "rev-parse", "HEAD")
-    ok_status, status = _git(repo, "status", "--porcelain=v1", "--untracked-files=all")
+    ok_head, head, head_reason = _git_detailed(repo, "rev-parse", "HEAD")
+    status = ""
+    status_reason = "not_checked"
+    status_attempts = 0
+    ok_status = False
+    for attempt in range(1, GIT_STATUS_MAX_ATTEMPTS + 1):
+        status_attempts = attempt
+        ok_status, status, status_reason = _git_detailed(
+            repo,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        )
+        if ok_status:
+            break
+        if attempt < GIT_STATUS_MAX_ATTEMPTS:
+            time.sleep(GIT_STATUS_RETRY_DELAY_SECONDS)
     record.update(
         {
             "git": True,
             "top_level": top,
             "head": head.lower() if ok_head else None,
             "clean": ok_status and status == "",
+            "status_available": ok_status,
+            "status_reason": status_reason if not ok_status else "ok",
+            "status_attempts": status_attempts,
         }
     )
+    if not ok_head:
+        record["head_reason"] = head_reason
     return record
 
 
@@ -669,6 +724,11 @@ def attest_config(config_path: str | Path) -> dict[str, Any]:
         errors.append("config_source_commit_conflicting")
     elif not config_source.get("git"):
         errors.append("config_source_git_missing")
+    elif not config_source.get("status_available"):
+        errors.append(
+            "config_source_git_status_unavailable:"
+            f"{config_source.get('status_reason', 'unknown')}"
+        )
     elif not config_source.get("clean"):
         errors.append("config_source_tree_dirty")
     elif expected_config_commit and config_source.get("head") != expected_config_commit:
@@ -715,7 +775,12 @@ def attest_config(config_path: str | Path) -> dict[str, Any]:
             errors.append("runtime_git_missing")
         elif runtime_identity.get("head") != runtime_expected:
             errors.append(f"runtime_source_commit_mismatch:{runtime_identity.get('head')}!={runtime_expected}")
-        if not runtime_identity.get("clean"):
+        elif not runtime_identity.get("status_available"):
+            errors.append(
+                "runtime_git_status_unavailable:"
+                f"{runtime_identity.get('status_reason', 'unknown')}"
+            )
+        elif not runtime_identity.get("clean"):
             errors.append("runtime_tree_dirty")
     else:
         errors.append("runtime_repo_missing")
@@ -776,7 +841,12 @@ def attest_config(config_path: str | Path) -> dict[str, Any]:
             errors.append(
                 f"dependency_source_commit_mismatch:{binding['name']}:{identity.get('head')}!={binding['expected_commit']}"
             )
-        if not identity.get("clean"):
+        elif not identity.get("status_available"):
+            errors.append(
+                "dependency_git_status_unavailable:"
+                f"{binding['name']}:{identity.get('status_reason', 'unknown')}"
+            )
+        elif not identity.get("clean"):
             errors.append(f"dependency_tree_dirty:{binding['name']}:{binding['path']}")
     result["dependencies"] = dependency_records
 
