@@ -232,14 +232,14 @@ def _summary(authority: Mapping[str, Any]) -> dict[str, Any]:
     threshold_flat = _flatten(thresholds_source)
     thresholds: dict[str, float] = {}
     threshold_aliases = {
-        "s1_success_rate_min": ("s1_success_rate_min", "s1_difficulty_min", "success_rate_min"),
-        "s1_success_rate_max": ("s1_success_rate_max", "s1_difficulty_max", "success_rate_max"),
+        "s1_success_rate_min": ("s1_success_rate_min", "s1_difficulty_min", "success_rate_min", "pooled_success_min"),
+        "s1_success_rate_max": ("s1_success_rate_max", "s1_difficulty_max", "success_rate_max", "pooled_success_max"),
         "s2_near_all_fail_fraction_min": (
             "s2_near_all_fail_fraction_min", "s2_collapse_fraction_min", "near_all_fail_fraction_min"
         ),
         "s2_rho_min": ("s2_rho_min", "s2_overdispersion_rho_min", "rho_min"),
         "s2_binomial_multiplier_min": (
-            "s2_binomial_multiplier_min", "s2_near_all_fail_binomial_multiplier", "near_all_fail_binomial_multiplier"
+            "s2_binomial_multiplier_min", "s2_near_all_fail_binomial_multiplier", "near_all_fail_binomial_multiplier", "near_all_fail_vs_binomial_min"
         ),
         "s3_median_t_div_fraction_min": (
             "s3_median_t_div_fraction_min", "s3_prefix_median_t_div_fraction", "median_t_div_fraction_min"
@@ -251,7 +251,7 @@ def _summary(authority: Mapping[str, Any]) -> dict[str, Any]:
             "s4_recoverable_family_fraction_min", "s4_rescue_fraction_min", "recoverable_family_fraction_min"
         ),
         "s4_oracle_random_ci_lower_bound_min": (
-            "s4_oracle_random_ci_lower_bound_min", "s4_random_ci_lower_bound_min", "oracle_random_ci_lower_bound_min"
+            "s4_oracle_random_ci_lower_bound_min", "s4_random_ci_lower_bound_min", "oracle_random_ci_lower_bound_min", "oracle_random_ci_lower_min", "oracle_vs_random_ci_lower_min"
         ),
         "s5_best_of_n64_rescue_fraction_max": (
             "s5_best_of_n64_rescue_fraction_max", "s5_budget_rescue_fraction_max", "budget_rescue_fraction_max"
@@ -306,6 +306,64 @@ def _summary(authority: Mapping[str, Any]) -> dict[str, Any]:
         "tasks": list(EXPECTED_TASKS),
         "budget": budget,
     }
+
+
+def _explicit_s4_s5(authority: Mapping[str, Any], summary: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Validate and expose the S4/S5 fields of a frozen authority.
+
+    ``freeze_protocol`` writes the two contracts at the envelope level while
+    older hand-authored authorities put them below ``frozen_summary``.  Both
+    forms are accepted, but whenever present every numeric budget is checked;
+    there is no fallback grid or branch count here.
+    """
+
+    s4_source = _mapping(authority, "s4", "S4")
+    if not s4_source:
+        s4_source = _mapping(summary, "s4", "S4")
+    s5_source = _mapping(authority, "s5", "S5")
+    if not s5_source:
+        s5_source = _mapping(summary, "s5", "S5")
+    s4 = dict(s4_source)
+    s5 = dict(s5_source)
+    summary_s4 = _mapping(summary, "s4", "S4")
+    summary_s5 = _mapping(summary, "s5", "S5")
+    if summary_s4 and s4 != dict(summary_s4):
+        raise FrozenProtocolError("frozen protocol S4 envelope and summary drifted")
+    if summary_s5 and s5 != dict(summary_s5):
+        raise FrozenProtocolError("frozen protocol S5 envelope and summary drifted")
+    if s4:
+        search_grid = s4.get("search_t_grid", s4.get("oracle_search_grid", s4.get("oracle_t_grid")))
+        if search_grid is None:
+            raise FrozenProtocolError("frozen protocol S4 lacks explicit nine-point search grid")
+        grids = list(search_grid.values()) if isinstance(search_grid, Mapping) else [search_grid]
+        if not grids or any(
+            not isinstance(grid, (list, tuple))
+            or len(grid) != 9
+            or any(isinstance(item, bool) or not isinstance(item, int) for item in grid)
+            for grid in grids
+        ):
+            raise FrozenProtocolError("frozen protocol S4 search grid must contain exactly nine integer points")
+        for field, expected in (("branch_count", 4), ("search_branch_count", 4), ("heldout_branch_count", 8), ("random_branch_count", 8), ("paired_bootstrap_replicates", 10000), ("paired_bootstrap_seed", 14211)):
+            if field in s4:
+                try:
+                    observed = int(s4[field])
+                except (TypeError, ValueError) as exc:
+                    raise FrozenProtocolError(f"frozen protocol S4 {field} is not an integer") from exc
+                if observed != expected:
+                    raise FrozenProtocolError(f"frozen protocol S4 {field} drifted: expected {expected}, got {observed}")
+        random_formula = s4.get("random_location_hash_formula", s4.get("random_t_hash_formula", s4.get("random_location_formula")))
+        if random_formula is None:
+            random_formula = s4.get("random_t_rule")
+        if not isinstance(random_formula, str) or not random_formula.strip():
+            raise FrozenProtocolError("frozen protocol S4 lacks random-location formula")
+    if s5:
+        if s5.get("base_candidate_count") is not None and int(s5["base_candidate_count"]) != 32:
+            raise FrozenProtocolError("frozen protocol S5 base candidate count must be 32")
+        if s5.get("fresh_candidate_indices") is not None and list(s5["fresh_candidate_indices"]) != list(range(32, 64)):
+            raise FrozenProtocolError("frozen protocol S5 fresh candidate indices must be exactly 32..63")
+        if s5.get("extension_seed_formula") is not None and (not isinstance(s5["extension_seed_formula"], str) or not s5["extension_seed_formula"].strip()):
+            raise FrozenProtocolError("frozen protocol S5 extension seed formula is empty")
+    return s4, s5
 
 
 def load_frozen_protocol(path: Path = DEFAULT_PROTOCOL_PATH) -> dict[str, Any]:
@@ -380,6 +438,7 @@ def load_frozen_protocol(path: Path = DEFAULT_PROTOCOL_PATH) -> dict[str, Any]:
         label="C calibration report",
     )
     summary = _summary(authority)
+    s4, s5 = _explicit_s4_s5(authority, authority.get("frozen_summary", {}))
     summary_sha = hashlib.sha256(
         (json.dumps(summary, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
     ).hexdigest()
@@ -397,6 +456,8 @@ def load_frozen_protocol(path: Path = DEFAULT_PROTOCOL_PATH) -> dict[str, Any]:
         },
         "frozen_summary": summary,
         "frozen_summary_sha256": summary_sha,
+        "s4": s4,
+        "s5": s5,
     }
 
 

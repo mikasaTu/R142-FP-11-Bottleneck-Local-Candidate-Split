@@ -43,7 +43,7 @@ from typing import Any, Callable, Iterable, Mapping, MutableMapping, Sequence
 
 import numpy as np
 
-from .analysis import compute_s4, compute_s5
+from .analysis import compute_s4, compute_s4_from_protocol, compute_s5
 
 
 PROTOCOL_ID = "r142-stage-s-v1"
@@ -288,13 +288,20 @@ class ProtocolAuthority:
             raise S45ProtocolError("protocol authority lacks a full 40-character git commit")
         s4 = payload.get("s4", payload.get("S4"))
         s5 = payload.get("s5", payload.get("S5"))
+        frozen = payload.get("frozen_summary")
         if not isinstance(s4, Mapping) or not isinstance(s5, Mapping):
-            frozen = payload.get("frozen_summary")
             if isinstance(frozen, Mapping):
                 s4 = frozen.get("s4", frozen.get("S4", s4))
                 s5 = frozen.get("s5", frozen.get("S5", s5))
         if not isinstance(s4, Mapping) or not isinstance(s5, Mapping):
             raise S45ProtocolError("protocol authority must contain explicit s4 and s5 objects")
+        if isinstance(frozen, Mapping):
+            summary_s4 = frozen.get("s4", frozen.get("S4"))
+            summary_s5 = frozen.get("s5", frozen.get("S5"))
+            if isinstance(summary_s4, Mapping) and dict(s4) != dict(summary_s4):
+                raise S45ProtocolError("protocol authority top-level s4 disagrees with frozen_summary.s4")
+            if isinstance(summary_s5, Mapping) and dict(s5) != dict(summary_s5):
+                raise S45ProtocolError("protocol authority top-level s5 disagrees with frozen_summary.s5")
         # S4 is a two-stage procedure.  The nine search locations, four
         # search branches per location, and eight paired held-out suffixes
         # are protocol-owned constants.  They must never be inferred from a
@@ -319,7 +326,31 @@ class ProtocolAuthority:
             raise S45ProtocolError("s4.random_t_rule/random_location_hash_formula must be explicit text")
         if not isinstance(s4["branch_seed_formula"], str) or not s4["branch_seed_formula"].strip():
             raise S45ProtocolError("s4.branch_seed_formula must be explicit text")
+        # The bootstrap seed is optional only for old fixture authorities; a
+        # frozen Stage-S authority that declares it must use the plan seed.
+        if "paired_bootstrap_seed" in s4:
+            if isinstance(s4["paired_bootstrap_seed"], bool) or not isinstance(s4["paired_bootstrap_seed"], (int, np.integer)):
+                raise S45ProtocolError("s4.paired_bootstrap_seed must be an integer")
+            try:
+                bootstrap_seed = int(s4["paired_bootstrap_seed"])
+            except (TypeError, ValueError) as exc:
+                raise S45ProtocolError("s4.paired_bootstrap_seed must be an integer") from exc
+            if bootstrap_seed != 14211:
+                raise S45ProtocolError("s4.paired_bootstrap_seed is frozen at 14211")
+        elif protocol_id == PROTOCOL_ID:
+            raise S45ProtocolError("production protocol authority must carry s4.paired_bootstrap_seed")
         search_grid = s4.get("search_t_grid", s4.get("oracle_search_grid", s4.get("oracle_t_grid")))
+        if "paired_bootstrap_replicates" in s4:
+            if isinstance(s4["paired_bootstrap_replicates"], bool) or not isinstance(s4["paired_bootstrap_replicates"], (int, np.integer)):
+                raise S45ProtocolError("s4.paired_bootstrap_replicates must be an integer")
+            try:
+                bootstrap_replicates = int(s4["paired_bootstrap_replicates"])
+            except (TypeError, ValueError) as exc:
+                raise S45ProtocolError("s4.paired_bootstrap_replicates must be an integer") from exc
+            if bootstrap_replicates != 10000:
+                raise S45ProtocolError("s4.paired_bootstrap_replicates is frozen at 10000")
+        elif protocol_id == PROTOCOL_ID:
+            raise S45ProtocolError("production protocol authority must carry s4.paired_bootstrap_replicates")
         search_branch_count = s4.get(
             "search_branch_count",
             s4.get("search_branches_per_location", s4.get("branch_count")),
@@ -370,6 +401,8 @@ class ProtocolAuthority:
                 raise S45ProtocolError("s4 search grid must contain exactly 9 interior control steps")
             if not all(isinstance(item, (int, np.integer)) and not isinstance(item, bool) for item in grid):
                 raise S45ProtocolError("s4 search grid must contain integer control steps")
+            if len(set(int(item) for item in grid)) != 9:
+                raise S45ProtocolError("s4 search grid must contain nine distinct control steps")
         random_grid = s4.get("random_t_grid")
         random_grid_values = random_grid.values() if isinstance(random_grid, Mapping) else (random_grid,)
         for grid in random_grid_values:
@@ -536,6 +569,21 @@ class ProtocolAuthority:
         if value is None:
             raise S45ProtocolError("s4 heldout_branch_count is missing")
         return int(value)
+
+    @property
+    def paired_bootstrap_seed(self) -> int:
+        value = self.s4.get("paired_bootstrap_seed")
+        if value is None:
+            raise S45ProtocolError("s4 paired_bootstrap_seed is missing")
+        if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
+            raise S45ProtocolError("s4 paired_bootstrap_seed is invalid")
+        try:
+            result = int(value)
+        except (TypeError, ValueError) as exc:
+            raise S45ProtocolError("s4 paired_bootstrap_seed is invalid") from exc
+        if result != 14211:
+            raise S45ProtocolError("s4 paired_bootstrap_seed is frozen at 14211")
+        return result
 
 
 def _call(fn: Callable[..., Any], **kwargs: Any) -> Any:
@@ -1214,6 +1262,12 @@ def run_s4(
     """
 
     family_list = [_family_from_mapping(value) for value in families]
+    if protocol.protocol_id == PROTOCOL_ID:
+        bootstrap_seed = protocol.paired_bootstrap_seed
+    else:
+        bootstrap_seed = int(protocol.s4.get("paired_bootstrap_seed", 14211))
+        if bootstrap_seed != 14211:
+            raise S45ProtocolError("S4 bootstrap seed is frozen at 14211")
     for family in family_list:
         _require_family_source_provenance(family, label=f"S4 family {family.get('family_id', '<unknown>')}")
     if not family_list:
@@ -1264,6 +1318,8 @@ def run_s4(
                     raise S45ProvenanceError(f"S4 existing completion marker provenance mismatch: {family_id}")
                 if int(existing.get("candidate_count", -1)) != BASE_CANDIDATE_COUNT or int(existing.get("search_grid_count", -1)) != 9 or int(existing.get("search_branch_count", -1)) != protocol.search_branch_count or int(existing.get("heldout_branch_count_per_mode", -1)) != protocol.heldout_branch_count:
                     raise S45BundleError(f"S4 existing completion marker has an incomplete frozen budget: {family_id}")
+                if protocol.protocol_id == PROTOCOL_ID and int(existing.get("paired_bootstrap_seed", -1)) != protocol.paired_bootstrap_seed:
+                    raise S45ProtocolError(f"S4 existing completion marker bootstrap seed drifted: {family_id}")
                 expected_existing_source = {"source_n32_marker_sha256": str(family.get("source_marker_sha256")), "source_n32_bundle_sha256": str(family.get("source_bundle_sha256")), "source_n32_family_file_sha256": str(family.get("source_family_file_sha256"))}
                 if any(existing.get(field) != value for field, value in expected_existing_source.items()):
                     raise S45ProvenanceError(f"S4 existing completion marker source provenance mismatch: {family_id}")
@@ -1463,6 +1519,7 @@ def run_s4(
                 "random_branch_count": protocol.heldout_branch_count,
                 "random_locations": [int(item) for item in random_steps],
                 "paired_suffix_seeds": [int(item) for item in paired_seeds],
+                "paired_bootstrap_seed": bootstrap_seed,
                 "oracle_t_rule": protocol.s4["oracle_t_rule"],
                 "random_t_rule": protocol.random_t_rule,
                 **protocol.identity(),
@@ -1497,6 +1554,7 @@ def run_s4(
                 "source_n32_marker_sha256": family.get("source_marker_sha256"),
                 "source_n32_bundle_sha256": family.get("source_bundle_sha256"),
                 "source_n32_family_file_sha256": family.get("source_family_file_sha256"),
+                "paired_bootstrap_seed": bootstrap_seed,
             }
             write_atomic_bundle(directory, artifacts, marker_name=marker_name, marker_payload=marker)
             completed += 1
@@ -1511,6 +1569,7 @@ def run_s4(
         "search_grid_count": 9,
         "search_branch_count": protocol.search_branch_count,
         "heldout_branch_count": protocol.heldout_branch_count,
+        "paired_bootstrap_seed": bootstrap_seed,
         "output_root": str(root),
     }
 
@@ -1733,6 +1792,8 @@ def load_s4_probes(
             raise S45ProvenanceError(f"S4 family {family_id} has mismatched protocol authority")
         if int(marker.get("candidate_count", -1)) != BASE_CANDIDATE_COUNT or int(marker.get("search_grid_count", -1)) != 9 or int(marker.get("search_branch_count", -1)) != protocol.search_branch_count or int(marker.get("heldout_branch_count_per_mode", -1)) != protocol.heldout_branch_count:
             raise S45BundleError(f"S4 {family_id} completion marker has an incomplete frozen budget")
+        if protocol.protocol_id == PROTOCOL_ID and int(marker.get("paired_bootstrap_seed", -1)) != protocol.paired_bootstrap_seed:
+            raise S45ProtocolError(f"S4 {family_id} completion marker bootstrap seed drifted")
         probe = _read_json(directory / "S4_PROBE.json", label="S4 probe")
         if probe.get("schema") != "r142-stage-s-s4-probe-v2":
             raise S45BundleError(f"S4 {family_id} probe schema is not v2")
@@ -1838,6 +1899,8 @@ def load_s4_probes(
             raise S45ProvenanceError(f"S4 {family_id} held-out suffix seeds are not unique")
         if int(probe.get("oracle_branch_count", -1)) != protocol.heldout_branch_count or int(probe.get("random_branch_count", -1)) != protocol.heldout_branch_count:
             raise S45ProvenanceError(f"S4 {family_id} held-out branch counts are not equal eight")
+        if protocol.protocol_id == PROTOCOL_ID and int(probe.get("paired_bootstrap_seed", -1)) != protocol.paired_bootstrap_seed:
+            raise S45ProtocolError(f"S4 {family_id} probe bootstrap seed drifted")
         probes.append(probe)
         found.add(family_id)
     if found != expected:
@@ -1976,7 +2039,10 @@ def finalise_s45(
     probes = load_s4_probes(s4_root, protocol=protocol, expected_family_ids=[family.family_id for family in near], expected_families=near)
     base_data, extended_data = load_s5_extended(s5_root, protocol=protocol, families=list(families))
     rollouts = {family.family_id: list(family.candidates) for family in families}
-    s4 = compute_s4(probes, replicates=S4_BOOTSTRAP_REPLICATES)
+    if protocol.protocol_id == PROTOCOL_ID:
+        s4 = compute_s4_from_protocol(probes, protocol)
+    else:
+        s4 = compute_s4(probes, seed=14211, replicates=S4_BOOTSTRAP_REPLICATES)
     s5 = compute_s5(base_data, extended_data)
     result: dict[str, Any] = {
         "schema": "r142-stage-s-s45-result-v1",
@@ -1988,12 +2054,13 @@ def finalise_s45(
         "S5": s5,
         "s4": s4,
         "s5": s5,
+        "s4_protocol_bootstrap_seed": int(s4.get("protocol_bootstrap_seed", 14211)),
         "all_inputs_complete": True,
         "pass": bool(s4.get("pass") and s5.get("pass")),
     }
     output = Path(output_root)
     artifacts = {"S45_RESULT.json": (json.dumps(_jsonable(result), ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")}
-    marker = {"schema": "r142-stage-s-s45-completion-v1", "marker_type": "completed_s45_evaluation", **protocol.identity(), "substrate": expected_substrate, "n32_family_count": len(families), "near_all_fail_family_count": len(near)}
+    marker = {"schema": "r142-stage-s-s45-completion-v1", "marker_type": "completed_s45_evaluation", **protocol.identity(), "substrate": expected_substrate, "n32_family_count": len(families), "near_all_fail_family_count": len(near), "paired_bootstrap_seed": int(s4.get("protocol_bootstrap_seed", 14211))}
     completion = write_atomic_bundle(output, artifacts, marker_name="COMPLETED_EVALUATION_RESULT.json", marker_payload=marker)
     return {**result, "completion": completion}
 

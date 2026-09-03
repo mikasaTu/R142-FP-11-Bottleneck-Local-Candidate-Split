@@ -30,7 +30,18 @@ S4_MIN_ORACLE_RECOVERY_FRACTION = 0.30
 S4_BOOTSTRAP_REPLICATES = 10000
 S4_BOOTSTRAP_CI_LEVEL = 0.95
 S5_MAX_RESCUE_FRACTION = 0.05
-DEFAULT_BOOTSTRAP_SEED = 142011
+DEFAULT_BOOTSTRAP_SEED = 14211
+S4_BOOTSTRAP_SEED = 14211
+
+# The production S3 metric is defined in the workspace pose contract.  Keep
+# these tuples immutable so a caller cannot accidentally use a qpos or scalar
+# normalization when analyzing a real substrate.
+S3_SUBSTRATE_WORKSPACE_SCALES: dict[str, tuple[float, ...]] = {
+    "A": (1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0),
+    "B": (1.0, 1.0, 1.0, math.pi, math.pi, math.pi),
+    "C": (1.0, 1.0, 1.0, math.pi, math.pi, math.pi),
+}
+
 
 DECISION_CODES = frozenset(
     {
@@ -753,6 +764,7 @@ def evaluate_substrate(
     *,
     probes: Sequence[Mapping[str, Any]],
     extended_rollouts: Any,
+    substrate: str | None = None,
     tau: float | None = None,
     successful_episodes: Any | None = None,
     workspace_bounds: Any | None = None,
@@ -897,6 +909,10 @@ __all__ = [
     "pooled_success_rate",
     "s4_oracle_vs_random",
     "s5_budget_rescue",
+    "S4_BOOTSTRAP_SEED",
+    "S3_SUBSTRATE_WORKSPACE_SCALES",
+    "compute_s3_production",
+    "compute_s4_from_protocol",
 ]
 
 def matched_time_tau_curve(
@@ -988,9 +1004,32 @@ def compute_s3(
     tau_curves: Mapping[object, Any] | None = None,
     workspace_bounds: Any | None = None,
     workspace_scale: Any | None = None,
+    substrate: str | None = None,
     n: int = BASE_CANDIDATE_COUNT,
 ) -> dict[str, Any]:
-    """Evaluate S3 with task- and control-step-matched tau(t)."""
+    """Evaluate S3 with task-matched tau(t).
+
+    Passing ``substrate`` selects the strict production contract: the
+    substrate-specific pose scale is mandatory, tau is derived from successful
+    same-task matched-time references, and scalar/externally supplied tau
+    curves are rejected.  The legacy scalar arguments remain available only
+    when ``substrate`` is omitted for backwards-compatible unit diagnostics.
+    """
+
+    if substrate is not None:
+        if substrate not in S3_SUBSTRATE_WORKSPACE_SCALES:
+            raise ValueError(f"unsupported S3 substrate: {substrate!r}")
+        if tau is not None:
+            raise ValueError("production S3 forbids a scalar tau override")
+        if tau_curves is not None:
+            raise ValueError("production S3 derives tau from successful same-task matched-time references")
+        if workspace_bounds is not None:
+            raise ValueError("production S3 forbids workspace bounds; use the frozen substrate scale")
+        expected_scale = S3_SUBSTRATE_WORKSPACE_SCALES[substrate]
+        if workspace_scale is None:
+            workspace_scale = expected_scale
+        elif tuple(float(value) for value in np.asarray(workspace_scale).reshape(-1)) != expected_scale:
+            raise ValueError(f"production S3 workspace scale drift for substrate {substrate}")
 
     groups = group_families(data)
     family_collapse_metrics(groups, n=n)
@@ -1057,6 +1096,9 @@ def compute_s3(
     return {
         "tau": None if tau is None else float(tau),
         "tau_by_task": tau_by_task,
+        "substrate": substrate,
+        "workspace_scale": None if workspace_scale is None else [float(value) for value in np.asarray(workspace_scale).reshape(-1)],
+        "tau_override_forbidden": substrate is not None,
         "tau_source": tau_source,
         "tau_quantile": TAU_QUANTILE,
         "near_all_fail_family_count": len(near_groups),
@@ -1192,6 +1234,7 @@ def evaluate_substrate(
     *,
     probes: Sequence[Mapping[str, Any]],
     extended_rollouts: Any,
+    substrate: str | None = None,
     tau: float | None = None,
     tau_curves: Mapping[object, Any] | None = None,
     successful_episodes: Any | None = None,
@@ -1209,6 +1252,7 @@ def evaluate_substrate(
         successful_episodes=successful_episodes,
         workspace_bounds=workspace_bounds,
         workspace_scale=workspace_scale,
+        substrate=substrate,
     )
     s4 = compute_s4(probes)
     s5 = compute_s5(rollouts, extended_rollouts)
@@ -1229,16 +1273,19 @@ def decide_stage_s(
     *,
     positive_control_pass: bool | Mapping[str, Any],
 ) -> str:
-    """Emit one code using gate-depth pruning across viable A/B substrates."""
+    """Return exactly one protocol decision after depth-wise survivor pruning.
+
+    The total analyzer evaluates every arm/gate first. This function only
+    applies the frozen precedence: A/B are headline arms, C is weak-only, and
+    a failed gate removes only arms that failed that gate before the next
+    depth. It never stops collection of later gates.
+    """
 
     required = {"A", "B", "C"}
     missing = required - set(substrates)
     if missing:
         raise ValueError(f"substrate results missing {sorted(missing)}")
-    if isinstance(positive_control_pass, Mapping):
-        positive_ok = bool(positive_control_pass.get("pass", False))
-    else:
-        positive_ok = bool(positive_control_pass)
+    positive_ok = bool(positive_control_pass.get("pass", False)) if isinstance(positive_control_pass, Mapping) else bool(positive_control_pass)
     if not positive_ok:
         return "PIPELINE_INVALID"
     if _full_pass(substrates["A"]) or _full_pass(substrates["B"]):
@@ -1248,40 +1295,22 @@ def decide_stage_s(
     if all(not bool(_gate_value(substrates[name], "S1").get("pass", False)) for name in required):
         return "NO_SUBSTRATE_AT_TARGET_DIFFICULTY"
 
-    active = [
-        substrates[name]
-        for name in ("A", "B")
-        if bool(_gate_value(substrates[name], "S1").get("pass", False))
-    ]
+    active = [substrates[name] for name in ("A", "B") if bool(_gate_value(substrates[name], "S1").get("pass", False))]
     if not active:
-        # C is never headline evidence, but when it is the only arm at target
-        # difficulty its deeper failure still determines the plan-defined
-        # falsification code.  A full C pass was handled above as
-        # WEAK_SUBSTRATE_ONLY.
         active = [substrates["C"]]
-
-    gate_to_code = {
-        "S2": "NO_FAMILY_COLLAPSE",
-        "S3": "COLLAPSE_AT_ORIGIN",
-        "S4": "UNRECOVERABLE_FAILURES",
-        "S5": "BUDGET_SUFFICES",
-    }
     for gate in ("S2", "S3", "S4", "S5"):
-        survivors = [
-            item for item in active if bool(_gate_value(item, gate).get("pass", False))
-        ]
+        survivors = [item for item in active if bool(_gate_value(item, gate).get("pass", False))]
         if survivors:
             active = survivors
             continue
+        if gate == "S2":
+            return "NO_FAMILY_COLLAPSE"
         if gate == "S3":
-            origin_dominant = any(
-                bool(_gate_value(item, "S3").get("origin_dominant", False))
-                for item in active
-            )
-            if origin_dominant:
-                return "COLLAPSE_AT_ORIGIN"
+            return "COLLAPSE_AT_ORIGIN" if any(bool(_gate_value(item, "S3").get("origin_dominant", False)) for item in active) else "UNRECOVERABLE_FAILURES"
+        if gate == "S4":
             return "UNRECOVERABLE_FAILURES"
-        return gate_to_code[gate]
+        if gate == "S5":
+            return "BUDGET_SUFFICES"
     return "SUBSTRATE_QUALIFIED"
 
 
@@ -1342,3 +1371,108 @@ def _extension_freshness(
 
 if "matched_time_tau_curve" not in __all__:
     __all__.append("matched_time_tau_curve")
+
+
+# Strict protocol-bound production entry points.  These wrappers deliberately
+# keep the permissive legacy helpers above available for historical fixtures,
+# while making it impossible for a production caller to pass scalar tau or a
+# non-substrate pose scale by accident.
+def compute_s3_production(
+    data: Any,
+    *,
+    substrate: str,
+    successful_episodes: Any | None = None,
+) -> dict[str, Any]:
+    return compute_s3(
+        data,
+        substrate=substrate,
+        successful_episodes=successful_episodes,
+        tau=None,
+        tau_curves=None,
+        workspace_bounds=None,
+        workspace_scale=S3_SUBSTRATE_WORKSPACE_SCALES.get(substrate),
+    )
+
+
+def compute_s4_from_protocol(
+    probes: Sequence[Mapping[str, Any]],
+    protocol: Any,
+) -> dict[str, Any]:
+    """Run S4 only with protocol-owned seed, nine-point grid and 8/8 pairs."""
+
+    s4 = getattr(protocol, "s4", None)
+    if s4 is None and isinstance(protocol, Mapping):
+        s4 = protocol.get("s4", protocol.get("S4"))
+        if not isinstance(s4, Mapping):
+            summary = protocol.get("frozen_summary", {})
+            s4 = summary.get("s4", summary.get("S4", {})) if isinstance(summary, Mapping) else {}
+    if not isinstance(s4, Mapping):
+        raise ValueError("S4 protocol object is missing")
+    if isinstance(s4.get("paired_bootstrap_seed"), bool) or not isinstance(s4.get("paired_bootstrap_seed"), (int, np.integer)):
+        raise ValueError("S4 protocol paired_bootstrap_seed must be an integer")
+    if isinstance(s4.get("paired_bootstrap_replicates"), bool) or not isinstance(s4.get("paired_bootstrap_replicates"), (int, np.integer)):
+        raise ValueError("S4 protocol paired_bootstrap_replicates must be an integer")
+    try:
+        seed = int(s4["paired_bootstrap_seed"])
+        replicates = int(s4["paired_bootstrap_replicates"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("S4 protocol must carry paired_bootstrap_seed and paired_bootstrap_replicates") from exc
+    if seed != S4_BOOTSTRAP_SEED:
+        raise ValueError("S4 bootstrap seed is frozen at 14211")
+    if replicates != S4_BOOTSTRAP_REPLICATES:
+        raise ValueError("S4 bootstrap replicates are frozen at 10000")
+    grid = s4.get("search_t_grid", s4.get("oracle_search_grid", s4.get("oracle_t_grid")))
+    if isinstance(grid, Mapping):
+        grids = list(grid.values())
+    else:
+        grids = [grid]
+    if not grids or any(
+        not isinstance(item, (list, tuple))
+        or len(item) != 9
+        or any(isinstance(value, bool) or not isinstance(value, (int, np.integer)) for value in item)
+        or len(set(int(value) for value in item)) != 9
+        for item in grids
+    ):
+        raise ValueError("S4 protocol search grid must contain exactly nine distinct integer points")
+    for probe in probes:
+        if not isinstance(probe, Mapping):
+            raise TypeError("S4 probes must be mappings")
+        oracle_rows = probe.get("oracle_branches")
+        random_rows = probe.get("random_branches")
+        declared_oracle = probe.get("oracle_branch_count")
+        declared_random = probe.get("random_branch_count")
+        if declared_oracle is None and isinstance(oracle_rows, Sequence):
+            declared_oracle = len(oracle_rows)
+        if declared_random is None and isinstance(random_rows, Sequence):
+            declared_random = len(random_rows)
+        if int(declared_oracle or -1) != 8 or int(declared_random or -1) != 8:
+            raise ValueError("S4 requires equal held-out oracle/random branch counts of exactly 8")
+        if isinstance(oracle_rows, Sequence) and not isinstance(oracle_rows, (str, bytes)) and len(oracle_rows) != 8:
+            raise ValueError("S4 oracle branch list must contain exactly 8 held-out branches")
+        if isinstance(random_rows, Sequence) and not isinstance(random_rows, (str, bytes)) and len(random_rows) != 8:
+            raise ValueError("S4 random branch list must contain exactly 8 held-out branches")
+        probe_seed = probe.get("paired_bootstrap_seed")
+        if probe_seed is not None and int(probe_seed) != seed:
+            raise ValueError("S4 probe bootstrap seed disagrees with protocol")
+        probe_grid = probe.get("search_grid")
+        if probe_grid is not None:
+            family_id = str(probe.get("family_id", ""))
+            expected_grid = grid.get(family_id, grid.get(str(family_id))) if isinstance(grid, Mapping) else grid
+            if not isinstance(probe_grid, (list, tuple)) or not isinstance(expected_grid, (list, tuple)):
+                raise ValueError("S4 probe search grid must be an explicit list")
+            if len(probe_grid) != 9 or len(set(int(value) for value in probe_grid)) != 9 or list(map(int, probe_grid)) != list(map(int, expected_grid)):
+                raise ValueError("S4 probe search grid disagrees with the nine-point protocol grid")
+            if any(isinstance(value, bool) or not isinstance(value, (int, np.integer)) for value in probe_grid):
+                raise ValueError("S4 probe search grid must contain integer points")
+    result = compute_s4(probes, seed=seed, replicates=replicates)
+    result["protocol_bootstrap_seed"] = seed
+    result["protocol_grid_point_count"] = 9
+    result["protocol_branch_count_oracle"] = 8
+    result["protocol_branch_count_random"] = 8
+    result["equal_branch_counts"] = True
+    return result
+
+
+# Explicit names make the strict boundary discoverable to launchers and tests.
+production_s3 = compute_s3_production
+production_s4 = compute_s4_from_protocol

@@ -75,14 +75,21 @@ DIVERGENCE_PROTOCOL: dict[str, object] = {
     "tau_quantile": 0.95,
 }
 S4_PROTOCOL: dict[str, object] = {
+    # Explicit authority-owned nine-point search grid.
+    "search_t_grid": list(range(1, 10)),
     "anchor_rule": "lowest numeric candidate index among unsuccessful base-N32 candidates",
     "interior_grid_numerators": list(range(1, 10)),
     "interior_grid_denominator": 10,
     "interior_grid_rounding": "clamp(floor((j*H+5)/10),1,H-2), ordered unique; H<4 fails closed",
+    "branch_count": 4,
+    "search_branch_count": 4,
     "search_branches_per_step": 4,
+    "heldout_branch_count": 8,
+    "random_branch_count": 8,
     "evaluation_branch_count": 8,
     "oracle_t_rule": "maximize search successes/4 over interior grid; tie earliest control step",
     "random_t_rule": "for heldout branch k choose sha256 random-t digest modulo grid size",
+    "random_location_hash_formula": "sha256(protocol_id|s4|family_id|episode_length|pair_index)->first_8_bytes_big_endian_mod_interior",
     "search_seed_formula": "sha256(r142-stage-s-v1|S4-search|substrate|family_id|t|branch_index)->first_8_bytes_big_endian",
     "random_t_seed_formula": "sha256(r142-stage-s-v1|S4-random-t|substrate|family_id|k)->first_8_bytes_big_endian modulo grid_size",
     "branch_seed_formula": "sha256(r142-stage-s-v1|S4-eval|substrate|family_id|k)->first_8_bytes_big_endian; paired across oracle/random",
@@ -302,6 +309,37 @@ def read_frozen_protocol(
     if _sha256(protocol_md_path) != protocol_md_sha256:
         raise FrozenProtocolError("frozen PROTOCOL.md SHA-256 mismatch")
     summary = _protocol_summary(acceptance)
+    # S4/S5 are part of the same frozen object.  Read them from the envelope
+    # when present, otherwise from the rich frozen_summary emitted by
+    # freeze_protocol; never invent a grid or branch budget in this loader.
+    s4 = payload.get("s4", payload.get("S4"))
+    s5 = payload.get("s5", payload.get("S5"))
+    if not isinstance(s4, Mapping):
+        s4 = summary.get("s4", summary.get("S4"))
+    if not isinstance(s5, Mapping):
+        s5 = summary.get("s5", summary.get("S5"))
+    if not isinstance(s4, Mapping) or not isinstance(s5, Mapping):
+        raise FrozenProtocolError("frozen protocol acceptance lacks explicit S4/S5 contract")
+    expected_s4 = summary.get("s4", summary.get("S4"))
+    expected_s5 = summary.get("s5", summary.get("S5"))
+    if not isinstance(expected_s4, Mapping) or not isinstance(expected_s5, Mapping):
+        raise FrozenProtocolError("frozen protocol summary lacks explicit S4/S5 contract")
+    if dict(s4) != dict(expected_s4) or dict(s5) != dict(expected_s5):
+        raise FrozenProtocolError("frozen protocol envelope and summary S4/S5 contracts drifted")
+    search_grid = s4.get("search_t_grid", s4.get("oracle_search_grid", s4.get("oracle_t_grid")))
+    if not isinstance(search_grid, (list, tuple)) or len(search_grid) != 9:
+        raise FrozenProtocolError("frozen protocol S4 search grid must contain exactly nine points")
+    if any(isinstance(value, bool) or not isinstance(value, int) for value in search_grid):
+        raise FrozenProtocolError("frozen protocol S4 search grid must contain integer points")
+    for field, expected in (("branch_count", 4), ("search_branch_count", 4), ("heldout_branch_count", 8), ("random_branch_count", 8), ("paired_bootstrap_replicates", 10000), ("paired_bootstrap_seed", 14211)):
+        try:
+            observed = int(s4.get(field, -1))
+        except (TypeError, ValueError) as exc:
+            raise FrozenProtocolError(f"frozen protocol S4 {field} is not an integer") from exc
+        if observed != expected:
+            raise FrozenProtocolError(f"frozen protocol S4 {field} drifted")
+    if int(s5.get("base_candidate_count", -1)) != 32 or list(s5.get("fresh_candidate_indices", ())) != list(range(32, 64)):
+        raise FrozenProtocolError("frozen protocol S5 candidate budget drifted")
     entries = _calibration_entries(acceptance)
     current_calibration = _verify_calibration_binding(
         entries,
@@ -319,6 +357,8 @@ def read_frozen_protocol(
         "protocol_md_path": str(protocol_md_path),
         "protocol_md_sha256": protocol_md_sha256,
         "frozen_summary": json.loads(json.dumps(summary)),
+        "s4": json.loads(json.dumps(s4)),
+        "s5": json.loads(json.dumps(s5)),
         "calibration_reports": json.loads(json.dumps(entries)),
         "calibration_binding": current_calibration,
     }

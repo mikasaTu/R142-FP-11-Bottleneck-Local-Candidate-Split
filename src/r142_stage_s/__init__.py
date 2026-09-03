@@ -6,8 +6,12 @@ from .analysis import (
     compute_s1,
     compute_s2,
     compute_s3,
+    compute_s3_production,
     compute_s4,
+    compute_s4_from_protocol,
     compute_s5,
+    S3_SUBSTRATE_WORKSPACE_SCALES,
+    S4_BOOTSTRAP_SEED,
     decide_stage_s,
     evaluate_substrate,
     family_collapse_metrics,
@@ -54,8 +58,12 @@ __all__ = [
     "compute_s1",
     "compute_s2",
     "compute_s3",
+    "compute_s3_production",
     "compute_s4",
+    "compute_s4_from_protocol",
     "compute_s5",
+    "S3_SUBSTRATE_WORKSPACE_SCALES",
+    "S4_BOOTSTRAP_SEED",
     "decide_stage_s",
     "evaluate_substrate",
     "family_collapse_metrics",
@@ -76,3 +84,19 @@ from .analysis import matched_time_tau_curve
 
 if "matched_time_tau_curve" not in __all__:
     __all__.append("matched_time_tau_curve")
+
+from .total_analysis import (
+    TOTAL_ANALYSIS_SCHEMA,
+    TotalAnalysisError,
+    analyze_all_stage_s,
+    analyze_stage_s,
+    finalise_stage_s,
+    finalize_stage_s,
+)
+
+for _name in (
+    "TOTAL_ANALYSIS_SCHEMA", "TotalAnalysisError", "analyze_all_stage_s",
+    "analyze_stage_s", "finalise_stage_s", "finalize_stage_s",
+):
+    if _name not in __all__:
+        __all__.append(_name)

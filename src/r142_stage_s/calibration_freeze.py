@@ -111,14 +111,21 @@ DIVERGENCE_PROTOCOL: dict[str, object] = {
     "tau_quantile": 0.95,
 }
 S4_PROTOCOL: dict[str, object] = {
+    # Explicit authority-owned nine-point search grid.
+    "search_t_grid": list(range(1, 10)),
     "anchor_rule": "lowest numeric candidate index among unsuccessful base-N32 candidates",
     "interior_grid_numerators": list(range(1, 10)),
     "interior_grid_denominator": 10,
     "interior_grid_rounding": "clamp(floor((j*H+5)/10),1,H-2), ordered unique; H<4 fails closed",
+    "branch_count": 4,
+    "search_branch_count": 4,
     "search_branches_per_step": 4,
+    "heldout_branch_count": 8,
+    "random_branch_count": 8,
     "evaluation_branch_count": 8,
     "oracle_t_rule": "maximize search successes/4 over interior grid; tie earliest control step",
     "random_t_rule": "for heldout branch k choose sha256 random-t digest modulo grid size",
+    "random_location_hash_formula": "sha256(protocol_id|s4|family_id|episode_length|pair_index)->first_8_bytes_big_endian_mod_interior",
     "search_seed_formula": "sha256(r142-stage-s-v1|S4-search|substrate|family_id|t|branch_index)->first_8_bytes_big_endian",
     "random_t_seed_formula": "sha256(r142-stage-s-v1|S4-random-t|substrate|family_id|k)->first_8_bytes_big_endian modulo grid_size",
     "branch_seed_formula": "sha256(r142-stage-s-v1|S4-eval|substrate|family_id|k)->first_8_bytes_big_endian; paired across oracle/random",
@@ -1080,6 +1087,8 @@ def read_frozen_protocol(
         raise CalibrationFreezeError("frozen protocol markdown binding mismatch")
     if acceptance.get("frozen_summary") != FROZEN_SUMMARY:
         raise CalibrationFreezeError("frozen protocol summary drift")
+    if payload.get("s4") != S4_PROTOCOL or payload.get("s5") != S5_PROTOCOL:
+        raise CalibrationFreezeError("frozen protocol S4/S5 contract drift")
     reports = acceptance.get("calibration_reports")
     if not isinstance(reports, Mapping) or not isinstance(reports.get(substrate), Mapping):
         raise CalibrationFreezeError(f"frozen protocol lacks {substrate} calibration report")
@@ -1104,6 +1113,8 @@ def read_frozen_protocol(
         "protocol_md_path": str(md),
         "protocol_md_sha256": _sha256(md),
         "frozen_summary": json.loads(json.dumps(acceptance["frozen_summary"])),
+        "s4": json.loads(json.dumps(payload["s4"])),
+        "s5": json.loads(json.dumps(payload["s5"])),
         "calibration_reports": json.loads(json.dumps(reports)),
     }
 
