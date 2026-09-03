@@ -25,8 +25,9 @@ from r142_stage_s.frozen_protocol import (
     FrozenProtocolError,
     load_frozen_protocol,
 )
-from scripts.stage_s_robotwin_finalize import EvaluationBundleError, finalize
+from scripts.stage_s_robotwin_finalize import EvaluationBundleError, _verify_family, finalize
 from scripts.stage_s_robotwin_main import _write_rank_completion
+from r142_stage_s.robotwin import AtomicFamilyWriter, CandidateRecord
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -224,6 +225,81 @@ def test_finalizer_source_contains_no_synthetic_fallback() -> None:
     assert "expert_trajectory" in text
     assert "official eval_success or step_lim" in text
     assert "partial top-level completion bundle" in text
+
+
+def test_finalizer_accepts_task_qualified_family_identity(tmp_path: Path) -> None:
+    task = "blocks_ranking_size"
+    logical_family = f"{task}/family-0000"
+    records = []
+    for index in range(32):
+        success = index == 0
+        termination = "official_eval_success" if success else "official_step_limit"
+        records.append(
+            CandidateRecord(
+                candidate_id=f"{logical_family}/candidate-{index:04d}",
+                candidate_index=index,
+                parent_id=None,
+                generation_step=0,
+                action_prefix=[[0.0]],
+                pose_trajectory=[[0.0] * 14, [0.0] * 14],
+                eef_trajectory=[[0.0] * 14, [0.0] * 14],
+                object_trajectories={"block": [[0.0] * 7, [0.0] * 7]},
+                final_success=success,
+                terminated=True,
+                termination_reason=termination,
+                terminal_step=1,
+                termination=termination,
+                task_name=task,
+                family_id=logical_family,
+                initial_state_id=f"{task}/state-0000",
+                seed=index,
+                policy_forwards=1,
+                env_steps=1,
+                seed_sequence=[14211, index],
+                seed_genealogy={"root_seed": 14211, "candidate_index": index, "spawn_key": []},
+                policy_history={"frames": []},
+                action_queue={"actions": []},
+                rng_state={"environment": {"state": index}, "policy": {"state": index}},
+            )
+        )
+    protocol = {
+        "path": "/protocol/FROZEN_PROTOCOL.json",
+        "protocol_json_sha256": "a" * 64,
+        "protocol_git_commit": "b" * 40,
+    }
+    writer = AtomicFamilyWriter(tmp_path / "rank-0000" / task)
+    writer.write(
+        "family-0000",
+        records,
+        logical_family_id=logical_family,
+        snapshot={"simulator": {}, "policy_history": {}, "action_queue": {}, "rng_streams": {}},
+        metadata={
+            "task_name": task,
+            "family_id": logical_family,
+            "source_family_id": "family-0000",
+            "candidate_count": 32,
+            "termination": "official eval_success or step_lim",
+            "replay_capability_gate": {
+                "passed": True,
+                "same_action_next_state_max_abs_error": 0.0,
+            },
+            "protocol_id": "r142-stage-s-v1",
+            "protocol_authority_path": protocol["path"],
+            "protocol_authority_sha256": protocol["protocol_json_sha256"],
+            "protocol_git_commit": protocol["protocol_git_commit"],
+            "substrate": "A",
+            "pose_dimension": 14,
+        },
+    )
+
+    result = _verify_family(
+        tmp_path,
+        task=task,
+        family_index=0,
+        rank=0,
+        frozen_protocol=protocol,
+    )
+    assert result["family_id"] == logical_family
 
 
 def _sha256(path: Path) -> str:

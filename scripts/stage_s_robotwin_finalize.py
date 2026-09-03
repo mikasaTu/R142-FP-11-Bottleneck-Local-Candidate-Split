@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import tempfile
 from pathlib import Path
@@ -113,13 +114,40 @@ def _verify_manifest_file(root: Path, manifest: Path, *, allow_self: bool = Fals
         raise EvaluationBundleError(f"nested checksum manifest self-hash is forbidden: {manifest}")
 
 
-def _verify_family(root: Path, *, task: str, family_index: int, rank: int) -> Mapping[str, Any]:
-    family_id = f"family-{family_index:04d}"
-    directory = root / f"rank-{rank:04d}" / task / family_id
+def _finite_vector(value: Any, width: int) -> bool:
+    return (
+        isinstance(value, list)
+        and len(value) == width
+        and all(not isinstance(item, bool) and isinstance(item, (int, float)) and math.isfinite(float(item)) for item in value)
+    )
+
+
+def _verify_family(
+    root: Path,
+    *,
+    task: str,
+    family_index: int,
+    rank: int,
+    frozen_protocol: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    source_family_id = f"family-{family_index:04d}"
+    family_id = f"{task}/{source_family_id}"
+    directory = root / f"rank-{rank:04d}" / task / source_family_id
     marker_path = directory / "COMPLETED_FAMILY.json"
     marker = _read_json(marker_path)
-    if marker.get("family_id") != family_id:
+    if marker.get("family_id") != family_id or marker.get("source_family_id") != source_family_id:
         raise EvaluationBundleError(f"family marker id mismatch: {marker_path}")
+    marker_protocol = {
+        "protocol_id": "r142-stage-s-v1",
+        "protocol_authority_path": frozen_protocol["path"],
+        "protocol_authority_sha256": frozen_protocol["protocol_json_sha256"],
+        "protocol_git_commit": frozen_protocol["protocol_git_commit"],
+        "substrate": "A",
+        "pose_dimension": 14,
+    }
+    for key, value in marker_protocol.items():
+        if marker.get(key) != value:
+            raise EvaluationBundleError(f"family marker {key} drifted: {marker_path}")
     if int(marker.get("candidate_count", -1)) != CANDIDATES_PER_FAMILY:
         raise EvaluationBundleError(f"family candidate count mismatch: {marker_path}")
     files = marker.get("files")
@@ -131,7 +159,7 @@ def _verify_family(root: Path, *, task: str, family_index: int, rank: int) -> Ma
             raise EvaluationBundleError(f"family file hash mismatch: {path}")
     _verify_manifest_file(directory, directory / "SHA256SUMS")
     family_payload = _read_json(directory / "family.json")
-    if family_payload.get("family_id") != family_id:
+    if family_payload.get("family_id") != family_id or family_payload.get("source_family_id") != source_family_id:
         raise EvaluationBundleError(f"family payload id mismatch: {directory / 'family.json'}")
     metadata = family_payload.get("metadata")
     candidates = family_payload.get("candidates")
@@ -139,12 +167,26 @@ def _verify_family(root: Path, *, task: str, family_index: int, rank: int) -> Ma
         raise EvaluationBundleError(f"family payload schema mismatch: {directory / 'family.json'}")
     if int(metadata.get("candidate_count", -1)) != CANDIDATES_PER_FAMILY:
         raise EvaluationBundleError(f"family metadata candidate count mismatch: {directory}")
+    if metadata.get("family_id") != family_id or metadata.get("source_family_id") != source_family_id:
+        raise EvaluationBundleError(f"family metadata identity mismatch: {directory}")
     if metadata.get("termination") != "official eval_success or step_lim":
         raise EvaluationBundleError(f"family termination is not the frozen official rule: {directory}")
+    for key, value in marker_protocol.items():
+        if metadata.get(key) != value:
+            raise EvaluationBundleError(f"family metadata {key} drifted: {directory}")
+    replay_gate = metadata.get("replay_capability_gate")
+    if not isinstance(replay_gate, Mapping) or replay_gate.get("passed") is not True:
+        raise EvaluationBundleError(f"family replay capability gate is absent: {directory}")
+    error = replay_gate.get("same_action_next_state_max_abs_error")
+    if not isinstance(error, (int, float)) or isinstance(error, bool) or not math.isfinite(float(error)) or float(error) > 1e-9:
+        raise EvaluationBundleError(f"family same-action replay error exceeds 1e-9: {directory}")
     required = {
         "candidate_id", "parent_id", "generation_step", "action_prefix",
         "final_success", "task_name", "family_id", "initial_state_id", "seed",
         "seed_sequence", "seed_genealogy", "policy_history", "action_queue", "rng_state",
+        "candidate_index", "pose_trajectory", "eef_trajectory", "object_trajectories",
+        "terminated", "termination_reason", "termination", "terminal_step",
+        "policy_forwards", "env_steps",
     }
     ids: set[str] = set()
     successes = 0
@@ -152,7 +194,7 @@ def _verify_family(root: Path, *, task: str, family_index: int, rank: int) -> Ma
         if not isinstance(candidate, Mapping) or not required.issubset(candidate):
             raise EvaluationBundleError(f"candidate genealogy schema mismatch: {directory}")
         expected_id = f"{family_id}/candidate-{index:04d}"
-        if candidate.get("candidate_id") != expected_id:
+        if candidate.get("candidate_id") != expected_id or int(candidate.get("candidate_index", -1)) != index:
             raise EvaluationBundleError(f"candidate id/order mismatch: {directory}")
         if candidate.get("family_id") != family_id or candidate.get("task_name") != task:
             raise EvaluationBundleError(f"candidate family/task mismatch: {directory}")
@@ -160,6 +202,33 @@ def _verify_family(root: Path, *, task: str, family_index: int, rank: int) -> Ma
             raise EvaluationBundleError(f"candidate success is not a boolean: {directory}")
         if not isinstance(candidate.get("action_prefix"), list):
             raise EvaluationBundleError(f"candidate action prefix is not persisted: {directory}")
+        env_steps = int(candidate.get("env_steps", -1))
+        termination = candidate.get("termination")
+        if (
+            candidate.get("terminated") is not True
+            or candidate.get("termination_reason") != termination
+            or termination not in {"official_eval_success", "official_step_limit"}
+            or int(candidate.get("terminal_step", -1)) != env_steps
+            or env_steps < 0
+            or len(candidate.get("action_prefix", [])) != env_steps
+        ):
+            raise EvaluationBundleError(f"candidate terminal evidence drifted: {directory}")
+        if bool(candidate.get("final_success")) != (termination == "official_eval_success"):
+            raise EvaluationBundleError(f"candidate success/termination mismatch: {directory}")
+        poses = candidate.get("pose_trajectory")
+        eef = candidate.get("eef_trajectory")
+        if (
+            not isinstance(poses, list)
+            or len(poses) != env_steps + 1
+            or not all(_finite_vector(value, 14) for value in poses)
+            or poses != eef
+        ):
+            raise EvaluationBundleError(f"candidate A pose14 trajectory drifted: {directory}")
+        objects = candidate.get("object_trajectories")
+        if not isinstance(objects, Mapping) or any(
+            not isinstance(values, list) or len(values) != env_steps + 1 for values in objects.values()
+        ):
+            raise EvaluationBundleError(f"candidate object trajectories drifted: {directory}")
         if not isinstance(candidate.get("seed_genealogy"), Mapping):
             raise EvaluationBundleError(f"candidate seed genealogy is not persisted: {directory}")
         if candidate.get("candidate_id") in ids:
@@ -182,8 +251,10 @@ def _verify_family(root: Path, *, task: str, family_index: int, rank: int) -> Ma
     snapshot = _read_json(directory / "SNAPSHOT.json")
     if set(snapshot) != {"simulator", "policy_history", "action_queue", "rng_streams"}:
         raise EvaluationBundleError(f"snapshot does not contain full replay state: {directory}")
+    if any(snapshot[key] is None for key in snapshot):
+        raise EvaluationBundleError(f"snapshot contains an empty replay component: {directory}")
     return {
-        "family_id": f"{task}/{family_id}",
+        "family_id": family_id,
         "task": task,
         "rank": rank,
         "candidate_count": len(candidates),
@@ -283,7 +354,15 @@ def _verify_rank(
     if listed_paths != expected_paths:
         raise EvaluationBundleError(f"rank family assignment mismatch: {marker_path}")
     for task, family_index in expected:
-        outputs.append(_verify_family(root, task=task, family_index=family_index, rank=rank))
+        outputs.append(
+            _verify_family(
+                root,
+                task=task,
+                family_index=family_index,
+                rank=rank,
+                frozen_protocol=frozen_protocol,
+            )
+        )
     return outputs
 
 
