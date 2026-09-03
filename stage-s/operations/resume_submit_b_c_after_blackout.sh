@@ -12,7 +12,7 @@ fi
 readonly REGISTRY=/mnt/cpfs/zbl-cpfs-new/share/leon/codex-archives/Explore-claude-local-worktrees/r142-stage-s-pai-registry-clean-20260902
 readonly REPO=/mnt/cpfs/zbl-cpfs-new/share/leon/codex-archives/Explore-claude-local-worktrees/r142-stage-s-20260902
 readonly SUBMISSION_ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/submissions
-readonly B_RUN=r142-stage-s-b-calibration-20260903-r15
+readonly B_RUN=r142-stage-s-b-calibration-20260903-r16
 readonly C_RUN=r142-stage-s-c-undertrained-20260903-r11
 
 umask 077
