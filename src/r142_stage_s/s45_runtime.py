@@ -35,6 +35,7 @@ import importlib
 import inspect
 import json
 import os
+import pickle
 import re
 import tempfile
 from dataclasses import dataclass
@@ -53,6 +54,8 @@ FRESH_CANDIDATE_INDICES = tuple(range(BASE_CANDIDATE_COUNT, EXTENDED_CANDIDATE_C
 NEAR_ALL_FAIL_MAX_SUCCESS = 1
 S4_BOOTSTRAP_REPLICATES = 10_000
 SNAPSHOT_REPLAY_TOLERANCE = 1e-9
+_HEX40 = re.compile(r"^[0-9a-f]{40}$")
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
 class S45Error(RuntimeError):
@@ -235,6 +238,27 @@ def verify_atomic_bundle(root: str | Path, *, marker_name: str) -> dict[str, Any
             raise S45BundleError(f"completion artifact hash mismatch: {relative}")
     if set(manifest) != set(expected_files) | {marker_name}:
         raise S45BundleError("SHA256SUMS does not match completion artifact set")
+    # A valid manifest is not sufficient when an unregistered sidecar is left
+    # next to the completion marker.  Such a file can carry a rewritten
+    # result while remaining invisible to the digest check.  The bundle is a
+    # closed set: every regular file except SHA256SUMS must be declared by the
+    # marker (which is itself declared by the manifest).  Symlinks are never
+    # accepted, even when their target happens to hash correctly.
+    actual_files: set[str] = set()
+    for path in base.rglob("*"):
+        if path.is_symlink():
+            raise S45BundleError(f"completion bundle contains a symlink: {path}")
+        if path.is_file():
+            relative = path.relative_to(base).as_posix()
+            if relative != "SHA256SUMS":
+                actual_files.add(relative)
+    declared_files = set(expected_files) | {marker_name}
+    if actual_files != declared_files:
+        extras = sorted(actual_files - declared_files)
+        missing = sorted(declared_files - actual_files)
+        raise S45BundleError(
+            f"completion bundle file set is not closed; extras={extras}, missing={missing}"
+        )
     for relative, expected in manifest.items():
         path = _strict_file(base / relative, label=f"manifest artifact {relative}")
         if sha256_file(path) != expected:
@@ -259,6 +283,79 @@ def _full_sha(value: Any, *, field: str, length: int = 64) -> str:
     return value
 
 
+def _canonical_protocol_validation(
+    source: Path,
+    *,
+    substrate: str | None,
+    calibration_report: str | Path | None,
+) -> dict[str, Any]:
+    """Run both canonical Stage-S protocol validators before S4/S5.
+
+    ``ProtocolAuthority`` remains useful for fixture/unit authorities, but a
+    production authority is not allowed to be interpreted by this module's
+    relaxed compatibility parser alone.  The canonical readers independently
+    enforce ``status=FROZEN``, the adjacent ``PROTOCOL.md`` hash, and the B/C
+    calibration report bindings.  For substrate A we still validate both B
+    and C report bindings because they are part of the same frozen authority.
+    """
+
+    try:
+        from .frozen_protocol import load_frozen_protocol
+        from .main_protocol import read_frozen_protocol
+
+        canonical = load_frozen_protocol(source.resolve())
+        if canonical.get("status") != "FROZEN":
+            raise S45ProtocolError("canonical frozen_protocol validator did not return status=FROZEN")
+        declared_protocol_sha = _read_json(source, label="frozen protocol authority").get("protocol_json_sha256")
+        actual_protocol_sha = sha256_file(source)
+        if not isinstance(declared_protocol_sha, str) or _HEX64.fullmatch(declared_protocol_sha.lower()) is None:
+            raise S45ProtocolError("frozen protocol authority lacks a declared full SHA-256")
+        if declared_protocol_sha.lower() != actual_protocol_sha:
+            raise S45ProtocolError("frozen protocol declared SHA-256 disagrees with source")
+        if canonical.get("protocol_json_sha256") != actual_protocol_sha:
+            raise S45ProtocolError("canonical frozen protocol JSON SHA-256 disagrees with source")
+        canonical_reports = canonical.get("calibration_reports")
+        if not isinstance(canonical_reports, Mapping):
+            raise S45ProtocolError("canonical frozen protocol lacks B/C calibration report bindings")
+        validated_reports: dict[str, Any] = {}
+        for name in ("B", "C"):
+            entry = canonical_reports.get(name)
+            if not isinstance(entry, Mapping):
+                raise S45ProtocolError(f"canonical frozen protocol lacks calibration report {name}")
+            report_value: str | Path | None = calibration_report if substrate == name else None
+            if report_value is None:
+                report_value = entry.get("path")
+            if report_value is None:
+                raise S45ProtocolError(f"canonical frozen protocol lacks report path for {name}")
+            validated = read_frozen_protocol(
+                source,
+                substrate=name,
+                calibration_report=report_value,
+            )
+            if validated.get("status") != "FROZEN":
+                raise S45ProtocolError(f"main_protocol validator did not return FROZEN for {name}")
+            if validated.get("protocol_acceptance_sha256") != actual_protocol_sha:
+                raise S45ProtocolError(f"main_protocol authority SHA mismatch for {name}")
+            if validated.get("protocol_git_commit") != canonical.get("protocol_git_commit"):
+                raise S45ProtocolError(f"canonical protocol Git commit mismatch for {name}")
+            validated_reports[name] = validated.get("calibration_binding")
+        return {
+            "status": "FROZEN",
+            "protocol_json_sha256": canonical.get("protocol_json_sha256"),
+            "protocol_md_path": canonical.get("protocol_md_path"),
+            "protocol_md_sha256": canonical.get("protocol_md_sha256"),
+            "protocol_git_commit": canonical.get("protocol_git_commit"),
+            "calibration_reports": canonical_reports,
+            "validated_calibration_bindings": validated_reports,
+        }
+    except S45ProtocolError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - canonical validator is a fail-closed boundary
+        raise S45ProtocolError(
+            f"canonical main_protocol/frozen_protocol validation failed: {type(exc).__name__}: {exc}"
+        ) from exc
+
+
 @dataclass(frozen=True)
 class ProtocolAuthority:
     """Complete machine-readable S4/S5 contract.
@@ -275,9 +372,17 @@ class ProtocolAuthority:
     git_commit: str
     s4: Mapping[str, Any]
     s5: Mapping[str, Any]
+    canonical_validation: Mapping[str, Any] | None = None
 
     @classmethod
-    def load(cls, path: str | Path) -> "ProtocolAuthority":
+    def load(
+        cls,
+        path: str | Path,
+        *,
+        require_canonical: bool = False,
+        substrate: str | None = None,
+        calibration_report: str | Path | None = None,
+    ) -> "ProtocolAuthority":
         source = _strict_file(path, label="frozen protocol authority")
         payload = _read_json(source, label="frozen protocol authority")
         protocol_id = payload.get("protocol_id", payload.get("id"))
@@ -421,6 +526,19 @@ class ProtocolAuthority:
             raise S45ProtocolError("s5.fresh_candidate_indices must be exactly 32..63")
         if not isinstance(s5["extension_seed_formula"], str) or not s5["extension_seed_formula"].strip():
             raise S45ProtocolError("s5.extension_seed_formula must be explicit text")
+        canonical_validation = None
+        if require_canonical:
+            if protocol_id != PROTOCOL_ID:
+                raise S45ProtocolError(
+                    f"canonical S45 entry requires protocol_id={PROTOCOL_ID}, got {protocol_id}"
+                )
+            canonical_validation = _canonical_protocol_validation(
+                source,
+                substrate=substrate,
+                calibration_report=calibration_report,
+            )
+            if canonical_validation.get("protocol_git_commit") != commit.lower():
+                raise S45ProtocolError("canonical protocol Git commit disagrees with authority")
         return cls(
             path=source,
             sha256=sha256_file(source),
@@ -429,15 +547,27 @@ class ProtocolAuthority:
             git_commit=commit.lower(),
             s4=s4,
             s5=s5,
+            canonical_validation=canonical_validation,
         )
 
-    def identity(self) -> dict[str, str]:
-        return {
+    def identity(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
             "protocol_id": self.protocol_id,
             "protocol_authority_path": str(self.path),
             "protocol_authority_sha256": self.sha256,
             "protocol_git_commit": self.git_commit,
         }
+        if self.canonical_validation is not None:
+            result.update(
+                {
+                    "protocol_status": "FROZEN",
+                    "protocol_json_sha256": self.canonical_validation.get("protocol_json_sha256"),
+                    "protocol_md_path": self.canonical_validation.get("protocol_md_path"),
+                    "protocol_md_sha256": self.canonical_validation.get("protocol_md_sha256"),
+                    "calibration_reports": self.canonical_validation.get("calibration_reports"),
+                }
+            )
+        return result
 
     def _grid(self, name: str, *, episode_length: int, family_id: str) -> tuple[int, ...]:
         raw = self.s4[name]
@@ -744,7 +874,12 @@ def _normalise_candidate(row: Mapping[str, Any], index: int, *, success: Any | N
     return output
 
 
-def _load_family_candidates(directory: Path, marker: Mapping[str, Any]) -> tuple[str, dict[str, Any], list[dict[str, Any]]]:
+def _load_family_candidates(
+    directory: Path,
+    marker: Mapping[str, Any],
+    *,
+    strict_production: bool | None = None,
+) -> tuple[str, dict[str, Any], list[dict[str, Any]]]:
     metadata: dict[str, Any] = {}
     metadata_path = directory / "metadata.json"
     if metadata_path.is_file() and not metadata_path.is_symlink():
@@ -803,6 +938,46 @@ def _load_family_candidates(directory: Path, marker: Mapping[str, Any]) -> tuple
         raise S45BundleError(f"family lacks family.json or rollouts.npz: {directory}")
     if len(candidates) != int(marker.get("candidate_count", -1)):
         raise S45BundleError(f"candidate count mismatch in {directory}")
+    family_id = str(marker.get("family_id", metadata.get("family_id", directory.name)))
+    marker_protocol = marker.get("protocol_id")
+    metadata_protocol = metadata.get("protocol_id")
+    if marker_protocol is not None and metadata_protocol is not None and str(marker_protocol) != str(metadata_protocol):
+        raise S45ProvenanceError(f"family {family_id} protocol id differs between marker and metadata")
+    protocol_id = str(metadata_protocol if metadata_protocol is not None else marker_protocol or "")
+    metadata_source = _main_source_identity(metadata, required=False, label=f"family {family_id} metadata")
+    marker_source = _main_source_identity(marker, required=False, label=f"family {family_id} marker")
+    if metadata_source["main_source_commit"] and marker_source["main_source_commit"] and metadata_source["main_source_commit"] != marker_source["main_source_commit"]:
+        raise S45ProvenanceError(f"family {family_id} main source commit differs between marker and metadata")
+    if metadata_source["main_source_sha256"] and marker_source["main_source_sha256"] and metadata_source["main_source_sha256"] != marker_source["main_source_sha256"]:
+        raise S45ProvenanceError(f"family {family_id} main source SHA differs between marker and metadata")
+    source = metadata_source if metadata_source["main_source_commit"] else marker_source
+    # ``discover_n32_families`` is also used by legacy fixture tests that
+    # predate the production source/snapshot contract.  Keep that unbound
+    # compatibility mode explicit: once a caller supplies a frozen protocol
+    # (or expected source pins), or once a bundle advertises the new source
+    # identity/snapshot shape, the complete production contract is required.
+    if strict_production is None:
+        strict_production = protocol_id == PROTOCOL_ID and bool(
+            source["main_source_commit"]
+            or any(isinstance(candidate.get("snapshot"), Mapping) for candidate in candidates)
+        )
+    if strict_production and not source["main_source_commit"]:
+        raise S45ProvenanceError(f"family {family_id} production bundle lacks main source commit")
+    if source["main_source_commit"]:
+        metadata["main_source_commit"] = source["main_source_commit"]
+    if source["main_source_sha256"]:
+        metadata["main_source_sha256"] = source["main_source_sha256"]
+    sidecar_snapshots = _load_snapshot_bundle(directory, candidates)
+    if sidecar_snapshots:
+        if len(sidecar_snapshots) != len(candidates):
+            raise S45BundleError(f"snapshot sidecar count mismatch in {family_id}")
+        for index, (candidate, sidecar) in enumerate(zip(candidates, sidecar_snapshots)):
+            embedded = candidate.get("snapshot")
+            if embedded is not None and canonical_json(embedded) != canonical_json(sidecar):
+                raise S45ProvenanceError(f"candidate {candidate.get('candidate_id')} snapshot differs from sidecar")
+            candidate["snapshot"] = copy.deepcopy(sidecar)
+    elif strict_production and any(candidate.get("snapshot") is None for candidate in candidates):
+        raise S45ProvenanceError(f"production family {family_id} lacks complete per-candidate snapshots")
     termination = metadata.get("termination", metadata.get("termination_reason", marker.get("termination")))
     marker_substrate = marker.get("substrate")
     metadata_substrate = metadata.get("substrate")
@@ -843,9 +1018,14 @@ def _load_family_candidates(directory: Path, marker: Mapping[str, Any]) -> tuple
         if not isinstance(candidate.get("termination"), (str, Mapping)) or not candidate.get("termination"):
             raise S45BundleError(f"candidate {candidate_id} has invalid official termination evidence")
         _validate_pose_trajectory(candidate.get("trajectory"), label=f"candidate {candidate_id} trajectory", dimension=pose_dimension)
-    family_id = str(marker.get("family_id", metadata.get("family_id", directory.name)))
     metadata.setdefault("family_id", family_id)
     metadata.setdefault("source_directory", str(directory))
+    _validate_candidate_genealogy(
+        family_id,
+        metadata,
+        candidates,
+        strict_production=strict_production,
+    )
     return family_id, metadata, candidates
 
 
@@ -859,6 +1039,8 @@ class N32Family:
     source_marker_sha256: str
     source_bundle_sha256: str
     source_family_file_sha256: str = ""
+    main_source_commit: str = ""
+    main_source_sha256: str = ""
 
     def as_mapping(self) -> dict[str, Any]:
         return {
@@ -870,6 +1052,8 @@ class N32Family:
             "source_marker_sha256": self.source_marker_sha256,
             "source_bundle_sha256": self.source_bundle_sha256,
             "source_family_file_sha256": self.source_family_file_sha256,
+            "main_source_commit": self.main_source_commit,
+            "main_source_sha256": self.main_source_sha256,
             "task_id": self.metadata.get("task_id"),
             "init_state_id": self.metadata.get("init_state", self.metadata.get("initial_state_id")),
         }
@@ -891,8 +1075,29 @@ def _verify_source_marker(marker_path: Path) -> Mapping[str, Any]:
         path = _strict_file(directory / relative, label=f"N32 artifact {relative}")
         if not re.fullmatch(r"[0-9a-f]{64}", digest) or sha256_file(path) != digest:
             raise S45BundleError(f"N32 artifact hash mismatch: {marker_path}/{relative}")
-    if set(entries) not in ({*expected}, {*expected, "COMPLETED_FAMILY.json"}):
+    # AtomicFamilyWriter deliberately keeps COMPLETED_FAMILY.json out of the
+    # manifest to avoid a self-referential hash, while write_atomic_bundle
+    # includes the marker hash. Accept either writer convention but no other
+    # entry: the physical bundle closure below still rejects unregistered
+    # payloads.
+    manifest_names = {frozenset(expected), frozenset(set(expected) | {"COMPLETED_FAMILY.json"})}
+    if frozenset(entries) not in manifest_names:
         raise S45BundleError(f"N32 SHA256SUMS does not match marker files: {manifest}")
+    actual_files: set[str] = set()
+    for path in directory.rglob("*"):
+        if path.is_symlink():
+            raise S45BundleError(f"N32 bundle contains a symlink: {path}")
+        if path.is_file():
+            relative = path.relative_to(directory).as_posix()
+            if relative != "SHA256SUMS":
+                actual_files.add(relative)
+    declared_files = set(expected) | {"COMPLETED_FAMILY.json"}
+    if actual_files != declared_files:
+        extras = sorted(actual_files - declared_files)
+        missing = sorted(declared_files - actual_files)
+        raise S45BundleError(
+            f"N32 bundle file set is not closed; extras={extras}, missing={missing}"
+        )
     for relative, digest in entries.items():
         path = _strict_file(directory / relative, label=f"N32 manifest artifact {relative}")
         if sha256_file(path) != digest:
@@ -900,7 +1105,13 @@ def _verify_source_marker(marker_path: Path) -> Mapping[str, Any]:
     return marker
 
 
-def discover_n32_families(root: str | Path, *, protocol: ProtocolAuthority | None = None) -> tuple[N32Family, ...]:
+def discover_n32_families(
+    root: str | Path,
+    *,
+    protocol: ProtocolAuthority | None = None,
+    expected_main_source_commit: str | None = None,
+    expected_main_source_sha256: str | None = None,
+) -> tuple[N32Family, ...]:
     """Read every complete N=32 family under ``root``.
 
     The function never selects a convenient subset.  Duplicate family IDs,
@@ -920,7 +1131,15 @@ def discover_n32_families(root: str | Path, *, protocol: ProtocolAuthority | Non
         marker = _verify_source_marker(marker_path)
         if int(marker.get("candidate_count", -1)) != BASE_CANDIDATE_COUNT:
             raise S45BundleError(f"N32 source candidate_count is not 32: {marker_path}")
-        family_id, metadata, candidates = _load_family_candidates(marker_path.parent, marker)
+        family_id, metadata, candidates = _load_family_candidates(
+            marker_path.parent,
+            marker,
+            strict_production=bool(
+                (protocol is not None and protocol.canonical_validation is not None)
+                or expected_main_source_commit is not None
+                or expected_main_source_sha256 is not None
+            ),
+        )
         if family_id in seen:
             raise S45BundleError(f"duplicate N32 family id: {family_id}")
         seen.add(family_id)
@@ -933,6 +1152,20 @@ def discover_n32_families(root: str | Path, *, protocol: ProtocolAuthority | Non
             declared_commit = metadata.get("protocol_git_commit", marker.get("protocol_git_commit"))
             if declared_commit != protocol.git_commit:
                 raise S45ProvenanceError(f"N32 family {family_id} has a different protocol git commit")
+        source_identity = _main_source_identity(
+            metadata,
+            marker,
+            required=bool(protocol is not None and protocol.protocol_id == PROTOCOL_ID),
+            label=f"N32 family {family_id}",
+        )
+        if expected_main_source_commit is not None:
+            expected_commit = str(expected_main_source_commit).lower()
+            if _HEX40.fullmatch(expected_commit) is None or source_identity["main_source_commit"] != expected_commit:
+                raise S45ProvenanceError(f"N32 family {family_id} main source commit does not match expected pin")
+        if expected_main_source_sha256 is not None:
+            expected_sha = str(expected_main_source_sha256).lower()
+            if _HEX64.fullmatch(expected_sha) is None or source_identity["main_source_sha256"] != expected_sha:
+                raise S45ProvenanceError(f"N32 family {family_id} main source SHA does not match expected pin")
         result.append(
             N32Family(
                 family_id=family_id,
@@ -947,6 +1180,8 @@ def discover_n32_families(root: str | Path, *, protocol: ProtocolAuthority | Non
                     if (marker_path.parent / "family.json").is_file()
                     else marker_path.parent / "rollouts.npz"
                 ),
+                main_source_commit=source_identity["main_source_commit"],
+                main_source_sha256=source_identity["main_source_sha256"],
             )
         )
     return tuple(sorted(result, key=lambda family: family.family_id))
@@ -1004,6 +1239,338 @@ def _trajectory_length(row: Mapping[str, Any]) -> int:
     if not isinstance(actions, Sequence) or isinstance(actions, (str, bytes)) or len(actions) <= 0:
         raise S45ProvenanceError(f"candidate {row.get('candidate_id')} has no finite trajectory length")
     return len(actions)
+
+
+_MAIN_SOURCE_COMMIT_KEYS = (
+    "main_source_commit",
+    "pipeline_identity",
+    "pipeline_commit",
+    "source_commit",
+    "stage_s_source_commit",
+)
+_MAIN_SOURCE_SHA_KEYS = (
+    "main_source_sha256",
+    "main_source_sha",
+    "source_sha256",
+    "source_sha",
+)
+
+
+def _main_source_identity(
+    *sources: Mapping[str, Any],
+    required: bool,
+    label: str,
+) -> dict[str, str]:
+    """Extract the immutable main-screen source identity.
+
+    The producer may expose the identity under its historical
+    ``pipeline_identity``/``source_commit`` aliases, but S45 normalizes it to
+    ``main_source_commit``.  A 64-byte source digest, when present, is also
+    retained and checked; the 40-byte Git source commit is the minimum
+    cross-process identity required by the terminal main markers.
+    """
+
+    flattened: list[Mapping[str, Any]] = []
+    for source in sources:
+        if not isinstance(source, Mapping):
+            continue
+        flattened.append(source)
+        for key in ("main_source", "source_provenance", "provenance"):
+            nested = source.get(key)
+            if isinstance(nested, Mapping):
+                flattened.append(nested)
+    commit: str | None = None
+    digest: str | None = None
+    for source in flattened:
+        if commit is None:
+            for key in _MAIN_SOURCE_COMMIT_KEYS:
+                value = source.get(key)
+                if isinstance(value, str) and _HEX40.fullmatch(value.lower()):
+                    commit = value.lower()
+                    break
+        if digest is None:
+            for key in _MAIN_SOURCE_SHA_KEYS:
+                value = source.get(key)
+                if isinstance(value, str) and _HEX64.fullmatch(value.lower()):
+                    digest = value.lower()
+                    break
+    if required and commit is None:
+        raise S45ProvenanceError(f"{label} lacks a full 40-hex main source commit")
+    if required and digest is None:
+        raise S45ProvenanceError(f"{label} lacks a full 64-hex main source SHA-256")
+    if digest is not None and not _HEX64.fullmatch(digest):
+        raise S45ProvenanceError(f"{label} has an invalid main source SHA-256")
+    return {
+        "main_source_commit": commit or "",
+        "main_source_sha256": digest or "",
+    }
+
+
+def _snapshot_value(snapshot: Mapping[str, Any], names: Sequence[str]) -> Any:
+    for name in names:
+        if name in snapshot:
+            return snapshot[name]
+    return None
+
+
+def _validate_snapshot_contract(
+    snapshot: Any,
+    *,
+    candidate: Mapping[str, Any],
+    label: str,
+    strict_production: bool,
+) -> dict[str, Any]:
+    """Validate one candidate's complete real replay snapshot.
+
+    This check deliberately accepts the two serialized producer layouts
+    (explicit Stage-R fields and the adapter's nested ``rng_state``) but never
+    treats an absent component as an empty/default state.  It is the source
+    boundary for S4/S5; every candidate must carry an independently replayable
+    snapshot and an actual restore->same-action result with error <=1e-9.
+    """
+
+    if not isinstance(snapshot, Mapping):
+        raise S45BundleError(f"{label} snapshot is not a mapping")
+    simulator = _snapshot_value(snapshot, ("simulator_state", "simulator", "environment", "env_state"))
+    history = _snapshot_value(snapshot, ("observation_history", "policy_observation_history", "history"))
+    queue = _snapshot_value(snapshot, ("action_queue", "policy_action_queue", "queue"))
+    if simulator is None or history is None or queue is None:
+        raise S45ProvenanceError(f"{label} snapshot lacks simulator/history/action_queue")
+
+    # RoboTwin serializes the owner streams as ``rng_streams`` while the
+    # LIBERO producer uses the historical ``rng_state``/explicit fields.
+    # Both are accepted only when their concrete owner streams are present.
+    rng = snapshot.get("rng_state", snapshot.get("rng_streams"))
+    if rng is not None and not isinstance(rng, Mapping):
+        raise S45ProvenanceError(f"{label} rng_state is not a mapping")
+    rng_map = rng if isinstance(rng, Mapping) else {}
+
+    def stream(explicit: Sequence[str], nested: Sequence[str]) -> Any:
+        value = _snapshot_value(snapshot, explicit)
+        if value is None:
+            value = _snapshot_value(rng_map, nested)
+        return value
+
+    runtime_rng = rng_map.get("runtime") if isinstance(rng_map.get("runtime"), Mapping) else {}
+    policy_stream = rng_map.get("policy") if isinstance(rng_map.get("policy"), Mapping) else {}
+    environment_stream = rng_map.get("environment") if isinstance(rng_map.get("environment"), Mapping) else {}
+    python_rng = stream(("python_rng_state",), ("python", "python_rng"))
+    if python_rng is None:
+        python_rng = _snapshot_value(runtime_rng, ("python", "python_rng"))
+    numpy_rng = stream(("numpy_rng_state",), ("numpy", "numpy_rng"))
+    if numpy_rng is None:
+        numpy_rng = _snapshot_value(runtime_rng, ("numpy", "numpy_rng"))
+    torch_rng = stream(("torch_rng_state",), ("torch", "torch_rng"))
+    if torch_rng is None:
+        torch_rng = _snapshot_value(runtime_rng, ("torch", "torch_rng"))
+    if torch_rng is None and any(key in runtime_rng for key in ("torch_cuda", "cuda")):
+        torch_rng = {
+            "cpu": runtime_rng.get("torch"),
+            "cuda": runtime_rng.get("torch_cuda", runtime_rng.get("cuda")),
+        }
+    environment_rng = stream(
+        ("environment_rng_state", "environment_owner_rng", "environment_rng"),
+        ("environment_owner", "environment", "env", "environment_rng"),
+    )
+    if environment_rng is None:
+        environment_rng = environment_stream or _snapshot_value(runtime_rng, ("owner", "environment"))
+    policy_rng = stream(
+        ("policy_rng_state", "policy_owner_rng", "policy_rng"),
+        ("policy_owner", "policy", "policy_rng"),
+    )
+    if policy_rng is None:
+        policy_rng = policy_stream or _snapshot_value(runtime_rng, ("policy", "policy_owner"))
+    missing = [
+        name
+        for name, value in (
+            ("python", python_rng),
+            ("numpy", numpy_rng),
+            ("torch", torch_rng),
+            ("environment", environment_rng),
+            ("policy", policy_rng),
+        )
+        if value is None
+    ]
+    if missing:
+        raise S45ProvenanceError(f"{label} snapshot lacks RNG streams: {', '.join(missing)}")
+    if not isinstance(torch_rng, Mapping) or "cpu" not in torch_rng or "cuda" not in torch_rng:
+        raise S45ProvenanceError(f"{label} snapshot lacks Torch CPU and CUDA RNG streams")
+    if not isinstance(torch_rng.get("cuda"), list):
+        raise S45ProvenanceError(f"{label} Torch CUDA RNG stream is not a list")
+
+    replay = snapshot.get("snapshot_restore_check")
+    if replay is None:
+        replay = candidate.get("snapshot_restore_check")
+    if not isinstance(replay, Mapping) or replay.get("same_action") is not True or replay.get("passed") is not True:
+        raise S45ProvenanceError(f"{label} snapshot lacks a passing restore->same-action check")
+    error_value = None
+    for key in ("same_action_next_state_max_abs_error", "max_abs_error", "next_state_error"):
+        if key in replay:
+            error_value = replay[key]
+            break
+    try:
+        error = float(error_value)
+    except (TypeError, ValueError) as exc:
+        raise S45ProvenanceError(f"{label} same-action replay error is invalid") from exc
+    if not np.isfinite(error) or error > SNAPSHOT_REPLAY_TOLERANCE:
+        raise S45ProvenanceError(f"{label} same-action replay error exceeds 1e-9")
+    if strict_production and snapshot.get("snapshot_restore_check") is None:
+        raise S45ProvenanceError(f"{label} production snapshot must persist snapshot_restore_check")
+    return {
+        "simulator": simulator,
+        "observation_history": history,
+        "action_queue": queue,
+        "python_rng_state": python_rng,
+        "numpy_rng_state": numpy_rng,
+        "torch_rng_state": torch_rng,
+        "environment_rng_state": environment_rng,
+        "policy_rng_state": policy_rng,
+        "snapshot_restore_check": dict(replay),
+    }
+
+
+def _load_snapshot_bundle(directory: Path, candidates: Sequence[Mapping[str, Any]]) -> list[Any]:
+    """Load the producer's per-candidate ``snapshots.pkl``/JSON sidecar."""
+
+    for name in ("snapshots.pkl", "SNAPSHOT.json"):
+        path = directory / name
+        if not path.exists():
+            continue
+        if path.is_symlink() or not path.is_file():
+            raise S45BundleError(f"candidate snapshot bundle is missing or symlinked: {path}")
+        try:
+            if name.endswith(".pkl"):
+                with path.open("rb") as stream:
+                    payload = pickle.load(stream)
+            else:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:  # noqa: BLE001 - malformed sidecars are hard failures
+            raise S45BundleError(f"candidate snapshot bundle is unreadable: {path}") from exc
+        if isinstance(payload, Mapping) and isinstance(payload.get("candidates"), Mapping):
+            mapping = payload["candidates"]
+            result = []
+            for row in candidates:
+                candidate_id = row.get("candidate_id")
+                value = mapping.get(str(candidate_id), mapping.get(candidate_id))
+                if value is None:
+                    raise S45BundleError(f"snapshot bundle lacks candidate {candidate_id}: {path}")
+                result.append(value)
+            return result
+        # A few producers emit the candidate-id mapping directly rather than
+        # under a ``candidates`` key.  Accept it only when it covers every
+        # normalized row; arbitrary partial mappings are rejected below.
+        if isinstance(payload, Mapping) and all(
+            str(row.get("candidate_id")) in payload for row in candidates
+        ):
+            return [payload[str(row.get("candidate_id"))] for row in candidates]
+        # Some RoboTwin producer versions reserve SNAPSHOT.json for the
+        # family-level initial snapshot while candidate-local snapshots are
+        # embedded in family.json.  Do not mistake that registered, optional
+        # family snapshot for a candidate mapping; the caller still rejects a
+        # production family whose rows lack their own snapshots.
+        if isinstance(payload, Mapping) and any(
+            key in payload for key in ("simulator", "simulator_state", "environment", "rng_streams", "rng_state")
+        ):
+            return []
+        if isinstance(payload, Mapping) and isinstance(payload.get("snapshots"), list):
+            payload = payload["snapshots"]
+        if isinstance(payload, list) and len(payload) == len(candidates):
+            return list(payload)
+        raise S45BundleError(f"candidate snapshot bundle has no complete candidate mapping: {path}")
+    return []
+
+
+def _validate_candidate_genealogy(
+    family_id: str,
+    metadata: Mapping[str, Any],
+    candidates: list[dict[str, Any]],
+    *,
+    strict_production: bool,
+) -> None:
+    """Validate ordered root/parent/seed/action-prefix genealogy rows."""
+
+    seen: set[str] = set()
+    rows_by_id: dict[str, Mapping[str, Any]] = {}
+    source = _main_source_identity(metadata, required=strict_production, label=f"family {family_id}")
+    for index, candidate in enumerate(candidates):
+        if int(candidate.get("candidate_index", -1)) != index:
+            raise S45BundleError(f"candidate indices are not exactly 0..31 in {family_id}")
+        candidate_id = str(candidate.get("candidate_id", ""))
+        if not candidate_id or candidate_id in seen:
+            raise S45BundleError(f"candidate ids are missing or duplicated in {family_id}")
+        seen.add(candidate_id)
+        if strict_production:
+            if str(candidate.get("family_id", family_id)) != family_id:
+                raise S45ProvenanceError(f"candidate {candidate_id} family_id is not bound to {family_id}")
+            if str(candidate.get("root_family_id", "")) != family_id:
+                raise S45ProvenanceError(f"candidate {candidate_id} root_family_id is not bound to {family_id}")
+            if "final_success" not in candidate or not isinstance(candidate.get("final_success"), bool):
+                raise S45ProvenanceError(f"candidate {candidate_id} lacks boolean final_success")
+            if bool(candidate["final_success"]) != _candidate_success(candidate):
+                raise S45ProvenanceError(f"candidate {candidate_id} final_success disagrees with success")
+            if "action_prefix" not in candidate:
+                raise S45ProvenanceError(f"candidate {candidate_id} lacks persisted action_prefix")
+        else:
+            # Keep fixture/legacy authorities source-compatible while making
+            # the production branch below fully explicit.
+            candidate.setdefault("parent_id", None)
+            candidate.setdefault("generation_step", 0)
+        parent = candidate.get("parent_id")
+        try:
+            generation = int(candidate.get("generation_step", -1))
+        except (TypeError, ValueError) as exc:
+            raise S45ProvenanceError(f"candidate {candidate_id} generation_step is invalid") from exc
+        if generation < 0:
+            raise S45ProvenanceError(f"candidate {candidate_id} generation_step is negative")
+        if generation == 0:
+            if parent is not None:
+                raise S45ProvenanceError(f"candidate {candidate_id} root has a parent")
+        elif parent is None or str(parent) not in seen:
+            raise S45ProvenanceError(f"candidate {candidate_id} parent is missing or out of order")
+        elif strict_production:
+            parent_row = rows_by_id[str(parent)]
+            try:
+                parent_generation = int(parent_row.get("generation_step", -1))
+            except (TypeError, ValueError) as exc:
+                raise S45ProvenanceError(
+                    f"candidate {candidate_id} parent generation_step is invalid"
+                ) from exc
+            if parent_generation != generation - 1:
+                raise S45ProvenanceError(
+                    f"candidate {candidate_id} generation_step is not parent_step+1"
+                )
+        actions = _row_actions(candidate)
+        action_prefix = candidate.get("action_prefix")
+        if action_prefix is None:
+            action_prefix = actions
+            candidate["action_prefix"] = copy.deepcopy(action_prefix)
+        try:
+            prefix = _jsonable(_decode_numpy_wrapper(action_prefix, label=f"candidate {candidate_id} action_prefix"))
+        except S45BundleError:
+            raise
+        if canonical_json(prefix) != canonical_json(actions):
+            raise S45ProvenanceError(f"candidate {candidate_id} action_prefix disagrees with actions")
+        if len(actions) <= 0:
+            raise S45ProvenanceError(f"candidate {candidate_id} has an empty action prefix")
+        if "seed" in candidate and int(candidate["seed"]) != int(candidate.get("candidate_seed")):
+            raise S45ProvenanceError(f"candidate {candidate_id} seed disagrees with candidate_seed")
+        if source["main_source_commit"]:
+            row_source = _main_source_identity(candidate, required=False, label=f"candidate {candidate_id}")
+            if row_source["main_source_commit"] and row_source["main_source_commit"] != source["main_source_commit"]:
+                raise S45ProvenanceError(f"candidate {candidate_id} main source commit disagrees with family")
+        snapshot = candidate.get("snapshot")
+        if snapshot is None and not strict_production:
+            # Legacy/unit authorities intentionally omit the expensive replay
+            # sidecar.  They remain useful for persistence tests, but a
+            # production protocol can never take this escape hatch.
+            continue
+        candidate["snapshot_contract"] = _validate_snapshot_contract(
+            snapshot,
+            candidate=candidate,
+            label=f"candidate {candidate_id}",
+            strict_production=strict_production,
+        )
+        rows_by_id[candidate_id] = candidate
 
 
 def _canonical_digest(value: Any) -> str:
@@ -1117,6 +1684,22 @@ def _make_branch_record(
         raise S45ProvenanceError(f"family {family.get('family_id')} lacks substrate pose contract")
     _validate_pose_trajectory(prefix_trajectory, label="S4 prefix trajectory", dimension=pose_dimension)
     _validate_pose_trajectory(branch_trajectory, label="S4 branch trajectory", dimension=pose_dimension)
+    source_identity = _main_source_identity(
+        family,
+        family.get("metadata", {}) if isinstance(family.get("metadata"), Mapping) else {},
+        required=protocol.protocol_id == PROTOCOL_ID,
+        label=f"S4 family {family.get('family_id')} source",
+    )
+    # Bind the replay result to the exact persisted prefix snapshot.  The
+    # maintained adapters return the check beside (rather than nested inside)
+    # their runtime snapshot object; S4's immutable branch record carries both
+    # so a later loader can validate one self-contained artifact.
+    snapshot_payload = _jsonable(snapshot)
+    if isinstance(snapshot_payload, Mapping):
+        snapshot_payload = dict(snapshot_payload)
+        snapshot_payload.setdefault(
+            "snapshot_restore_check", _jsonable(execution["snapshot_restore_check"])
+        )
     prefix_preserving = canonical_json(branch_actions[:split_step]) == canonical_json(prefix_actions) and canonical_json(branch_trajectory[:split_step]) == canonical_json(prefix_trajectory)
     horizon = _trajectory_length(anchor)
     if not (0 < int(split_step) < int(horizon) - 1):
@@ -1155,12 +1738,13 @@ def _make_branch_record(
         "env_steps": int(execution["env_steps"]),
         "compute": _compute_record(execution["policy_forwards"], execution["env_steps"], label="S4 branch"),
         "snapshot_restore_check": _jsonable(execution["snapshot_restore_check"]),
-        "snapshot": _jsonable(snapshot),
+        "snapshot": snapshot_payload,
         "source_n32_directory": str(family.get("directory", family.get("metadata", {}).get("source_directory", ""))),
         "source_n32_marker_sha256": str(family.get("source_marker_sha256", "")),
         "source_n32_bundle_sha256": str(family.get("source_bundle_sha256", "")),
         "source_n32_family_file_sha256": str(family.get("source_family_file_sha256", "")),
         **protocol.identity(),
+        **({key: value for key, value in source_identity.items() if value} if source_identity["main_source_commit"] else {}),
     }
     if not result["prefix_preserving"]:
         # A non-preserving branch is still retained as raw negative evidence,
@@ -1218,9 +1802,17 @@ def _validate_s4_branch_record(
         raise S45ProvenanceError(f"S4 {family_id} branch pose contract mismatch")
     for field, expected in expected_source.items():
         value = branch.get(field)
-        if value != expected or re.fullmatch(r"[0-9a-f]{64}", str(value)) is None:
+        pattern = r"[0-9a-f]{40}" if field.endswith("_commit") else r"[0-9a-f]{64}"
+        if value != expected or re.fullmatch(pattern, str(value)) is None:
             raise S45ProvenanceError(f"S4 {family_id} branch source provenance mismatch for {field}")
     _require_full_snapshot(branch.get("snapshot"), label=f"S4 {family_id} persisted branch snapshot")
+    if protocol.protocol_id == PROTOCOL_ID:
+        _validate_snapshot_contract(
+            branch.get("snapshot"),
+            candidate=branch,
+            label=f"S4 {family_id} persisted branch",
+            strict_production=True,
+        )
     if not isinstance(branch.get("prefix_preserving"), (bool, np.bool_)):
         raise S45ProvenanceError(f"S4 {family_id} prefix_preserving is not a boolean")
     prefix_actions = _row_actions({"actions": branch.get("prefix_actions")})
@@ -1270,6 +1862,12 @@ def run_s4(
             raise S45ProtocolError("S4 bootstrap seed is frozen at 14211")
     for family in family_list:
         _require_family_source_provenance(family, label=f"S4 family {family.get('family_id', '<unknown>')}")
+        _main_source_identity(
+            family,
+            family.get("metadata", {}) if isinstance(family.get("metadata"), Mapping) else {},
+            required=protocol.protocol_id == PROTOCOL_ID,
+            label=f"S4 family {family.get('family_id', '<unknown>')} source",
+        )
     if not family_list:
         raise S45BundleError("S4 requires at least one accepted N32 family")
     near = [
@@ -1308,6 +1906,12 @@ def run_s4(
     try:
         for family in sorted(near, key=lambda item: str(item["family_id"])):
             family_id = str(family["family_id"])
+            source_identity = _main_source_identity(
+                family,
+                family.get("metadata", {}) if isinstance(family.get("metadata"), Mapping) else {},
+                required=protocol.protocol_id == PROTOCOL_ID,
+                label=f"S4 family {family_id} source",
+            )
             directory = root / family_id
             marker_name = "COMPLETED_S4_FAMILY.json"
             if (directory / marker_name).is_file():
@@ -1321,6 +1925,7 @@ def run_s4(
                 if protocol.protocol_id == PROTOCOL_ID and int(existing.get("paired_bootstrap_seed", -1)) != protocol.paired_bootstrap_seed:
                     raise S45ProtocolError(f"S4 existing completion marker bootstrap seed drifted: {family_id}")
                 expected_existing_source = {"source_n32_marker_sha256": str(family.get("source_marker_sha256")), "source_n32_bundle_sha256": str(family.get("source_bundle_sha256")), "source_n32_family_file_sha256": str(family.get("source_family_file_sha256"))}
+                expected_existing_source.update({key: value for key, value in source_identity.items() if value})
                 if any(existing.get(field) != value for field, value in expected_existing_source.items()):
                     raise S45ProvenanceError(f"S4 existing completion marker source provenance mismatch: {family_id}")
                 completed += 1
@@ -1523,6 +2128,7 @@ def run_s4(
                 "oracle_t_rule": protocol.s4["oracle_t_rule"],
                 "random_t_rule": protocol.random_t_rule,
                 **protocol.identity(),
+                **({key: value for key, value in source_identity.items() if value} if source_identity["main_source_commit"] else {}),
             }
             artifacts = {
                 "S4_SEARCH.json": (json.dumps(_jsonable({"search": search_records, "chosen_oracle_t": chosen_step}), ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8"),
@@ -1556,6 +2162,7 @@ def run_s4(
                 "source_n32_family_file_sha256": family.get("source_family_file_sha256"),
                 "paired_bootstrap_seed": bootstrap_seed,
             }
+            marker.update({key: value for key, value in source_identity.items() if value})
             write_atomic_bundle(directory, artifacts, marker_name=marker_name, marker_payload=marker)
             completed += 1
     finally:
@@ -1606,6 +2213,28 @@ def _fresh_record(
         raise S45ProvenanceError(f"S5 candidate {candidate_index} has invalid replay error") from exc
     if not np.isfinite(replay_error) or replay_error > SNAPSHOT_REPLAY_TOLERANCE:
         raise S45ProvenanceError(f"S5 candidate {candidate_index} lacks passing full-state replay evidence")
+    snapshot = execution.get("snapshot")
+    strict_production = protocol.protocol_id == PROTOCOL_ID
+    if snapshot is None and strict_production:
+        raise S45ProvenanceError(f"S5 candidate {candidate_index} lacks a persisted complete snapshot")
+    if snapshot is not None:
+        snapshot_payload = _jsonable(snapshot)
+        if isinstance(snapshot_payload, Mapping):
+            snapshot_payload = dict(snapshot_payload)
+            snapshot_payload.setdefault("snapshot_restore_check", _jsonable(replay))
+        _validate_snapshot_contract(
+            snapshot_payload,
+            candidate={"snapshot_restore_check": replay},
+            label=f"S5 candidate {candidate_index}",
+            strict_production=strict_production,
+        )
+        snapshot = snapshot_payload
+    source_identity = _main_source_identity(
+        family,
+        family.get("metadata", {}) if isinstance(family.get("metadata"), Mapping) else {},
+        required=strict_production,
+        label=f"S5 family {family.get('family_id')} source",
+    )
     return {
         "substrate": str(substrate),
         "pose_dimension": int(pose_dimension),
@@ -1614,6 +2243,10 @@ def _fresh_record(
         "parent_id": None,
         "generation_step": 0,
         "candidate_seed": int(candidate_seed),
+        "family_id": str(family["family_id"]),
+        "root_family_id": str(family["family_id"]),
+        "final_success": bool(execution["success"]),
+        "action_prefix": _jsonable(execution["actions"]),
         "seed_formula": protocol.s5["extension_seed_formula"],
         "actions": _jsonable(execution["actions"]),
         "trajectory": _jsonable(execution["trajectory"]),
@@ -1624,12 +2257,14 @@ def _fresh_record(
         "env_steps": int(execution["env_steps"]),
         "compute": _compute_record(execution["policy_forwards"], execution["env_steps"], label=f"S5 candidate {candidate_index}"),
         "snapshot_restore_check": _jsonable(execution["snapshot_restore_check"]),
+        "snapshot": _jsonable(snapshot),
         "genealogy": _jsonable(execution.get("genealogy", {"root_family_id": family["family_id"], "candidate_index": int(candidate_index)})),
         "source_n32_directory": str(family.get("directory", "")),
         "source_n32_marker_sha256": str(family.get("source_marker_sha256", "")),
         "source_n32_bundle_sha256": str(family.get("source_bundle_sha256", "")),
         "source_n32_family_file_sha256": str(family.get("source_family_file_sha256", "")),
         **protocol.identity(),
+        **({key: value for key, value in source_identity.items() if value} if source_identity["main_source_commit"] else {}),
     }
 
 
@@ -1660,6 +2295,12 @@ def run_s5(
     family_list = [_family_from_mapping(value) for value in families]
     for family in family_list:
         _require_family_source_provenance(family, label=f"S5 family {family.get('family_id', '<unknown>')}")
+        _main_source_identity(
+            family,
+            family.get("metadata", {}) if isinstance(family.get("metadata"), Mapping) else {},
+            required=protocol.protocol_id == PROTOCOL_ID,
+            label=f"S5 family {family.get('family_id', '<unknown>')} source",
+        )
     if not family_list:
         raise S45BundleError("S5 requires accepted N32 families")
     root = Path(output_root)
@@ -1667,6 +2308,12 @@ def run_s5(
     try:
         for family in sorted(family_list, key=lambda item: str(item["family_id"])):
             family_id = str(family["family_id"])
+            source_identity = _main_source_identity(
+                family,
+                family.get("metadata", {}) if isinstance(family.get("metadata"), Mapping) else {},
+                required=protocol.protocol_id == PROTOCOL_ID,
+                label=f"S5 family {family_id} source",
+            )
             directory = root / family_id
             marker_name = "COMPLETED_S5_FAMILY.json"
             if (directory / marker_name).is_file():
@@ -1676,8 +2323,11 @@ def run_s5(
                 if existing.get("family_id") != family_id or existing.get("protocol_authority_sha256") != protocol.sha256 or existing.get("protocol_git_commit") != protocol.git_commit:
                     raise S45ProvenanceError(f"S5 existing completion marker provenance mismatch: {family_id}")
                 expected_existing_source = {"source_n32_marker_sha256": str(family.get("source_marker_sha256")), "source_n32_bundle_sha256": str(family.get("source_bundle_sha256")), "source_n32_family_file_sha256": str(family.get("source_family_file_sha256"))}
+                expected_existing_source.update({key: value for key, value in source_identity.items() if value})
                 if any(existing.get(field) != value for field, value in expected_existing_source.items()):
                     raise S45ProvenanceError(f"S5 existing completion marker source provenance mismatch: {family_id}")
+                if protocol.protocol_id == PROTOCOL_ID and existing.get("substrate") != family.get("substrate", family.get("metadata", {}).get("substrate")):
+                    raise S45ProvenanceError(f"S5 existing completion marker substrate mismatch: {family_id}")
                 if int(existing.get("base_candidate_count", -1)) != BASE_CANDIDATE_COUNT or int(existing.get("extended_candidate_count", -1)) != EXTENDED_CANDIDATE_COUNT or list(existing.get("fresh_candidate_indices", ())) != list(FRESH_CANDIDATE_INDICES):
                     raise S45BundleError(f"S5 existing completion marker has an incomplete frozen budget: {family_id}")
                 completed += 1
@@ -1713,6 +2363,7 @@ def run_s5(
             payload = {
                 "schema": "r142-stage-s-s5-family-v1",
                 "family_id": family_id,
+                "substrate": family.get("substrate", family.get("metadata", {}).get("substrate")),
                 "base_candidate_count": BASE_CANDIDATE_COUNT,
                 "extended_candidate_count": EXTENDED_CANDIDATE_COUNT,
                 "fresh_candidate_indices": list(FRESH_CANDIDATE_INDICES),
@@ -1726,6 +2377,7 @@ def run_s5(
                 "source_n32_bundle_sha256": str(family.get("source_bundle_sha256", "")),
                 "source_n32_family_file_sha256": str(family.get("source_family_file_sha256", "")),
             }
+            payload.update({key: value for key, value in source_identity.items() if value})
             artifacts = {
                 "S5_FAMILY.json": (json.dumps(_jsonable(payload), ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8"),
                 "S5_GENEALOGY.jsonl": _write_jsonl(extended),
@@ -1734,6 +2386,7 @@ def run_s5(
                 "schema": "r142-stage-s-s5-family-v1",
                 "marker_type": "completed_s5_family",
                 "family_id": family_id,
+                "substrate": family.get("substrate", family.get("metadata", {}).get("substrate")),
                 "base_candidate_count": BASE_CANDIDATE_COUNT,
                 "extended_candidate_count": EXTENDED_CANDIDATE_COUNT,
                 "fresh_candidate_indices": list(FRESH_CANDIDATE_INDICES),
@@ -1743,6 +2396,7 @@ def run_s5(
                 "source_n32_bundle_sha256": family.get("source_bundle_sha256"),
                 "source_n32_family_file_sha256": family.get("source_family_file_sha256"),
             }
+            marker.update({key: value for key, value in source_identity.items() if value})
             write_atomic_bundle(directory, artifacts, marker_name=marker_name, marker_payload=marker)
             completed += 1
     finally:
@@ -1768,16 +2422,29 @@ def load_s4_probes(
     probes: list[Mapping[str, Any]] = []
     expected = {str(value) for value in expected_family_ids}
     expected_sources_by_family: dict[str, dict[str, str]] = {}
+    expected_substrates_by_family: dict[str, str] = {}
     if expected_families is not None:
         for value in expected_families:
             family = _family_from_mapping(value)
             family_id = str(family.get("family_id", ""))
             _require_family_source_provenance(family, label=f"S4 expected family {family_id}")
-            expected_sources_by_family[family_id] = {
+            expected_sources = {
                 "source_n32_marker_sha256": str(family["source_marker_sha256"]),
                 "source_n32_bundle_sha256": str(family["source_bundle_sha256"]),
                 "source_n32_family_file_sha256": str(family["source_family_file_sha256"]),
             }
+            source_identity = _main_source_identity(
+                family,
+                family.get("metadata", {}) if isinstance(family.get("metadata"), Mapping) else {},
+                required=protocol.protocol_id == PROTOCOL_ID,
+                label=f"S4 expected family {family_id} source",
+            )
+            expected_sources.update({key: value for key, value in source_identity.items() if value})
+            expected_sources_by_family[family_id] = expected_sources
+            family_substrate = family.get("substrate", family.get("metadata", {}).get("substrate"))
+            if family_substrate not in {"A", "B", "C"}:
+                raise S45ProvenanceError(f"S4 expected family {family_id} lacks substrate identity")
+            expected_substrates_by_family[family_id] = str(family_substrate)
         if set(expected_sources_by_family) != expected:
             raise S45BundleError("S4 expected family source set differs from the required family ids")
     found: set[str] = set()
@@ -1806,6 +2473,8 @@ def load_s4_probes(
         expected_substrate = str(marker.get("substrate", ""))
         if expected_substrate not in {"A", "B", "C"}:
             raise S45ProvenanceError(f"S4 {family_id} marker lacks substrate pose contract")
+        if expected_families is not None and expected_substrate != expected_substrates_by_family[family_id]:
+            raise S45ProvenanceError(f"S4 {family_id} marker substrate is not bound to the accepted N32 family")
         expected_source = {
             "source_n32_marker_sha256": str(marker.get("source_n32_marker_sha256", "")),
             "source_n32_bundle_sha256": str(marker.get("source_n32_bundle_sha256", "")),
@@ -1813,8 +2482,22 @@ def load_s4_probes(
         }
         if any(re.fullmatch(r"[0-9a-f]{64}", value) is None for value in expected_source.values()):
             raise S45ProvenanceError(f"S4 {family_id} marker lacks complete N32 source SHA provenance")
-        if expected_families is not None and expected_source != expected_sources_by_family[family_id]:
+        if expected_families is not None and any(
+            expected_source[field] != expected_sources_by_family[family_id][field]
+            for field in expected_source
+        ):
             raise S45ProvenanceError(f"S4 {family_id} marker is not bound to the accepted N32 source bundle")
+        marker_source_identity = _main_source_identity(
+            marker,
+            required=protocol.protocol_id == PROTOCOL_ID,
+            label=f"S4 {family_id} marker source",
+        )
+        expected_source.update({key: value for key, value in marker_source_identity.items() if value})
+        if expected_families is not None and expected_source != expected_sources_by_family[family_id]:
+            raise S45ProvenanceError(f"S4 {family_id} marker is not bound to the accepted main source")
+        for field, expected_value in expected_source.items():
+            if field.startswith("main_source_") and probe.get(field) != expected_value:
+                raise S45ProvenanceError(f"S4 {family_id} probe main source provenance mismatch for {field}")
         search = probe.get("search")
         if not isinstance(search_grid, list) or len(search_grid) != 9:
             raise S45ProvenanceError(f"S4 {family_id} lacks the frozen nine-point search grid")
@@ -1954,6 +2637,17 @@ def load_s5_extended(root: str | Path, *, protocol: ProtocolAuthority, families:
                 raise S45ProvenanceError(f"S5 family {family_id} source SHA mismatch for {field}")
             if str(marker.get(field, "")) != expected_source:
                 raise S45ProvenanceError(f"S5 marker {family_id} source SHA mismatch for {field}")
+        source_identity = _main_source_identity(
+            family,
+            family.metadata if isinstance(family, N32Family) else family.get("metadata", {}),
+            required=protocol.protocol_id == PROTOCOL_ID,
+            label=f"S5 family {family_id} main source",
+        )
+        expected_sources.update({key: value for key, value in source_identity.items() if value})
+        if protocol.protocol_id == PROTOCOL_ID:
+            for field, expected_value in source_identity.items():
+                if marker.get(field) != expected_value or payload.get(field) != expected_value:
+                    raise S45ProvenanceError(f"S5 family {family_id} main source mismatch for {field}")
         expected_base = [_base_row_for_s5(_family_from_mapping(family), row, index) for index, row in enumerate(family.candidates)]
         if _canonical_digest(expected_base) != str(payload.get("base_digest")) or _canonical_digest(expected_base) != _canonical_digest(base_rows):
             raise S45ProvenanceError(f"S5 family {family_id} rewrote immutable base32")
@@ -1971,6 +2665,9 @@ def load_s5_extended(root: str | Path, *, protocol: ProtocolAuthority, families:
         if substrate not in {"A", "B", "C"}:
             raise S45ProvenanceError(f"S5 family {family_id} lacks substrate pose contract")
         pose_dimension = 14 if substrate == "A" else 6
+        if protocol.protocol_id == PROTOCOL_ID:
+            if marker.get("substrate") != substrate or payload.get("substrate") != substrate:
+                raise S45ProvenanceError(f"S5 family {family_id} substrate is not cross-bound")
         for index, row in enumerate(extended_rows):
             normalised = _normalise_candidate(row, index, success=row.get("success"), seed=row.get("candidate_seed"))
             if int(normalised.get("candidate_index", -1)) != index:
@@ -1991,6 +2688,19 @@ def load_s5_extended(root: str | Path, *, protocol: ProtocolAuthority, families:
                 for field, expected_value in expected_sources.items():
                     if row.get(field) != expected_value:
                         raise S45ProvenanceError(f"S5 fresh candidate source provenance mismatch: {family_id}/{index}/{field}")
+                if protocol.protocol_id == PROTOCOL_ID:
+                    if row.get("family_id") != family_id or row.get("root_family_id") != family_id:
+                        raise S45ProvenanceError(f"S5 fresh candidate root genealogy is not bound: {family_id}/{index}")
+                    if row.get("action_prefix") is None or canonical_json(row.get("action_prefix")) != canonical_json(row.get("actions")):
+                        raise S45ProvenanceError(f"S5 fresh candidate action_prefix is not bound: {family_id}/{index}")
+                    if not isinstance(row.get("final_success"), bool) or bool(row.get("final_success")) != bool(row.get("success")):
+                        raise S45ProvenanceError(f"S5 fresh candidate final_success is not bound: {family_id}/{index}")
+                    _validate_snapshot_contract(
+                        row.get("snapshot"),
+                        candidate=row,
+                        label=f"S5 {family_id}/{index}",
+                        strict_production=True,
+                    )
                 if row.get("parent_id") is not None or int(row.get("generation_step", -1)) != 0:
                     raise S45ProvenanceError(f"S5 fresh candidate genealogy root is invalid: {family_id}/{index}")
                 genealogy = _coerce_mapping(row.get("genealogy"), label=f"S5 {family_id}/{index}.genealogy")
@@ -2019,6 +2729,9 @@ def finalise_s45(
     output_root: str | Path,
     *,
     expected_substrate: str | None = None,
+    expected_main_source_commit: str | None = None,
+    expected_main_source_sha256: str | None = None,
+    calibration_report: str | Path | None = None,
 ) -> dict[str, Any]:
     """Verify all persisted inputs and compute S4/S5 gates.
 
@@ -2028,13 +2741,54 @@ def finalise_s45(
     a convenient subset of the near-all-fail denominator.
     """
 
-    protocol = ProtocolAuthority.load(protocol_path)
-    families = discover_n32_families(n32_root, protocol=protocol)
+    protocol_source = Path(protocol_path)
+    # The standalone finalizer is a production entry point when handed the
+    # canonical repository layout.  Unit/fixture authorities intentionally
+    # live outside ``protocol/FROZEN_PROTOCOL.json`` and retain the relaxed
+    # in-memory compatibility path used by the legacy tests.
+    require_canonical = (
+        protocol_source.name == "FROZEN_PROTOCOL.json"
+        and protocol_source.parent.name == "protocol"
+    )
+    protocol = ProtocolAuthority.load(
+        protocol_source,
+        require_canonical=require_canonical,
+        substrate=expected_substrate,
+        calibration_report=calibration_report,
+    )
+    if protocol.protocol_id == PROTOCOL_ID and expected_substrate not in {"A", "B", "C"}:
+        raise S45ProtocolError("production S45 finalization requires an explicit expected_substrate A/B/C")
+    families = discover_n32_families(
+        n32_root,
+        protocol=protocol,
+        expected_main_source_commit=expected_main_source_commit,
+        expected_main_source_sha256=expected_main_source_sha256,
+    )
+    source_identities: list[dict[str, str]] = []
     if expected_substrate is not None:
         for family in families:
             observed = family.metadata.get("substrate", family.marker.get("substrate"))
             if observed != expected_substrate:
                 raise S45ProvenanceError(f"N32 family {family.family_id} substrate mismatch")
+    for family in families:
+        source_identity = _main_source_identity(
+            family,
+            family.metadata,
+            required=protocol.protocol_id == PROTOCOL_ID,
+            label=f"finalization family {family.family_id} main source",
+        )
+        source_identities.append(source_identity)
+    if source_identities:
+        commits = {item["main_source_commit"] for item in source_identities}
+        digests = {item["main_source_sha256"] for item in source_identities}
+        if protocol.protocol_id == PROTOCOL_ID and (len(commits) != 1 or len(digests) != 1):
+            raise S45ProvenanceError("S45 finalization requires one main source commit/SHA across all families")
+        if expected_main_source_commit is not None:
+            if not _HEX40.fullmatch(expected_main_source_commit.lower()) or expected_main_source_commit.lower() not in commits:
+                raise S45ProvenanceError("S45 finalization main source commit does not match accepted N32 families")
+        if expected_main_source_sha256 is not None:
+            if not _HEX64.fullmatch(expected_main_source_sha256.lower()) or expected_main_source_sha256.lower() not in digests:
+                raise S45ProvenanceError("S45 finalization main source SHA does not match accepted N32 families")
     near = [family for family in families if sum(_candidate_success(row) for row in family.candidates) <= NEAR_ALL_FAIL_MAX_SUCCESS]
     probes = load_s4_probes(s4_root, protocol=protocol, expected_family_ids=[family.family_id for family in near], expected_families=near)
     base_data, extended_data = load_s5_extended(s5_root, protocol=protocol, families=list(families))
@@ -2058,9 +2812,15 @@ def finalise_s45(
         "all_inputs_complete": True,
         "pass": bool(s4.get("pass") and s5.get("pass")),
     }
+    if source_identities and source_identities[0]["main_source_commit"]:
+        result["main_source_commit"] = source_identities[0]["main_source_commit"]
+        result["main_source_sha256"] = source_identities[0]["main_source_sha256"]
     output = Path(output_root)
     artifacts = {"S45_RESULT.json": (json.dumps(_jsonable(result), ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")}
     marker = {"schema": "r142-stage-s-s45-completion-v1", "marker_type": "completed_s45_evaluation", **protocol.identity(), "substrate": expected_substrate, "n32_family_count": len(families), "near_all_fail_family_count": len(near), "paired_bootstrap_seed": int(s4.get("protocol_bootstrap_seed", 14211))}
+    if source_identities and source_identities[0]["main_source_commit"]:
+        marker["main_source_commit"] = source_identities[0]["main_source_commit"]
+        marker["main_source_sha256"] = source_identities[0]["main_source_sha256"]
     completion = write_atomic_bundle(output, artifacts, marker_name="COMPLETED_EVALUATION_RESULT.json", marker_payload=marker)
     return {**result, "completion": completion}
 
@@ -2078,6 +2838,31 @@ def load_adapter(spec: str, *, protocol: ProtocolAuthority, substrate: str | Non
     adapter = _call(factory, protocol=protocol, substrate=substrate)
     if not isinstance(adapter, S45Adapter):
         raise S45CapabilityError("adapter factory must return an S45Adapter instance")
+    if protocol.protocol_id == PROTOCOL_ID:
+        if substrate not in {"A", "B", "C"}:
+            raise S45CapabilityError("production adapter loading requires an explicit substrate A/B/C")
+        # Production adapters are the maintained environment hooks, not a
+        # fixture/synthetic implementation that happens to satisfy the Python
+        # interface.  Reject suspicious module/class names and require the
+        # concrete adapter associated with each substrate.
+        descriptor = " ".join(
+            (
+                spec,
+                module_name,
+                factory_name,
+                adapter.__class__.__module__,
+                adapter.__class__.__name__,
+            )
+        ).lower()
+        if any(token in descriptor for token in ("fake", "synthetic", "mock", "fixture")):
+            raise S45CapabilityError("production adapters cannot use fake/synthetic/mock/fixture factories")
+        from .s45_adapters import LiberoS45Adapter, RoboTwinS45Adapter
+
+        expected_type = RoboTwinS45Adapter if substrate == "A" else LiberoS45Adapter
+        if adapter.__class__ is not expected_type:
+            raise S45CapabilityError(
+                f"production substrate {substrate} requires concrete {expected_type.__name__} environment hooks"
+            )
     return adapter
 
 

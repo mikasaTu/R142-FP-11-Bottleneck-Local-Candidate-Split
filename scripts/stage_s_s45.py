@@ -43,6 +43,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--phase", choices=("s4", "s5", "both"), required=True)
     parser.add_argument("--substrate", choices=("A", "B", "C"), required=True)
     parser.add_argument("--protocol", required=True, type=Path)
+    parser.add_argument(
+        "--calibration-report",
+        type=Path,
+        help="optional explicit B/C calibration report; its canonical SHA binding is rechecked",
+    )
+    parser.add_argument("--main-source-commit", type=str)
+    parser.add_argument("--main-source-sha256", type=str)
     parser.add_argument("--n32-root", required=True, type=Path)
     parser.add_argument("--output-root", required=True, type=Path)
     parser.add_argument(
@@ -56,8 +63,18 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        protocol = ProtocolAuthority.load(args.protocol)
-        families = discover_n32_families(args.n32_root, protocol=protocol)
+        protocol = ProtocolAuthority.load(
+            args.protocol,
+            require_canonical=True,
+            substrate=args.substrate,
+            calibration_report=args.calibration_report,
+        )
+        families = discover_n32_families(
+            args.n32_root,
+            protocol=protocol,
+            expected_main_source_commit=args.main_source_commit,
+            expected_main_source_sha256=args.main_source_sha256,
+        )
         result: dict[str, object] = {
             "substrate": args.substrate,
             "phase": args.phase,

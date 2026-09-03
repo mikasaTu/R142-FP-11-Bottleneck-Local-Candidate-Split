@@ -32,6 +32,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--substrate", choices=("A", "B", "C"), required=True)
     parser.add_argument("--protocol", required=True, type=Path)
+    parser.add_argument(
+        "--calibration-report",
+        type=Path,
+        help="optional explicit B/C calibration report; canonical protocol validation checks its SHA",
+    )
+    parser.add_argument("--main-source-commit", type=str)
+    parser.add_argument("--main-source-sha256", type=str)
     parser.add_argument("--n32-root", required=True, type=Path)
     parser.add_argument("--s4-root", required=True, type=Path)
     parser.add_argument("--s5-root", required=True, type=Path)
@@ -49,6 +56,9 @@ def main(argv: list[str] | None = None) -> int:
             args.protocol,
             args.output_root,
             expected_substrate=args.substrate,
+            expected_main_source_commit=args.main_source_commit,
+            expected_main_source_sha256=args.main_source_sha256,
+            calibration_report=args.calibration_report,
         )
         print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
         return 0

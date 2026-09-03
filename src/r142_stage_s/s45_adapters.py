@@ -697,6 +697,7 @@ class _LiberoS45Base(S45Adapter):
             "policy_forwards": int(local_forwards),
             "env_steps": int(len(actions)),
             "snapshot_restore_check": replay,
+            "snapshot": self._snapshot_payload(snapshot),
             "suffix_queue_replaced": bool(branch),
         }
 
@@ -1051,6 +1052,7 @@ class RoboTwinS45Adapter(S45Adapter):
             "policy_forwards": int(forwards),
             "env_steps": int(len(actions)),
             "snapshot_restore_check": replay,
+            "snapshot": self._snapshot_payload(snapshot),
             "suffix_queue_replaced": bool(branch),
         }
 
