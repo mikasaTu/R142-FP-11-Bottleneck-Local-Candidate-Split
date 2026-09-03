@@ -56,7 +56,7 @@ def test_launcher_is_valid_shell_and_binds_all_eight_pairs() -> None:
     assert "2254:2254" in text
     assert 'REQUIRED_RUNTIME_REPO="$ROOT/code/r142-stage-s-a-runtime-20260903"' in text
     assert "r142-stage-s-runtime-20260902" not in text
-    assert "FROZEN_SOURCE_COMMIT=\"a1e280b64bd0eb522b036e05007f57373f403020\"" in text
+    assert "FROZEN_SOURCE_COMMIT=\"4a0defb2c754afeda8eb5aec0737e88757d1224d\"" in text
     assert "ACCEPTED_ASSET_PREFLIGHT_PATH=\"$ROOT/logs/r142_fp11_stage_s/stage_s/protocol/ACCEPTED_A_ASSET_PREFLIGHT.json\"" in text
     assert "ASSET_PREFLIGHT_RUN_ID" not in text
     assert "r142-stage-s-a-assets-20260902-r15" not in text
@@ -81,8 +81,8 @@ def test_config_freezes_real_resource_and_evaluation_contract() -> None:
         "count": 1,
         "gpu": 8,
         "cpu": 88,
-        "memory": "1525Gi",
-        "shared_memory": "1525Gi",
+        "memory": "1400Gi",
+        "shared_memory": "1400Gi",
         "image": config["worker"]["image"],
     }
     assert config["shard"]["world_size"] == 8
@@ -98,7 +98,7 @@ def test_config_freezes_real_resource_and_evaluation_contract() -> None:
         "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-a-runtime-20260903"
     )
     assert config["runtime"]["source_commit"] == (
-        "a1e280b64bd0eb522b036e05007f57373f403020"
+        "4a0defb2c754afeda8eb5aec0737e88757d1224d"
     )
     assert config["runtime"]["frozen_protocol_path"] == (
         "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/stage_s/protocol/FROZEN_PROTOCOL.json"
