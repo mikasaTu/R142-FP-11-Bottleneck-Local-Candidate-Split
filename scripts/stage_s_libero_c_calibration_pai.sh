@@ -228,7 +228,7 @@ C_PIPELINE_MARKER="$C_TRAINING_STATUS_ROOT/COMPLETED_C_PIPELINE.json"
 
 # Bind the common checkpoint bundle, both SHA manifests, and terminal status
 # to the stable acceptance manifest. This launcher never creates acceptance.
-"$PYTHON" - "$C_ACCEPTANCE_MANIFEST" "$C_COMPLETION" "$C_CHECKPOINT_SHA" "$C_LOG_SHA" "$C_TRAINING_LOG_ROOT" "$C_PIPELINE_MARKER" "$C_CHECKPOINT_BASE" "$C_TRAINING_RUN_ID" "$C_TRAINING_JOB_ID" <<'PY'
+"$PYTHON" - "$C_ACCEPTANCE_MANIFEST" "$C_COMPLETION" "$C_CHECKPOINT_SHA" "$C_LOG_SHA" "$C_TRAINING_LOG_ROOT" "$C_PIPELINE_MARKER" "$C_TRAIN_DIR" "$C_TRAINING_RUN_ID" "$C_TRAINING_JOB_ID" <<'PY'
 import hashlib
 import json
 import pathlib
@@ -265,7 +265,7 @@ source = {
 if acceptance.get("source") != source:
     raise SystemExit("C acceptance source commits drifted")
 expected_paths = {
-    "checkpoint_root": str(checkpoint_base),
+    "checkpoint_root": str(checkpoint_base.parents[2]),
     "checkpoint_completion": str(completion_path),
     "checkpoint_sha256_manifest": str(checkpoint_sha_path),
     "log_root": str(log_root),
