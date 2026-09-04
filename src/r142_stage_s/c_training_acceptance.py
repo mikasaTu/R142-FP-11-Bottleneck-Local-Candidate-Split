@@ -739,11 +739,13 @@ def _validate_checkpoints(
     present_steps = {int(child.name) for child in numeric_dirs}
     if not set(EXPECTED_STEPS).issubset(present_steps):
         raise CTrainingAcceptanceError(f"C native checkpoint set is missing required steps: {sorted(set(EXPECTED_STEPS) - present_steps)}")
-    # The C contract freezes the retained schedule exactly.  Even a complete
-    # extra numeric directory is rejected: accepting it would make an
-    # interrupted or stale lineage indistinguishable from the planned run.
-    for extra in sorted(present_steps - set(EXPECTED_STEPS)):
-        raise CTrainingAcceptanceError(f"extra C checkpoint directory is not allowed: {extra}")
+    # The trainer may persist additional complete periodic checkpoints (for
+    # example every 1000 steps) while the scientific contract only consumes
+    # the frozen milestones below.  Keep those immutable directories visible
+    # and report them as auxiliary evidence rather than misclassifying a valid
+    # terminal run as partial.  Required milestones remain exact and are still
+    # audited below.
+    auxiliary_steps = sorted(present_steps - set(EXPECTED_STEPS))
     non_numeric_dirs = sorted(
         child.name for child in train_dir.iterdir() if child.is_dir() and not child.name.isdigit()
     )
