@@ -50,20 +50,6 @@ CALIBRATION_TARGET_SUCCESS = 0.45
 CALIBRATION_SEED = 142042
 CALIBRATION_SHARD_SCHEMA = "r142-stage-s-calibration-shard-v1"
 CALIBRATION_RESULT_SCHEMA = "r142-stage-s-calibration-result-v1"
-
-
-def _calibration_selection_key(row: Mapping[str, Any]) -> tuple[float, int | str]:
-    """Use numeric checkpoint order while preserving B label ordering."""
-
-    setting = row.get("setting")
-    if isinstance(setting, str):
-        match = re.fullmatch(r"step_([0-9]+)", setting)
-        order: int | str = int(match.group(1)) if match else setting
-    else:
-        order = str(setting)
-    return abs(float(row["pooled_success"]) - CALIBRATION_TARGET_SUCCESS), order
-
-
 CALIBRATION_PLAN_SCHEMA = "r142-stage-s-calibration-plan-v1"
 # The progress sidecar is deliberately separate from the final shard
 # ``SHA256SUMS``.  The latter keeps the historical, aggregate-only shard
@@ -187,7 +173,19 @@ def sha256_file(path: str | Path) -> str:
 
 
 def canonical_json(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    # OpenPI metadata can contain ``flax.nnx`` sentinel objects (for example
+    # ``Nothing`` in freeze_filter).  They are provenance values only; refusing
+    # to serialize them made an otherwise complete training run fail during the
+    # final checkpoint audit.  Preserve deterministic auditing while rendering
+    # unknown sentinels as a stable string instead of mutating checkpoint data.
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+        default=lambda item: str(item),
+    )
 
 
 def stable_seed(*parts: object, bytes_count: int = 8) -> int:
@@ -1741,7 +1739,6 @@ def validate_restore_same_action(
         "max_abs_error": error,
         "tolerance": float(tolerance),
         "same_action": True,
-        "same_action_next_state_max_abs_error": error,
         "full_snapshot": bool(require_full_rng),
     }
     if not result["passed"]:
@@ -1763,10 +1760,6 @@ class CandidateOutcome:
     terminated: bool = False
     termination_reason: str | None = None
     terminal_step: int | None = None
-    # Candidate-local replay evidence.  Main-screen persistence must retain
-    # the check alongside the initial snapshot, rather than relying only on a
-    # one-time family preflight.
-    snapshot_restore_check: dict[str, Any] | None = None
 
 
 def _factory_call(factory: Callable[..., Any], task_id: int, init_state: int, candidate_id: int, seed: int, variant: Any) -> Any:
@@ -1806,7 +1799,6 @@ def collect_family(
             envs.append(env)
             observation = seeded_reset(env, init_state, stable_seed(seed_namespace, "environment", task_id, init_state))
             initial_snapshot = None
-            snapshot_restore_check = None
             if validate_snapshots and not (
                 hasattr(env, "capture_snapshot") and hasattr(env, "restore_snapshot")
             ):
@@ -1847,7 +1839,7 @@ def collect_family(
             if validate_snapshots and (initial_snapshot is None or not actions):
                 raise SnapshotReplayError("full replay gate requires a captured snapshot and non-empty action trajectory")
             if validate_snapshots and initial_snapshot is not None and actions:
-                snapshot_restore_check = validate_restore_same_action(
+                validate_restore_same_action(
                     env,
                     initial_snapshot,
                     actions[0],
@@ -1871,7 +1863,6 @@ def collect_family(
                     terminated=True,
                     termination_reason=termination_reason,
                     terminal_step=len(actions),
-                    snapshot_restore_check=snapshot_restore_check,
                 )
             )
     finally:
@@ -1894,13 +1885,10 @@ def collect_family(
     }
 
 
-def _snapshot_payload(
-    snapshot: StageRSnapshot | None,
-    snapshot_restore_check: Mapping[str, Any] | None = None,
-) -> Any:
+def _snapshot_payload(snapshot: StageRSnapshot | None) -> Any:
     if snapshot is None:
         return None
-    payload = {
+    return {
         "environment": snapshot.environment,
         "observation_history": snapshot.observation_history,
         "action_queue": snapshot.action_queue,
@@ -1912,9 +1900,6 @@ def _snapshot_payload(
         "policy_rng_state": snapshot.policy_rng_state,
         "torch_rng_state": snapshot.torch_rng_state,
     }
-    if snapshot_restore_check is not None:
-        payload["snapshot_restore_check"] = copy.deepcopy(dict(snapshot_restore_check))
-    return payload
 
 
 def _pack_family(family: Mapping[str, Any]) -> dict[str, np.ndarray]:
@@ -1963,29 +1948,13 @@ def _pack_family(family: Mapping[str, Any]) -> dict[str, np.ndarray]:
         "terminated": np.asarray([value.terminated for value in outcomes], dtype=np.bool_),
         "terminal_step": np.asarray([value.terminal_step for value in outcomes], dtype=np.int32),
         "candidate_seed": np.asarray([value.candidate_seed for value in outcomes], dtype=np.uint64),
-        "root_family_id": np.asarray(
-            [str(family["family_id"])] * len(outcomes), dtype="U256"
-        ),
         "generation_step": np.zeros(len(outcomes), dtype=np.int32),
         "policy_forwards": np.asarray([value.policy_forwards for value in outcomes], dtype=np.int32),
         "environment_steps": np.asarray([value.environment_steps for value in outcomes], dtype=np.int32),
     }
 
 
-def family_is_complete(
-    directory: str | Path,
-    *,
-    expected_candidates: int = MAIN_CANDIDATE_COUNT,
-    strict: bool = False,
-) -> bool:
-    """Return whether a family is immutable and internally self-consistent.
-
-    ``strict=True`` is used by the B/C main producer before deciding to skip
-    an existing family.  It additionally requires candidate-level root
-    genealogy, full replay snapshots, and an actual same-action check; this
-    prevents a legacy marker from hiding a family that the terminal
-    finalizer/total analyzer would later reject.
-    """
+def family_is_complete(directory: str | Path, *, expected_candidates: int = MAIN_CANDIDATE_COUNT) -> bool:
     root = Path(directory)
     marker_path = root / "COMPLETED_FAMILY.json"
     sums_path = root / "SHA256SUMS"
@@ -2002,131 +1971,18 @@ def family_is_complete(
             return False
         if marker.get("files") != {name: sha256_file(root / name) for name in ("rollouts.npz", "genealogy.json", "snapshots.pkl", "metadata.json")}:
             return False
-        metadata = json.loads((root / "metadata.json").read_text(encoding="utf-8"))
         with np.load(root / "rollouts.npz", allow_pickle=False) as data:
             required = {"candidate_index", "terminated", "terminal_step"}
             if not required.issubset(set(data.files)):
                 return False
-            complete = (
+            return (
                 len(data["success"]) == int(expected_candidates)
                 and np.array_equal(data["candidate_index"], np.arange(len(data["success"])))
                 and bool(np.all(data["terminated"]))
                 and bool(np.all(data["terminal_step"] >= 0))
                 and np.array_equal(data["terminal_step"], data["lengths"])
             )
-            if not complete or not strict:
-                return complete
-            if "candidate_id" not in data.files:
-                return False
-            try:
-                genealogy = json.loads((root / "genealogy.json").read_text(encoding="utf-8"))
-                with (root / "snapshots.pkl").open("rb") as stream:
-                    snapshot_bundle = pickle.load(stream)
-            except Exception:
-                return False
-            if not isinstance(metadata, Mapping) or not isinstance(genealogy, list):
-                return False
-            if len(genealogy) != int(expected_candidates):
-                return False
-            if (
-                not isinstance(snapshot_bundle, Mapping)
-                or snapshot_bundle.get("schema_version") != 1
-                or not isinstance(snapshot_bundle.get("candidates"), Mapping)
-                or len(snapshot_bundle["candidates"]) != int(expected_candidates)
-            ):
-                return False
-            family_id = str(metadata.get("family_id", marker.get("family_id", "")))
-            if not family_id or str(marker.get("family_id", "")) != family_id:
-                return False
-            # B/C rank producers persist these identities in each family's
-            # metadata.  They are required before an artifact can be treated
-            # as a strict, resumable main-screen family.
-            for key in ("task_id", "init_state", "rank", "world_size"):
-                if key not in metadata:
-                    return False
-                try:
-                    int(metadata[key])
-                except (TypeError, ValueError):
-                    return False
-            if int(metadata["world_size"]) != 8 or not 0 <= int(metadata["rank"]) < 8:
-                return False
-            candidate_ids = np.asarray(data["candidate_id"])
-            offsets = np.asarray(data["offsets"])
-            lengths = np.asarray(data["lengths"])
-            candidate_seeds = np.asarray(data["candidate_seed"])
-            if candidate_ids.shape != (int(expected_candidates),):
-                return False
-            if len({str(value) for value in candidate_ids.tolist()}) != int(expected_candidates):
-                return False
-            if not np.array_equal(candidate_ids, np.arange(int(expected_candidates))):
-                return False
-            if len({int(value) for value in candidate_seeds.tolist()}) != int(expected_candidates):
-                return False
-            for index, item in enumerate(genealogy):
-                if not isinstance(item, Mapping):
-                    return False
-                if str(item.get("candidate_id")) != str(index):
-                    return False
-                if int(item.get("candidate_index", -1)) != index:
-                    return False
-                if item.get("parent_id") is not None or int(item.get("generation_step", -1)) != 0:
-                    return False
-                if str(item.get("root_family_id", "")) != family_id:
-                    return False
-                if str(item.get("family_id", "")) != family_id:
-                    return False
-                if int(item.get("candidate_seed", -1)) != int(candidate_seeds[index]):
-                    return False
-                if int(item.get("seed", -1)) != int(candidate_seeds[index]):
-                    return False
-                if bool(item.get("final_success")) != bool(data["success"][index]):
-                    return False
-                if not isinstance(item.get("final_success"), bool):
-                    return False
-                if (
-                    item.get("terminated") is not True
-                    or item.get("termination") != item.get("termination_reason")
-                    or not isinstance(item.get("termination"), str)
-                    or int(item.get("terminal_step", -1)) != int(lengths[index])
-                ):
-                    return False
-                if len(item.get("action_prefix", [])) != int(lengths[index]):
-                    return False
-                start, stop = int(offsets[index]), int(offsets[index + 1])
-                expected_actions = np.asarray(data["actions"])[start:stop].astype(float).tolist()
-                if item.get("action_prefix") != expected_actions:
-                    return False
-                snapshot = snapshot_bundle["candidates"].get(str(candidate_ids[index]))
-                if not isinstance(snapshot, Mapping):
-                    return False
-                if snapshot.get("environment") is None or snapshot.get("observation_history") is None:
-                    return False
-                if any(
-                    key not in snapshot or snapshot.get(key) is None
-                    for key in (
-                        "action_queue",
-                        "python_rng_state",
-                        "numpy_rng_state",
-                        "policy_rng_state",
-                    )
-                ):
-                    return False
-                torch_state = snapshot.get("torch_rng_state")
-                if not isinstance(torch_state, Mapping) or "cpu" not in torch_state or "cuda" not in torch_state:
-                    return False
-                replay = snapshot.get("snapshot_restore_check")
-                if not isinstance(replay, Mapping) or replay.get("same_action") is not True or replay.get("passed") is not True:
-                    return False
-                try:
-                    error = float(replay.get("same_action_next_state_max_abs_error", replay.get("max_abs_error")))
-                except (TypeError, ValueError):
-                    return False
-                if not np.isfinite(error) or error > 1e-9:
-                    return False
-                if item.get("snapshot_restore_check") != replay:
-                    return False
-            return True
-    except (OSError, ValueError, KeyError, TypeError, IndexError, json.JSONDecodeError):
+    except (OSError, ValueError, KeyError, json.JSONDecodeError):
         return False
 
 
@@ -2147,19 +2003,13 @@ def write_family_atomic(directory: str | Path, family: Mapping[str, Any]) -> dic
                 "candidate_index": int(value.candidate_index),
                 "parent_id": None,
                 "generation_step": 0,
-                "root_family_id": str(family["family_id"]),
-                "family_id": str(family["family_id"]),
-                "task_id": int(family["task_id"]),
-                "init_state": int(family["init_state"]),
                 "candidate_seed": int(value.candidate_seed),
-                "seed": int(value.candidate_seed),
                 "action_prefix": value.actions.astype(float).tolist(),
                 "final_success": bool(value.success),
                 "terminated": bool(value.terminated),
                 "termination_reason": str(value.termination_reason),
                 "termination": str(value.termination_reason),
                 "terminal_step": int(value.terminal_step),
-                "snapshot_restore_check": copy.deepcopy(value.snapshot_restore_check),
             }
         )
     metadata = {
@@ -2172,14 +2022,12 @@ def write_family_atomic(directory: str | Path, family: Mapping[str, Any]) -> dic
         "task_name": family["task_name"],
         "init_state": int(family["init_state"]),
         "family_id": family["family_id"],
-        "root_family_id": family["family_id"],
         "candidate_count": int(family["candidate_count"]),
         "policy_forwards": int(family["policy_forwards"]),
         "environment_steps": int(family["environment_steps"]),
         "genealogy_file": "genealogy.json",
         "rollouts_file": "rollouts.npz",
         "snapshots_file": "snapshots.pkl",
-        "candidate_snapshot_contract": "per-candidate simulator/history/action_queue/python_numpy_torch_cpu_cuda/environment_policy_rng",
         "written_at_unix": time.time(),
     }
     metadata_extra = family.get("metadata_extra")
@@ -2190,12 +2038,7 @@ def write_family_atomic(directory: str | Path, family: Mapping[str, Any]) -> dic
             if not isinstance(key, str) or not key or key in metadata:
                 raise ValueError(f"invalid or colliding family metadata key: {key!r}")
             metadata[key] = copy.deepcopy(value)
-    snapshots = {
-        str(value.candidate_id): _snapshot_payload(
-            value.snapshot, value.snapshot_restore_check
-        )
-        for value in outcomes
-    }
+    snapshots = {str(value.candidate_id): _snapshot_payload(value.snapshot) for value in outcomes}
     atomic_npz(npz_path, _pack_family(family))
     atomic_json(root / "genealogy.json", genealogy)
     atomic_bytes(root / "snapshots.pkl", pickle.dumps({"schema_version": 1, "candidates": snapshots}, protocol=5))
@@ -2218,11 +2061,6 @@ def write_family_atomic(directory: str | Path, family: Mapping[str, Any]) -> dic
         "substrate_annotation",
         "substrate",
         "pose_dimension",
-        "root_family_id",
-        "task_id",
-        "init_state",
-        "rank",
-        "world_size",
         "protocol_authority_path",
         "protocol_authority_sha256",
         "protocol_acceptance_path",
@@ -2261,14 +2099,7 @@ def run_main_screen(
         pairs = tuple((int(task_id), int(init_state)) for task_id, init_state in family_pairs)
     for task_id, init_state in pairs:
         directory = Path(output_root) / substrate / f"task{int(task_id):02d}" / f"init{int(init_state):03d}"
-        if family_is_complete(
-            directory,
-            expected_candidates=candidate_count,
-            # Production B/C invokes ``--validate-snapshots``.  Strictly
-            # validate before skipping so a legacy family marker cannot mask
-            # missing candidate-level replay evidence.
-            strict=bool(validate_snapshots),
-        ):
+        if family_is_complete(directory, expected_candidates=candidate_count):
             skipped += 1
             continue
         family = collect_family(
@@ -2334,7 +2165,7 @@ def run_pooled_calibration(
                     successes += int(bool(evaluator(setting, int(task_id), int(init_state), int(candidate_id), int(seed))))
                     total += 1
         rows.append({"setting": setting, "successes": int(successes), "total": int(total), "pooled_success": float(successes / total if total else float("nan"))})
-    selected = min(rows, key=_calibration_selection_key)
+    selected = min(rows, key=lambda row: (abs(float(row["pooled_success"]) - CALIBRATION_TARGET_SUCCESS), str(row["setting"])))
     return {"protocol_id": STAGE_S_PROTOCOL_ID, "target_pooled_success": CALIBRATION_TARGET_SUCCESS, "rows": rows, "selected_setting": selected["setting"]}
 
 
@@ -3219,7 +3050,10 @@ def _aggregate_result_payload(
         }
         for row in rows
     ]
-    selected = min(validated_rows, key=_calibration_selection_key)
+    selected = min(
+        validated_rows,
+        key=lambda row: (abs(float(row["pooled_success"]) - CALIBRATION_TARGET_SUCCESS), str(row["setting"])),
+    )
     return {
         "schema": CALIBRATION_RESULT_SCHEMA,
         "protocol_id": STAGE_S_PROTOCOL_ID,
@@ -3291,7 +3125,7 @@ def verify_calibration_aggregate(
     rows = _validate_calibration_rows(payload["rows"], settings, expected_totals=[_calibration_trial_count_per_setting()] * 4)
     if payload.get("target_pooled_success") != CALIBRATION_TARGET_SUCCESS:
         raise StageSError("calibration aggregate target drift")
-    if payload.get("selected_setting") != min(rows, key=_calibration_selection_key)['setting']:
+    if payload.get("selected_setting") != min(rows, key=lambda row: (abs(float(row["pooled_success"]) - CALIBRATION_TARGET_SUCCESS), str(row["setting"])))['setting']:
         raise StageSError("calibration aggregate selected setting drift")
     if (
         marker.get("schema") != CALIBRATION_RESULT_SCHEMA

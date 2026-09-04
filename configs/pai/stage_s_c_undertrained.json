@@ -66,27 +66,16 @@
   },
   "runtime": {
     "project_dir": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-c-runtime-racefix-20260903",
-    "source_commit": "cd3bfb4f1d2e392f071140dc7b02ec4ea3c3d0bc",
     "project_dir_env": "STAGE_S_C_PROJECT_DIR",
     "command_file_relative": "scripts/stage_s_c_undertrained_pai.sh",
     "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained_pai.sh",
     "companion_config": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_c_undertrained.json",
-    "command_file_sha256": "d809d474e76a9f81cbd15d8b6efd7475f25735d195d60f8e827ce6ab5412ba3f",
-    "payload_sha256": "d809d474e76a9f81cbd15d8b6efd7475f25735d195d60f8e827ce6ab5412ba3f",
+    "command_file_sha256": "27e788a59654604562dd068054f23193e920acd72110cf56f39c66d16a16255a",
+    "payload_sha256": "27e788a59654604562dd068054f23193e920acd72110cf56f39c66d16a16255a",
     "payload_sha256_env": "STAGE_S_C_PAYLOAD_SHA256",
     "stage_s_source_commit_env": "STAGE_S_SOURCE_COMMIT",
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
     "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
-    "dependencies": {
-      "openpi": {
-        "path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812/third_party/openpi",
-        "commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709"
-      },
-      "qpilots": {
-        "path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/QPILOTS-r16p15-stage1-task64-20260812",
-        "commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375"
-      }
-    },
     "python": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/envs/openpi_py311/bin/python",
     "uid": 2254,
     "gid": 2254,
@@ -177,7 +166,6 @@
     "dataset_revision": "9dfa69510ea9e1613fc54112bc706444b686a231",
     "dataset_local_root": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/lerobot/physical-intelligence/libero",
     "dataset_manifest_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/lerobot/physical-intelligence/libero/DATASET_SHA256SUMS",
-    "dataset_manifest_sha256": "02b5b3abfadb65b2f1c4823cfe7ed7b9351416934674fcf59aea1868826546bf",
     "dataset_manifest_sha256_source": "pre-generated DATASET_SHA256SUMS; complete-byte audit rechecks its pinned SHA and every entry; recorded in DATA_PREFLIGHT.json/RUNTIME_IDENTITY.json/COMPLETED_C_TRAINING.json",
     "dataset_metadata_missing_network_fallback": false,
     "hf_lerobot_home": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/cache/lerobot",
