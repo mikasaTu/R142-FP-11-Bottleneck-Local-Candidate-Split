@@ -143,7 +143,7 @@ require_command() {
 }
 
 PHASE=bootstrap
-[[ "$RUN_ID" =~ ^r142-stage-s-c-calibration-20260903-r[0-9]+$ ]]
+[[ "$RUN_ID" =~ ^r142-stage-s-c-calibration-20[0-9]{6}-r[0-9]+$ ]]
 [[ "$ARTIFACT_DIR" == "$EXPECTED_ARTIFACT_DIR" ]]
 [[ -d "$OUT" && ! -L "$OUT" ]]
 [[ "$(realpath -e "$OUT")" == "$EXPECTED_ARTIFACT_DIR" ]]
