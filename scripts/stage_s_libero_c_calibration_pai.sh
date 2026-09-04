@@ -265,7 +265,7 @@ source = {
 if acceptance.get("source") != source:
     raise SystemExit("C acceptance source commits drifted")
 expected_paths = {
-    "checkpoint_root": str(checkpoint_base.parents[2]),
+    "checkpoint_root": str(checkpoint_base.parents[1]),
     "checkpoint_completion": str(completion_path),
     "checkpoint_sha256_manifest": str(checkpoint_sha_path),
     "log_root": str(log_root),
