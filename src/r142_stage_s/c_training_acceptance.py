@@ -63,7 +63,12 @@ CORE_CHECKPOINT_FILES = ("model.safetensors", "optimizer.pt", "metadata.pt")
 
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
-RUN_ID_RE = re.compile(r"^r142-stage-s-c-undertrained-20260903-r[0-9]+$")
+# Calendar dates are operational metadata: mandatory blackout stops and spot
+# evictions can move a resubmission to a later day without changing the frozen
+# checkpoint lineage or scientific contract.  The exact job/run identity is
+# still cross-bound against the registry, terminal GetJob, and completion
+# artifacts below.
+RUN_ID_RE = re.compile(r"^r142-stage-s-c-undertrained-20[0-9]{6}-r[0-9]+$")
 JOB_ID_RE = re.compile(r"^dlc[0-9a-z]+$")
 
 

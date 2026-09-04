@@ -287,7 +287,9 @@ def _make_current_c_acceptance(tmp_path: Path) -> tuple[Path, Path]:
     log_file.write_text("terminal training evidence\n", encoding="utf-8")
     log_manifest = _write_manifest(log_root, "SHA256SUMS", [log_file])
 
-    accepted_run_id = "r142-stage-s-c-undertrained-20260903-r99"
+    # Exercise the post-blackout calendar-day continuation accepted by the
+    # terminal C lineage contract.
+    accepted_run_id = "r142-stage-s-c-undertrained-20260904-r99"
     pipeline = tmp_path / "current_c" / "c_status" / "COMPLETED_C_PIPELINE.json"
     _write_json(
         pipeline,

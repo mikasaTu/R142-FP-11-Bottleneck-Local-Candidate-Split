@@ -11,6 +11,30 @@ import pytest
 import r142_stage_s.c_training_acceptance as ca
 
 
+@pytest.mark.parametrize(
+    "run_id",
+    [
+        "r142-stage-s-c-undertrained-20260903-r11",
+        "r142-stage-s-c-undertrained-20260904-r15",
+        "r142-stage-s-c-undertrained-20260905-r16",
+    ],
+)
+def test_blackout_spanning_c_run_ids_are_accepted(run_id: str) -> None:
+    assert ca.RUN_ID_RE.fullmatch(run_id) is not None
+
+
+@pytest.mark.parametrize(
+    "run_id",
+    [
+        "r142-stage-s-c-undertrained-202609-r10",
+        "r142-stage-s-c-undertrained-203609040-r16",
+        "r142-stage-s-c-undertrained-20260904-rx",
+    ],
+)
+def test_out_of_lineage_c_run_ids_are_rejected(run_id: str) -> None:
+    assert ca.RUN_ID_RE.fullmatch(run_id) is None
+
+
 def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 

@@ -958,7 +958,7 @@ def _validate_c_training_acceptance(
         raise CalibrationFreezeError("C accepted training lineage is not an accepted weak-substrate terminal result")
     accepted_run_id = payload.get("accepted_run_id")
     if not isinstance(accepted_run_id, str) or re.fullmatch(
-        r"r142-stage-s-c-undertrained-20260903-r[0-9]+", accepted_run_id
+        r"r142-stage-s-c-undertrained-20[0-9]{6}-r[0-9]+", accepted_run_id
     ) is None:
         raise CalibrationFreezeError("C accepted training lineage run id mismatch")
     job_id = payload.get("job_id")
