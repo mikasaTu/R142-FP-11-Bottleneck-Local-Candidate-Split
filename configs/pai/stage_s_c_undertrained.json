@@ -149,7 +149,7 @@
     "lerobot_expected_commit": "0cf864870cf29f4738d3ade893e6fd13fbd7cdb5",
     "datasets_lock_version": "3.6.0",
     "datasets_supported_bridge_version": "4.8.4",
-    "validated_payload_sha256": "d809d474e76a9f81cbd15d8b6efd7475f25735d195d60f8e827ce6ab5412ba3f",
+    "validated_payload_sha256": "27e788a59654604562dd068054f23193e920acd72110cf56f39c66d16a16255a",
     "expected_first_work_uid": 2254,
     "expected_first_work_gid": 2254,
     "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c_status/{{RUN_ID}}/RUNTIME_IDENTITY.json",
