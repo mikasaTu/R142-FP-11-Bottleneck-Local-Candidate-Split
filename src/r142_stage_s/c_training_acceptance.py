@@ -88,9 +88,12 @@ def sha256_file(path: Path) -> str:
 
 
 def _canonical_bytes(payload: Mapping[str, Any]) -> bytes:
-    return (
-        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-        + "\n"
+    # Runtime status markers compute their self-hash over canonical JSON
+    # without a trailing newline.  Keep acceptance byte-identical to the
+    # producer so terminal/completion markers are validated rather than
+    # rejected solely for formatting.
+    return json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).encode("utf-8")
 
 
