@@ -46,8 +46,8 @@
   },
   "runtime": {
     "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_libero_c_calibration_pai.sh",
-    "command_file_sha256": "1cf2785f3989da78e9ec4e8b4666cf3731113d168112ef820850d182acf4c0e7",
-    "payload_sha256": "1cf2785f3989da78e9ec4e8b4666cf3731113d168112ef820850d182acf4c0e7",
+    "command_file_sha256": "18e15d28aceda067c9688a5f926886e36d4f4389c691a254b630996ec42f84d4",
+    "payload_sha256": "18e15d28aceda067c9688a5f926886e36d4f4389c691a254b630996ec42f84d4",
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
     "uid": 2254,
     "gid": 2254,
@@ -79,7 +79,7 @@
     "contract_ready": true,
     "validation_method": "static",
     "validation_status": "passed",
-    "validated_payload_sha256": "1cf2785f3989da78e9ec4e8b4666cf3731113d168112ef820850d182acf4c0e7",
+    "validated_payload_sha256": "18e15d28aceda067c9688a5f926886e36d4f4389c691a254b630996ec42f84d4",
     "pai_probe_created": false,
     "explicit_user_resource_authorization": {
       "resource_id": "quota1ssrabud0bh",
@@ -104,8 +104,22 @@
         "step_6000",
         "step_10000"
       ],
-      "task_ids": [0, 3, 6, 9],
-      "initial_state_indices": [0, 1, 2, 3, 4, 5, 6, 7],
+      "task_ids": [
+        0,
+        3,
+        6,
+        9
+      ],
+      "initial_state_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
       "candidate_count": 8,
       "trials_per_setting": 256,
       "world_size": 8,
@@ -152,7 +166,12 @@
       "checkpoint_sha": "/mnt/cpfs/zbl-cpfs-new/CKPT/leon/r142_stage_s_c/SHA256SUMS",
       "log_root_template": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c/<accepted_run_id>",
       "log_sha_template": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/c/<accepted_run_id>/SHA256SUMS",
-      "expected_steps": [1000, 3000, 6000, 10000],
+      "expected_steps": [
+        1000,
+        3000,
+        6000,
+        10000
+      ],
       "checkpoint_hashes": {
         "format": "accepted_manifest_relative_checkpoint_path_to_sha256",
         "required_paths": [

@@ -4,7 +4,7 @@ set -Eeuo pipefail
 # Stage-S C Step-0 is an eight-rank, pooled-only evaluation over four real
 # under-trained pi05_libero checkpoints. This
 # launcher never submits a PAI job; a registry/controller owns the artifact
-# directory and injects PAI_CANARY_RUN_ID and ARTIFACT_DIR.
+# directory and injects PAI_CANARY_RUN_ID and PAI_CANARY_RUN_DIR.
 umask 077
 
 readonly LEON_UID=2254
@@ -12,7 +12,7 @@ readonly LEON_GID=2254
 readonly ROOT=/mnt/cpfs/zbl-cpfs-new/USERS/leon
 readonly NEW_ROOT=/mnt/cpfs/zbl-cpfs-new
 readonly RUN_ID="${PAI_CANARY_RUN_ID:?controller must inject PAI_CANARY_RUN_ID}"
-readonly ARTIFACT_DIR="${ARTIFACT_DIR:?controller must inject ARTIFACT_DIR}"
+readonly ARTIFACT_DIR="${PAI_CANARY_RUN_DIR:?controller must inject PAI_CANARY_RUN_DIR}"
 readonly EXPECTED_GPUS=8
 readonly WORLD_SIZE=8
 
@@ -172,7 +172,7 @@ CUDA_VISIBLE_DEVICES="$(IFS=,; echo "${GPU_INDEXES[*]}")"
 
 PHASE=source_readback
 for source_repo in "$STAGE_S_REPO" "$QPILOTS" "$OPENPI" "$LIBERO"; do
-  [[ -d "$source_repo/.git" ]] || { echo "C_CALIBRATION_REFUSED missing git source: $source_repo" >&2; exit 66; }
+  [[ -e "$source_repo/.git" ]] || { echo "C_CALIBRATION_REFUSED missing git source: $source_repo" >&2; exit 66; }
   [[ -z "$(git -C "$source_repo" status --porcelain)" ]] || {
     echo "C_CALIBRATION_REFUSED dirty source tree: $source_repo" >&2
     exit 66
