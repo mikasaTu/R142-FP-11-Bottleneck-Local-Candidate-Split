@@ -196,7 +196,7 @@ payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 if payload.get("status") != "ACCEPTED":
     raise SystemExit("C acceptance manifest is not ACCEPTED")
 value = payload.get("accepted_run_id")
-if not isinstance(value, str) or not re.fullmatch(r"r142-stage-s-c-undertrained-20260903-r[0-9]+", value):
+if not isinstance(value, str) or not re.fullmatch(r"r142-stage-s-c-undertrained-20[0-9]{6}-r[0-9]+", value):
     raise SystemExit("C acceptance manifest has invalid accepted_run_id")
 print(value)
 PY
@@ -252,7 +252,7 @@ if (
     or acceptance.get("pai_terminal_status") != "Succeeded"
 ):
     raise SystemExit("C acceptance manifest is not an accepted weak-substrate result")
-if acceptance.get("accepted_run_id") != run_id or not re.fullmatch(r"r142-stage-s-c-undertrained-20260903-r[0-9]+", run_id):
+if acceptance.get("accepted_run_id") != run_id or not re.fullmatch(r"r142-stage-s-c-undertrained-20[0-9]{6}-r[0-9]+", run_id):
     raise SystemExit("C acceptance run id does not match its derived lineage")
 if acceptance.get("job_id") != job_id or not re.fullmatch(r"dlc[0-9a-z]+", job_id):
     raise SystemExit("C acceptance job id does not match its derived terminal job")

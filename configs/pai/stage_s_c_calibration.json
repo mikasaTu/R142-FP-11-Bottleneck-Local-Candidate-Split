@@ -46,8 +46,8 @@
   },
   "runtime": {
     "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_libero_c_calibration_pai.sh",
-    "command_file_sha256": "18e15d28aceda067c9688a5f926886e36d4f4389c691a254b630996ec42f84d4",
-    "payload_sha256": "18e15d28aceda067c9688a5f926886e36d4f4389c691a254b630996ec42f84d4",
+    "command_file_sha256": "7e6c8fd7b12fda46bc635ad0a014915ecace6e7b5da9f306cd8e96793d0b3052",
+    "payload_sha256": "7e6c8fd7b12fda46bc635ad0a014915ecace6e7b5da9f306cd8e96793d0b3052",
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",
     "uid": 2254,
     "gid": 2254,
@@ -79,7 +79,7 @@
     "contract_ready": true,
     "validation_method": "static",
     "validation_status": "passed",
-    "validated_payload_sha256": "18e15d28aceda067c9688a5f926886e36d4f4389c691a254b630996ec42f84d4",
+    "validated_payload_sha256": "7e6c8fd7b12fda46bc635ad0a014915ecace6e7b5da9f306cd8e96793d0b3052",
     "pai_probe_created": false,
     "explicit_user_resource_authorization": {
       "resource_id": "quota1ssrabud0bh",
