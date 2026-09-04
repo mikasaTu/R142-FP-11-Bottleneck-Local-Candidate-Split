@@ -17,8 +17,8 @@
     "count": 1,
     "gpu": 8,
     "cpu": 88,
-    "memory": "1525Gi",
-    "shared_memory": "1525Gi",
+    "memory": "1400Gi",
+    "shared_memory": "1400Gi",
     "image": "dsw-registry-vpc.cn-wulanchabu.cr.aliyuncs.com/pai/modelscope:1.29.0-pytorch2.3.1tensorflow2.16.1-gpu-py311-cu121-ubuntu22.04"
   },
   "storage": {
@@ -82,7 +82,7 @@
     "pai_probe_created": false,
     "validation_status": "passed",
     "validation_method": "static",
-    "validated_payload_sha256": "41a4371ac9f44ec96917c7e973ab8a8c984457b105a13176a94b456206ba7a32",
+    "validated_payload_sha256": "6d5f0eb8eadaf2b6de63051aabee5ac31dc4059fbcad9e387e1f91bcc52711e1",
     "expected_first_work_uid": 2254,
     "expected_first_work_gid": 2254,
     "first_work_evidence_path": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/assets/{{RUN_ID}}/FIRST_WORK.json",
@@ -115,8 +115,8 @@
       "oversold_type": "AcceptQuotaOverSold",
       "gpu": 8,
       "cpu": 88,
-      "memory": "1525Gi",
-      "shared_memory": "1525Gi",
+      "memory": "1400Gi",
+      "shared_memory": "1400Gi",
       "worker_count": 1,
       "shared_quota_modified": false
     }
