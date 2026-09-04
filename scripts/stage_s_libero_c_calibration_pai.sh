@@ -361,7 +361,7 @@ PY
 
 # Audit all four exact C checkpoints with the pinned runtime before simulator
 # import, and persist only source/qualification metadata in the artifact.
-"$PYTHON" - "$C_CHECKPOINT_BASE" "$OUT/C_INPUT_AUDIT.json" "$C_TRAINING_RUN_ID" "$C_TRAINING_JOB_ID" "$C_ACCEPTANCE_MANIFEST" "$C_ACCEPTANCE_SNAPSHOT" <<'PY'
+"$PYTHON" - "$C_TRAIN_DIR" "$OUT/C_INPUT_AUDIT.json" "$C_TRAINING_RUN_ID" "$C_TRAINING_JOB_ID" "$C_ACCEPTANCE_MANIFEST" "$C_ACCEPTANCE_SNAPSHOT" <<'PY'
 import hashlib
 import json
 import os
