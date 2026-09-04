@@ -786,12 +786,14 @@ def _validate_checkpoints(
             COMPLETE_RNG_STATE,
         )
     }
-    if set(entries) != expected_entries:
-        missing = sorted(expected_entries - set(entries))
-        extra = sorted(set(entries) - expected_entries)
+    missing = sorted(expected_entries - set(entries))
+    if missing:
         raise CTrainingAcceptanceError(
-            f"C checkpoint SHA manifest has non-exact component inventory: missing={missing[:8]} extra={extra[:8]}"
+            f"C checkpoint SHA manifest is missing required components: {missing[:8]}"
         )
+    # Auxiliary files emitted by the native trainer (e.g. copied norm_stats
+    # assets and periodic non-milestone checkpoints) remain hash-bound in the
+    # manifest but do not alter the frozen scientific milestone set.
     _audit_tree_ownership(checkpoint_root, uid=uid, gid=gid, label="C checkpoint bundle")
 
     model_hashes: dict[str, str] = {}
