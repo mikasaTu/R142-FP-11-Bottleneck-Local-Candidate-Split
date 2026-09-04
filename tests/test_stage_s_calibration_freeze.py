@@ -32,7 +32,7 @@ from r142_stage_s.libero import _calibration_selection_key
 ROOT = Path(__file__).resolve().parents[1]
 OPENPI_COMMIT = "54cbaee6ae0c010a1ed431871cdaa8f4684ac709"
 SOURCE = {
-    "stage_s_commit": "b9c4f2eced140fb2b4711bdbfd86439cec41e291",
+    "stage_s_commit": "59581b09ce974a7080aaf6660f7619be465ce19d",
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
     "openpi_commit": OPENPI_COMMIT,
     "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",

@@ -18,8 +18,8 @@ readonly WORLD_SIZE=8
 
 # Pinned real Stage-R/LIBERO source trees. A dirty tree or commit drift is
 # refused before the first simulator import.
-readonly STAGE_S_REPO="$ROOT/code/r142-stage-s-c-runtime-20260903"
-readonly STAGE_S_SOURCE_COMMIT=b9c4f2eced140fb2b4711bdbfd86439cec41e291
+readonly STAGE_S_REPO="$ROOT/code/r142-stage-s-c-runtime-racefix-20260903"
+readonly STAGE_S_SOURCE_COMMIT=59581b09ce974a7080aaf6660f7619be465ce19d
 readonly QPILOTS="$ROOT/code/QPILOTS-r16p15-stage1-task64-20260812"
 readonly QPILOTS_COMMIT=eacf47b981e3b22357f8a74902f8dad8cfcfa375
 readonly OPENPI="$QPILOTS/third_party/openpi"
@@ -465,7 +465,7 @@ payload = {
     "gid": os.getgid(),
     "gpu_count": 8,
     "world_size": 8,
-    "stage_s_source_commit": "b9c4f2eced140fb2b4711bdbfd86439cec41e291",
+    "stage_s_source_commit": "59581b09ce974a7080aaf6660f7619be465ce19d",
     "qpilots_commit": "eacf47b981e3b22357f8a74902f8dad8cfcfa375",
     "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
     "libero_commit": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",

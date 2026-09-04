@@ -161,7 +161,7 @@ def test_c_training_input_gate_requires_acceptance_manifest_and_full_state() -> 
 def test_c_source_resume_fault_tolerance_and_blackout_contract() -> None:
     config = _config()
     evidence = config["evidence"]
-    assert evidence["stage_s_source_commit"] == "b9c4f2eced140fb2b4711bdbfd86439cec41e291"
+    assert evidence["stage_s_source_commit"] == "59581b09ce974a7080aaf6660f7619be465ce19d"
     assert evidence["qpilots_commit"] == "eacf47b981e3b22357f8a74902f8dad8cfcfa375"
     assert evidence["openpi_commit"] == "54cbaee6ae0c010a1ed431871cdaa8f4684ac709"
     assert evidence["libero_commit"] == "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c"
