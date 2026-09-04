@@ -31,8 +31,8 @@
   },
   "runtime": {
     "command_file": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/code/r142-stage-s-pai-20260902/stage_s_asset_preflight.sh",
-    "command_file_sha256": "41a4371ac9f44ec96917c7e973ab8a8c984457b105a13176a94b456206ba7a32",
-    "payload_sha256": "41a4371ac9f44ec96917c7e973ab8a8c984457b105a13176a94b456206ba7a32",
+    "command_file_sha256": "6d5f0eb8eadaf2b6de63051aabee5ac31dc4059fbcad9e387e1f91bcc52711e1",
+    "payload_sha256": "6d5f0eb8eadaf2b6de63051aabee5ac31dc4059fbcad9e387e1f91bcc52711e1",
     "uid": 2254,
     "gid": 2254,
     "identity_mechanism": "controller_inline_bootstrap_then_setpriv",

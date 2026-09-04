@@ -125,6 +125,10 @@ fi
 # provider in the exact runtime environment before importing SAPIEN.
 "$RT_ENV/bin/pip" install --retries 8 "setuptools<81"
 "$RT_ENV/bin/pip" install --retries 8 -e "$RT/envs/curobo" --no-build-isolation
+# curobo's editable build can upgrade setuptools while resolving its build
+# metadata.  Re-apply the legacy provider after that install so SAPIEN's
+# pkg_resources import remains available at the final smoke gate.
+"$RT_ENV/bin/pip" install --retries 8 "setuptools<81"
 
 if [[ ! -x "$EVO_ENV/bin/python" ]]; then
   "$TOOLS_ENV/bin/uv" venv --seed --python 3.10 "$EVO_ENV"
