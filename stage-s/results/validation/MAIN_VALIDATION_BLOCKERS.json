@@ -1,0 +1,14 @@
+{
+  "schema": "r142-stage-s-main-validation-blockers-v1",
+  "status": "FAIL_CLOSED",
+  "checked_at_bst": "2026-09-05T10:45:00+08:00",
+  "scientific_submission": false,
+  "checks": {
+    "A": {"template": "stage_s_robotwin_a.json", "result": "REFUSED", "reason": "efficiency idle authorization scope must equal the exact run_id"},
+    "B": {"template": "stage_s_b_main.json", "result": "REFUSED", "reason": "generic formal idle validation is not bound to the payload"},
+    "C": {"template": "stage_s_c_main.json", "result": "REFUSED", "reason": "generic formal idle validation is not bound to the payload"},
+    "S4": {"template": "stage_s_s4.json", "result": "REFUSED", "reason": "a provenance object is required"},
+    "S5": {"template": "stage_s_s5.json", "result": "REFUSED", "reason": "a provenance object is required"}
+  },
+  "interpretation": "Calibration did not produce a frozen protocol, so fail-closed template validation prevents scientifically invalid main/S4/S5 submissions. These are contract checks, not scientific outcomes."
+}
