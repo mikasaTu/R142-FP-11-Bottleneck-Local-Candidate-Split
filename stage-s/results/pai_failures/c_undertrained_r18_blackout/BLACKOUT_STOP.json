@@ -1,0 +1,17 @@
+{
+  "schema": "r142-stage-s-c-training-blackout-stop-v1",
+  "status": "STOPPED_BEFORE_TERMINAL",
+  "run_id": "r142-stage-s-c-undertrained-20260905-r18",
+  "job_id": "dlc1rc1afetlph13",
+  "stopped_at_bst": "2026-09-05T09:28:27+08:00",
+  "reason": "mandatory_daily_blackout_window",
+  "completed_stages": ["base_download", "conversion", "preflight"],
+  "training_terminal": false,
+  "scientific_result": false,
+  "checkpoint_acceptance": false,
+  "evidence_dir": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/failures/c-undertrained-r18-blackout-20260905-0928",
+  "source_runtime_commit": "59581b09ce974a7080aaf6660f7619be465ce19d",
+  "openpi_commit": "54cbaee6ae0c010a1ed431871cdaa8f4684ac709",
+  "seed": 42,
+  "note": "This is an operational interruption, not a scientific failure or success. Resume only after 09:41 under the same protocol and checkpoint lineage."
+}
