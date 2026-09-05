@@ -15,6 +15,7 @@ readonly RUN_ID="${PAI_CANARY_RUN_ID:?controller must inject PAI_CANARY_RUN_ID}"
 readonly ARTIFACT_DIR="${PAI_CANARY_RUN_DIR:?controller must inject PAI_CANARY_RUN_DIR}"
 readonly EXPECTED_GPUS=8
 readonly WORLD_SIZE=8
+readonly CALIBRATION_SEED=142042
 
 # Pinned real Stage-R/LIBERO source trees. A dirty tree or commit drift is
 # refused before the first simulator import.
