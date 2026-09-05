@@ -55,3 +55,10 @@ digest. These are the fields consumed by the B/C main-screen loader.
 The generated JSON is intentionally absent from this repository until real
 terminal calibration evidence exists. The freezer never executes calibration,
 loads a model, or submits PAI.
+
+
+## Step-S C calibration outcome (2026-09-05)
+
+The C calibration submission reached FIRST_WORK and completed the immutable input/checkpoint audits, but all eight shard ranks failed closed when loading the first checkpoint. The pinned `CleanPi05LiberoPolicy` loader requires an OpenPI checkpoint containing a `params/` directory; the accepted C training lineage contains native `model.safetensors` plus optimizer/RNG sidecars and no `params/` directory. This is a serialization/interface incompatibility, not a scientific success or failure measurement. No C pooled-success row is accepted, no `CALIBRATION_REPORT.json` is emitted, and the Step-S protocol remains unfrozen. Exact PAI evidence is preserved under `logs/r142_fp11_stage_s/failures/c-calibration-r14-policy-checkpoint-format-20260905` and JobId `dlc16ic2rudi8xli` was stopped fail-closed.
+
+Mechanism interpretation: the C training artifact and Stage-R inference adapter serialize different parameter trees. The adapter rejects before an episode because it cannot reconstruct the policy parameter tree; therefore there is no valid success-rate, collapse, or recovery statistic to interpret. Converting or fabricating a `params/` tree would change the frozen substrate and is intentionally not performed.

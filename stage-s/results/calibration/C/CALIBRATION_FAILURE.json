@@ -1,0 +1,12 @@
+{
+  "schema": "r142-stage-s-c-calibration-failure-v1",
+  "status": "FAILED",
+  "label": "WEAK_SUBSTRATE",
+  "run_id": "r142-stage-s-c-calibration-20260905-r14",
+  "job_id": "dlc16ic2rudi8xli",
+  "phase": "calibration_shards",
+  "reason": "CleanPi05LiberoPolicy requires OpenPI params/ checkpoint tree; accepted C lineage has model.safetensors and no params/",
+  "scientific_result_accepted": false,
+  "protocol_frozen": false,
+  "evidence_dir": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/failures/c-calibration-r14-policy-checkpoint-format-20260905"
+}
