@@ -1,0 +1,15 @@
+{
+  "schema": "r142-stage-s-c-calibration-failure-v1",
+  "status": "FAILED",
+  "label": "WEAK_SUBSTRATE",
+  "run_id": "r142-stage-s-c-calibration-20260905-r15",
+  "job_id": "dlcthzw964bwvg6d",
+  "accepted_run_id": "r142-stage-s-c-undertrained-20260905-r17",
+  "accepted_job_id": "dlc1rrdbeylh6h9l",
+  "phase": "calibration_shards",
+  "reason": "CleanPi05LiberoPolicy rejects the accepted native C checkpoint because the expected OpenPI params/ tree is absent",
+  "ranks_failed": 8,
+  "scientific_result_accepted": false,
+  "protocol_frozen": false,
+  "evidence_dir": "/mnt/cpfs/zbl-cpfs-new/USERS/leon/logs/r142_fp11_stage_s/failures/c-calibration-r15-policy-checkpoint-format-20260905"
+}
