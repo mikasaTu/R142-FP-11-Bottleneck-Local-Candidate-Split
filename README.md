@@ -56,6 +56,9 @@ revisions, and SHA-256 manifest for Step 1 and Step 2 are grouped under
 
 ## Stage-R trajectory-axis revalidation
 
+The current operational pause and the incomplete Phase-1R boundary are recorded
+in [`reports/stage_r/PHASE1R_PAUSE_SUMMARY_20260915.md`](reports/stage_r/PHASE1R_PAUSE_SUMMARY_20260915.md).
+
 Stage-R re-tested the hypothesis on trajectory control steps with eventual
 episode success. The frozen plan is
 [`docs/steps/step3/PLAN.md`](docs/steps/step3/PLAN.md), the complete result is
