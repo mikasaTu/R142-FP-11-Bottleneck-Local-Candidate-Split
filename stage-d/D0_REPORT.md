@@ -1,6 +1,6 @@
 # R142-FP-11 Phase D0 Report
 
-- Protocol freeze: `cca39e8b6ea8458c4406e1758a65a6387f34c9d4` (protocol blob SHA; commit to be recorded below).
+- Protocol freeze: `857ff769c902832800e5d650427670014951d9ba` (protocol blob SHA; commit to be recorded below).
 - Run date: 2026-09-16, dev14 CPU-only.
 - Data: 40 phase0r task NPZs, 640 families, 512 rollouts/task (16 initial states × 32 candidates). B calibration NPZ discovered: 0; no calibration trajectories were fabricated.
 - Detector inputs were restricted to `eef` and `actions`; `progress` was used only for Step-1 fork-vs-failure validation. `objects`, labels, latent distances, family-level and future information never entered detector functions.
