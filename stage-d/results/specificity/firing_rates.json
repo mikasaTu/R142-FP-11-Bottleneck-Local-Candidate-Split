@@ -1,0 +1,30 @@
+{
+  "freeze_commit": "cca39e8b6ea8458c4406e1758a65a6387f34c9d4",
+  "signals": {
+    "eef_spread": {
+      "families": 471,
+      "fired": 48,
+      "firing_rate": 0.10191082802547771
+    },
+    "action_distance": {
+      "families": 471,
+      "fired": 233,
+      "firing_rate": 0.49469214437367304
+    },
+    "cluster_split": {
+      "families": 471,
+      "fired": 233,
+      "firing_rate": 0.49469214437367304
+    },
+    "proprio_changepoint": {
+      "families": 471,
+      "fired": 364,
+      "firing_rate": 0.772823779193206
+    },
+    "action_discontinuity": {
+      "families": 471,
+      "fired": 303,
+      "firing_rate": 0.643312101910828
+    }
+  }
+}
